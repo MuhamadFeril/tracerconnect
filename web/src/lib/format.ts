@@ -63,6 +63,14 @@ export const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
   freelance: 'Freelance',
 }
 
+export const APPLICATION_STATUS_LABELS: Record<string, string> = {
+  pending: 'Menunggu Review',
+  reviewed: 'Ditinjau',
+  accepted: 'Diterima',
+  rejected: 'Ditolak',
+  cancelled: 'Dibatalkan',
+}
+
 export function formatAnswerValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   if (Array.isArray(value)) return value.map(String).join(', ')

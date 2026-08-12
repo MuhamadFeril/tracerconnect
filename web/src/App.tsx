@@ -27,10 +27,13 @@ const Roles = lazy(() => import('./pages/Roles').then((m) => ({ default: m.Roles
 const Announcements = lazy(() => import('./pages/Announcements').then((m) => ({ default: m.Announcements })))
 const Events = lazy(() => import('./pages/Events').then((m) => ({ default: m.Events })))
 const Jobs = lazy(() => import('./pages/Jobs').then((m) => ({ default: m.Jobs })))
+const Applications = lazy(() => import('./pages/Applications').then((m) => ({ default: m.Applications })))
 const AlumniHome = lazy(() => import('./pages/alumni/AlumniHome').then((m) => ({ default: m.AlumniHome })))
 const AlumniAnnouncements = lazy(() => import('./pages/alumni/AlumniAnnouncements').then((m) => ({ default: m.AlumniAnnouncements })))
 const AlumniEvents = lazy(() => import('./pages/alumni/AlumniEvents').then((m) => ({ default: m.AlumniEvents })))
 const AlumniJobs = lazy(() => import('./pages/alumni/AlumniJobs').then((m) => ({ default: m.AlumniJobs })))
+const MyApplications = lazy(() => import('./pages/alumni/MyApplications').then((m) => ({ default: m.MyApplications })))
+const Notifications = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.Notifications })))
 const AlumniSurveys = lazy(() => import('./pages/alumni/AlumniSurveys').then((m) => ({ default: m.AlumniSurveys })))
 const AlumniSurveyFill = lazy(() => import('./pages/alumni/AlumniSurveyFill').then((m) => ({ default: m.AlumniSurveyFill })))
 const AlumniSurveyResult = lazy(() => import('./pages/alumni/AlumniSurveyResult').then((m) => ({ default: m.AlumniSurveyResult })))
@@ -73,11 +76,15 @@ export default function App() {
         <Route path="/announcements" element={<Page><Announcements /></Page>} />
         <Route path="/events" element={<Page><Events /></Page>} />
         <Route path="/jobs" element={<Page><Jobs /></Page>} />
+        <Route path="/applications" element={<Page><Applications /></Page>} />
+        <Route path="/notifications" element={<Page><Notifications /></Page>} />
         {/* Alumni portal */}
         <Route path="/home" element={<Page><AlumniHome /></Page>} />
         <Route path="/pengumuman" element={<Page><AlumniAnnouncements /></Page>} />
         <Route path="/acara" element={<Page><AlumniEvents /></Page>} />
         <Route path="/lowongan" element={<Page><AlumniJobs /></Page>} />
+        <Route path="/lamaran" element={<Page><MyApplications /></Page>} />
+        <Route path="/notifikasi" element={<Page><Notifications /></Page>} />
         <Route path="/kuisioner" element={<Page><AlumniSurveys /></Page>} />
         <Route path="/kuisioner/hasil/:responseId" element={<Page><AlumniSurveyResult /></Page>} />
         <Route path="/kuisioner/:surveyId" element={<Page><AlumniSurveyFill /></Page>} />

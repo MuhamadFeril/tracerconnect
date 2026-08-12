@@ -213,7 +213,7 @@ function AlumniFormModal({
           <Field label="Email">
             <Input type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="nama@example.com" />
           </Field>
-          <Field label="No. HP">
+          <Field label="No. HP" hint="Minimal 10 karakter">
             <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="08xxxxxxxxxx" />
           </Field>
           <Field label="Jurusan">

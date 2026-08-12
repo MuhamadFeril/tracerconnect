@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Briefcase,
   Building2,
   CalendarDays,
   ClipboardList,
   FileText,
+  Send,
   GraduationCap,
   Home,
   LayoutDashboard,
@@ -25,7 +27,7 @@ import {
 import clsx from 'clsx'
 import { getUser } from '../lib/auth'
 import { avatarUrl, initials } from '../lib/format'
-import { useLogout } from '../hooks/queries'
+import { useLogout, useUnreadNotificationsCount } from '../hooks/queries'
 import { Badge } from '../components/ui/Badge'
 import { Logo } from '../components/ui/Logo'
 import { Link } from 'react-router-dom'
@@ -37,6 +39,8 @@ interface NavItem {
   end?: boolean
   /** When set, the item is only visible to users holding one of these roles. */
   roles?: string[]
+  /** When set, shows the live unread-notification count badge. */
+  badge?: boolean
 }
 
 const ALUMNI_NAV: NavItem[] = [
@@ -44,6 +48,8 @@ const ALUMNI_NAV: NavItem[] = [
   { to: '/pengumuman', label: 'Pengumuman', icon: Megaphone },
   { to: '/acara', label: 'Acara', icon: CalendarDays },
   { to: '/lowongan', label: 'Lowongan', icon: Briefcase },
+  { to: '/lamaran', label: 'Lamaran', icon: Send },
+  { to: '/notifikasi', label: 'Notifikasi', icon: Bell, badge: true },
   { to: '/kuisioner', label: 'Kuisioner', icon: ClipboardList },
   { to: '/profile', label: 'Profil', icon: UserRound },
 ]
@@ -62,6 +68,8 @@ const NAV: NavItem[] = [
   { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
   { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
   { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin', 'employer'] },
+  { to: '/applications', label: 'Lamaran', icon: Send, roles: ['super_admin', 'institution_admin', 'employer'] },
+  { to: '/notifications', label: 'Notifikasi', icon: Bell, badge: true },
   { to: '/profile', label: 'Profil', icon: UserRound },
 ]
 
@@ -74,6 +82,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     ? ALUMNI_NAV
     : NAV.filter((item) => !item.roles || user?.roles?.some((role) => item.roles!.includes(role)))
 
+  const unreadCount = useUnreadNotificationsCount().data?.count ?? 0
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 px-5 py-5">
@@ -84,7 +94,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
       <nav className="mt-2 flex-1 space-y-1 px-3">
-        {items.map(({ to, label, icon: Icon, end }) => (
+        {items.map(({ to, label, icon: Icon, end, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -101,6 +111,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Icon className="size-4.5" />
             {label}
+            {badge && unreadCount > 0 && (
+              <span
+                className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] leading-tight font-bold text-white"
+                aria-label={`${unreadCount} notifikasi belum dibaca`}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -199,6 +217,7 @@ export function AdminLayout() {
             Selamat datang di <span className="font-medium text-slate-700">TracerConnect</span>
           </div>
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            <NotificationBell />
             <MobileUser />
           </div>
         </header>
@@ -208,6 +227,29 @@ export function AdminLayout() {
         </main>
       </div>
     </div>
+  )
+}
+
+function NotificationBell() {
+  const user = getUser()
+  const unreadCount = useUnreadNotificationsCount().data?.count ?? 0
+  const alumniOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'alumni')
+  const to = alumniOnly ? '/notifikasi' : '/notifications'
+
+  return (
+    <Link
+      to={to}
+      aria-label={unreadCount > 0 ? `Notifikasi, ${unreadCount} belum dibaca` : 'Notifikasi'}
+      title="Notifikasi"
+      className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+    >
+      <Bell className="size-5" />
+      {unreadCount > 0 && (
+        <span className="absolute top-1 right-1 inline-flex min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 py-0.5 text-[10px] leading-none font-bold text-white ring-2 ring-white">
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      )}
+    </Link>
   )
 }
 

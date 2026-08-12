@@ -548,11 +548,21 @@ class AuthTest extends TestCase
         ])->assertStatus(201)->assertJsonPath('success', true);
     }
 
-    public function test_register_rejects_phone_shorter_than_10_characters(): void
+    public function test_register_validates_phone_prefix_and_length(): void
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
-        // Too short (9 characters).
+        // Wrong prefix (must start with 08 or +62).
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'NoHP Salah Prefix',
+            'email' => 'nohp.prefix@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'phone' => '1234567890',
+        ])->assertStatus(422)->assertJsonPath('success', false);
+
+        // Too short (9 characters) despite valid 08 prefix.
         $this->postJson('/api/v1/auth/register', [
             'name' => 'NoHP Pendek',
             'email' => 'nohp.pendek@example.com',
@@ -562,7 +572,7 @@ class AuthTest extends TestCase
             'phone' => '081234567',
         ])->assertStatus(422)->assertJsonPath('success', false);
 
-        // 10+ characters passes.
+        // 10+ characters with 08 prefix passes.
         $this->postJson('/api/v1/auth/register', [
             'name' => 'NoHP Pas',
             'email' => 'nohp.pas@example.com',
@@ -570,6 +580,16 @@ class AuthTest extends TestCase
             'password_confirmation' => 'password123',
             'institution_id' => $institution->id,
             'phone' => '08123456789',
+        ])->assertStatus(201)->assertJsonPath('success', true);
+
+        // +62 prefix also passes.
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'NoHP Internasional',
+            'email' => 'nohp.internasional@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'phone' => '+628123456789',
         ])->assertStatus(201)->assertJsonPath('success', true);
     }
 }

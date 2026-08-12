@@ -397,8 +397,40 @@ export interface JobVacancy {
   application_link: string | null
   status: JobStatus
   posted_at: string | null
+  /** Career center flags — present on alumni-facing listings. */
+  is_saved?: boolean
+  has_applied?: boolean
+  /** Number of applicants — present on staff listings. */
+  applications_count?: number | null
   created_at?: string
   updated_at?: string
+}
+
+export type JobApplicationStatus = 'pending' | 'reviewed' | 'accepted' | 'rejected' | 'cancelled'
+
+export interface JobApplication {
+  id: string
+  job_vacancy_id: string
+  job: {
+    id: string
+    title: string
+    company_name: string
+    employment_type: EmploymentType | null
+    location: string | null
+    status: JobStatus
+  } | null
+  applicant?: { id: string; name: string; email: string } | null
+  message: string | null
+  status: JobApplicationStatus
+  created_at?: string
+  updated_at?: string
+}
+
+export interface SavedJob {
+  id: string
+  job_vacancy_id: string
+  job: JobVacancy | null
+  created_at?: string
 }
 
 export interface TracerReport {

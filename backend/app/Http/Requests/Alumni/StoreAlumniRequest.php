@@ -45,7 +45,7 @@ class StoreAlumniRequest extends FormRequest
             'birthplace_regency' => ['nullable', 'string', 'max:255'],
             'birthplace_province' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'min:10', 'max:50'],
             'address' => ['nullable', 'string'],
             'department_id' => ['nullable', 'uuid', Rule::exists('departments', 'id')->where('institution_id', $institutionId)],
             'graduation_year_id' => ['nullable', 'uuid', Rule::exists('graduation_years', 'id')->where('institution_id', $institutionId)],

@@ -594,6 +594,7 @@ function InfoStep({
             type="text"
             id="reg-nis"
             name="nis"
+            maxLength={10}
             value={form.nis}
             onChange={(e) => update({ nis: e.target.value })}
             placeholder="Masukkan NIS (10 karakter)"
@@ -613,6 +614,7 @@ function InfoStep({
             type="text"
             id="reg-nisn"
             name="nisn"
+            maxLength={10}
             value={form.nisn}
             onChange={(e) => update({ nisn: e.target.value })}
             placeholder="Masukkan NISN (10 karakter)"
@@ -1096,6 +1098,7 @@ export function Register() {
       if (!form.department) next.department = 'Pilih jurusan'
       if (!form.gender) next.gender = 'Pilih jenis kelamin'
       if (!form.phone.trim()) next.phone = 'No HP wajib diisi'
+      else if (!/^(08|\+62)/.test(form.phone.trim())) next.phone = 'No HP harus diawali 08 atau +62'
       else if (form.phone.trim().length < 10) next.phone = 'No HP minimal 10 karakter'
       if (!form.nis.trim()) next.nis = 'NIS wajib diisi'
       else if (form.nis.trim().length !== 10) next.nis = 'NIS harus tepat 10 karakter'

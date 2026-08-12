@@ -132,6 +132,24 @@ class AlumniTest extends TestCase
             ->assertJsonPath('data.institution_id', $this->demoInstitution()->id);
     }
 
+    public function test_store_rejects_phone_shorter_than_10_characters(): void
+    {
+        $token = $this->loginAs('admin@smkn1tracer.sch.id');
+
+        // 9-character phone is rejected.
+        $this->withToken($token)->postJson('/api/v1/alumni', [
+            'name' => 'NoHP Pendek Admin',
+            'phone' => '081234567',
+        ])->assertStatus(422)->assertJsonPath('success', false);
+
+        // 10+ characters passes.
+        $this->withToken($token)->postJson('/api/v1/alumni', [
+            'name' => 'NoHP Pas Admin',
+            'nis_nim' => '20260333',
+            'phone' => '08123456789',
+        ])->assertCreated()->assertJsonPath('data.phone', '08123456789');
+    }
+
     public function test_duplicate_nis_in_same_institution_returns_422(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');

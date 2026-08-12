@@ -30,7 +30,7 @@ class RegisterRequest extends FormRequest
 
             // Step 2 — personal / academic info
             'gender' => ['sometimes', 'string', Rule::in(['male', 'female'])],
-            'phone' => ['sometimes', 'string', 'min:10', 'max:50'],
+            'phone' => ['sometimes', 'string', 'regex:/^(08|\+62)/', 'min:10', 'max:50'],
             // NIS & NISN must be exactly 10 characters (NISN standard is 10 digits).
             'nis' => ['sometimes', 'string', 'size:10'],
             'nisn' => ['sometimes', 'string', 'size:10'],

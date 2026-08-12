@@ -25,6 +25,12 @@ class JobVacancyResource extends JsonResource
             'posted_at' => $this->posted_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            // Career center flags. Queries that serve alumni load these via
+            // withExists() (1/0); queries that serve staff load the count via
+            // withCount(). Defaults keep every other consumer backward compatible.
+            'is_saved' => (bool) ($this->is_saved ?? false),
+            'has_applied' => (bool) ($this->has_applied ?? false),
+            'applications_count' => $this->applications_count ?? null,
         ];
     }
 }

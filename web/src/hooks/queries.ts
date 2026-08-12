@@ -3,6 +3,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from '@tanstack/react-query'
 import { api, unwrap, unwrapPage } from '../lib/api'
 import { clearSession, setUser } from '../lib/auth'
@@ -20,7 +21,9 @@ import type {
   GraduationYear,
   Institution,
   InstitutionOption,
+  JobApplication,
   JobVacancy,
+  SavedJob,
   LoginResponse,
   NotificationItem,
   Permission,
@@ -191,6 +194,9 @@ export function useNotifications(params: { page?: number; per_page?: number }) {
     queryKey: ['notifications', params],
     queryFn: () => unwrapPage<NotificationItem>(api.get('/notifications', { params })),
     placeholderData: keepPreviousData,
+    // Lightweight polling so the alumni portal surfaces new notifications
+    // (announcements, events, jobs, survey reminders) without a manual refresh.
+    refetchInterval: 30_000,
   })
 }
 
@@ -198,6 +204,8 @@ export function useUnreadNotificationsCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => unwrap<{ count: number }>(api.get('/notifications/unread-count')),
+    // Poll so the sidebar badge stays fresh while the user navigates.
+    refetchInterval: 30_000,
   })
 }
 
@@ -484,12 +492,97 @@ export function useEventMutations() {
   return useEntityMutations<EventItem>('events', '/events')
 }
 
-export function useJobVacancies(params: { search?: string; status?: string; employment_type?: string; page?: number }) {
+export function useJobVacancies(params: { search?: string; status?: string; employment_type?: string; page?: number; per_page?: number }) {
   return useCollection<JobVacancy>(qk.jobVacancies(params), '/job-vacancies', params)
 }
 
 export function useJobVacancyMutations() {
   return useEntityMutations<JobVacancy>('job-vacancies', '/job-vacancies')
+}
+
+// --- Career center: job applications & saved jobs (phase 9) ------------------
+
+function invalidateCareerCenter(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ['job-vacancies'] })
+  queryClient.invalidateQueries({ queryKey: ['job-applications'] })
+  queryClient.invalidateQueries({ queryKey: ['saved-jobs'] })
+  queryClient.invalidateQueries({ queryKey: ['alumni', 'home'] })
+}
+
+export function useMyJobApplications(params: { page?: number } = {}) {
+  return useQuery({
+    queryKey: ['job-applications', 'my', params],
+    queryFn: () => unwrapPage<JobApplication>(api.get('/job-applications/my', { params })),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useApplyJob() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ jobId, message }: { jobId: string; message?: string }) =>
+      unwrap<JobApplication>(api.post(`/job-vacancies/${jobId}/apply`, { message })),
+    onSuccess: () => invalidateCareerCenter(queryClient),
+  })
+}
+
+export function useCancelApplication() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/job-applications/${id}`),
+    onSuccess: () => invalidateCareerCenter(queryClient),
+  })
+}
+
+export function useJobApplications(params: {
+  job_vacancy_id?: string
+  status?: string
+  search?: string
+  page?: number
+}) {
+  return useQuery({
+    queryKey: ['job-applications', params],
+    queryFn: () => unwrapPage<JobApplication>(api.get('/job-applications', { params })),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useUpdateApplicationStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      unwrap<JobApplication>(api.patch(`/job-applications/${id}/status`, { status })),
+    onSuccess: () => invalidateCareerCenter(queryClient),
+  })
+}
+
+export function useSavedJobs(params: { page?: number } = {}) {
+  return useQuery({
+    queryKey: ['saved-jobs', params],
+    queryFn: () => unwrapPage<SavedJob>(api.get('/saved-jobs', { params })),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useSaveJob() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (jobId: string) => unwrap<SavedJob>(api.post(`/job-vacancies/${jobId}/save`)),
+    onSuccess: () => invalidateCareerCenter(queryClient),
+  })
+}
+
+export function useUnsaveJob() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (jobId: string) => api.delete(`/job-vacancies/${jobId}/save`),
+    onSuccess: () => invalidateCareerCenter(queryClient),
+  })
 }
 
 // --- Analytics --------------------------------------------------------------

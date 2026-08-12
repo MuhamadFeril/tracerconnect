@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Briefcase, Building2, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Briefcase, Building2, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
 import { apiError } from '../lib/api'
 import { useJobVacancies, useJobVacancyMutations } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
@@ -227,6 +228,7 @@ export function Jobs() {
                 <Th>Posisi</Th>
                 <Th>Tipe</Th>
                 <Th>Lokasi</Th>
+                <Th>Pelamar</Th>
                 <Th>Status</Th>
                 <Th>Diposting</Th>
                 <Th className="text-right">Aksi</Th>
@@ -255,6 +257,16 @@ export function Jobs() {
                       )}
                     </Td>
                     <Td>{j.location ?? '—'}</Td>
+                    <Td>
+                      <Link
+                        to={`/applications?job_vacancy_id=${j.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        title="Lihat pelamar"
+                      >
+                        <Users className="size-3.5" />
+                        {j.applications_count ?? 0}
+                      </Link>
+                    </Td>
                     <Td><StatusBadge status={j.status} /></Td>
                     <Td className="text-slate-500">{formatDate(j.posted_at ?? j.created_at)}</Td>
                     <Td>

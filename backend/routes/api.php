@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\GraduationYearController;
 use App\Http\Controllers\Api\V1\JobVacancyController;
 use App\Http\Controllers\Api\V1\InstitutionController;
+use App\Http\Controllers\Api\V1\JobApplicationController;
+use App\Http\Controllers\Api\V1\SavedJobController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\QuestionController;
@@ -114,6 +116,16 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('announcements', AnnouncementController::class);
         Route::apiResource('events', EventController::class);
         Route::apiResource('job-vacancies', JobVacancyController::class);
+
+        // Career center — job applications & saved jobs (phase 9)
+        Route::get('job-applications/my', [JobApplicationController::class, 'my']);
+        Route::get('job-applications', [JobApplicationController::class, 'index']);
+        Route::patch('job-applications/{jobApplication}/status', [JobApplicationController::class, 'updateStatus']);
+        Route::delete('job-applications/{jobApplication}', [JobApplicationController::class, 'destroy']);
+        Route::post('job-vacancies/{jobVacancy}/apply', [JobApplicationController::class, 'apply']);
+        Route::get('saved-jobs', [SavedJobController::class, 'index']);
+        Route::post('job-vacancies/{jobVacancy}/save', [SavedJobController::class, 'store']);
+        Route::delete('job-vacancies/{jobVacancy}/save', [SavedJobController::class, 'destroy']);
 
         // Notifications (phase 10)
         Route::prefix('notifications')->group(function () {
