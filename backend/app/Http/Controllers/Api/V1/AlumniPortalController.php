@@ -45,11 +45,6 @@ class AlumniPortalController extends Controller
 
         $jobs = JobVacancy::query()
             ->visibleToAlumni($institutionId)
-            // Career center flags for the home feed job cards.
-            ->withExists([
-                'savedBy as is_saved' => fn ($q) => $q->where('user_id', $user->id),
-                'applications as has_applied' => fn ($q) => $q->where('applicant_id', $user->id),
-            ])
             ->orderByDesc('posted_at')
             ->limit(3)
             ->get();

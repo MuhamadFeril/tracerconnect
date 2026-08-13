@@ -25,12 +25,12 @@ class RolePermissionSeeder extends Seeder
         'report.view', 'report.generate',
         'company.view', 'company.create', 'company.update', 'company.delete',
         'job.view', 'job.create', 'job.update', 'job.delete',
-        'job-application.view', 'job-application.update',
         'announcement.view', 'announcement.create', 'announcement.update', 'announcement.delete',
         'event.view', 'event.create', 'event.update', 'event.delete',
         'notification.view', 'notification.send',
         'settings.view', 'settings.update',
         'audit.view',
+        'networking.view', 'networking.connect', 'networking.report',
     ];
 
     /**
@@ -51,7 +51,6 @@ class RolePermissionSeeder extends Seeder
             'report.view', 'report.generate',
             'company.view', 'company.create', 'company.update', 'company.delete',
             'job.view', 'job.create', 'job.update', 'job.delete',
-            'job-application.view', 'job-application.update',
             'announcement.view', 'announcement.create', 'announcement.update', 'announcement.delete',
             'event.view', 'event.create', 'event.update', 'event.delete',
             'notification.view', 'notification.send',
@@ -77,13 +76,15 @@ class RolePermissionSeeder extends Seeder
         ],
         'employer' => [
             'job.view', 'job.create', 'job.update',
-            'job-application.view', 'job-application.update',
         ],
         'alumni' => [
             'announcement.view',
             'event.view',
             'job.view',
             'notification.view',
+            'networking.view',
+            'networking.connect',
+            'networking.report',
         ],
     ];
 

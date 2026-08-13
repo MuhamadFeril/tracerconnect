@@ -7,11 +7,11 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Http\Controllers\Api\V1\GraduationYearController;
 use App\Http\Controllers\Api\V1\JobVacancyController;
 use App\Http\Controllers\Api\V1\InstitutionController;
-use App\Http\Controllers\Api\V1\JobApplicationController;
-use App\Http\Controllers\Api\V1\SavedJobController;
+use App\Http\Controllers\Api\V1\NetworkingController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\QuestionController;
@@ -38,6 +38,9 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:5,1');
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+        Route::post('google', [AuthController::class, 'googleLogin'])->middleware('throttle:5,1');
+        Route::get('google', [GoogleAuthController::class, 'redirect'])->middleware('throttle:5,1');
+        Route::get('google/callback', [GoogleAuthController::class, 'callback']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
         Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
     });
@@ -117,22 +120,28 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('events', EventController::class);
         Route::apiResource('job-vacancies', JobVacancyController::class);
 
-        // Career center — job applications & saved jobs (phase 9)
-        Route::get('job-applications/my', [JobApplicationController::class, 'my']);
-        Route::get('job-applications', [JobApplicationController::class, 'index']);
-        Route::patch('job-applications/{jobApplication}/status', [JobApplicationController::class, 'updateStatus']);
-        Route::delete('job-applications/{jobApplication}', [JobApplicationController::class, 'destroy']);
-        Route::post('job-vacancies/{jobVacancy}/apply', [JobApplicationController::class, 'apply']);
-        Route::get('saved-jobs', [SavedJobController::class, 'index']);
-        Route::post('job-vacancies/{jobVacancy}/save', [SavedJobController::class, 'store']);
-        Route::delete('job-vacancies/{jobVacancy}/save', [SavedJobController::class, 'destroy']);
-
         // Notifications (phase 10)
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotificationController::class, 'index']);
             Route::get('unread-count', [NotificationController::class, 'unreadCount']);
             Route::post('read-all', [NotificationController::class, 'markAllRead']);
             Route::post('{notification}/read', [NotificationController::class, 'markRead']);
+        });
+
+        // Networking (phase 12)
+        Route::prefix('networking')->group(function () {
+            Route::get('alumni', [NetworkingController::class, 'alumni']);
+            Route::get('alumni/{alumnus}', [NetworkingController::class, 'show']);
+            Route::get('connections', [NetworkingController::class, 'connections']);
+            Route::get('requests', [NetworkingController::class, 'requests']);
+            Route::post('connections', [NetworkingController::class, 'store']);
+            Route::post('connections/{connection}/accept', [NetworkingController::class, 'accept']);
+            Route::post('connections/{connection}/reject', [NetworkingController::class, 'reject']);
+            Route::delete('connections/{connection}', [NetworkingController::class, 'destroy']);
+            Route::get('blocked', [NetworkingController::class, 'blocked']);
+            Route::delete('blocked/{blockedUser}', [NetworkingController::class, 'unblock']);
+            Route::post('block', [NetworkingController::class, 'block']);
+            Route::post('report', [NetworkingController::class, 'report']);
         });
     });
 });

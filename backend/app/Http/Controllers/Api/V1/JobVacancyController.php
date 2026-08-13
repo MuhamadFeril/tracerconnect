@@ -24,13 +24,6 @@ class JobVacancyController extends Controller
             ->when(! $currentUser->hasRole('super_admin'), fn ($query) => $query->forInstitution($currentUser->institution_id))
             ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->when($currentUser->hasRole('alumni'), fn ($query) => $query->visibleToAlumni($currentUser->institution_id))
-            // Career center flags: alumni see whether they saved/applied;
-            // staff see how many applicants a vacancy has.
-            ->when($currentUser->hasRole('alumni'), fn ($query) => $query->withExists([
-                'savedBy as is_saved' => fn ($q) => $q->where('user_id', $currentUser->id),
-                'applications as has_applied' => fn ($q) => $q->where('applicant_id', $currentUser->id),
-            ]))
-            ->when(! $currentUser->hasRole('alumni'), fn ($query) => $query->withCount('applications'))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->search);
                 $query->where(fn ($q) => $q->where('title', 'like', "%{$search}%")->orWhere('company_name', 'like', "%{$search}%"));

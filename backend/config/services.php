@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Google OAuth (login dengan Google / Google Identity Services).
+    // Client ID wajib; secret hanya diperlukan untuk flow redirect OAuth.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
 ];

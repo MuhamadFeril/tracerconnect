@@ -23,12 +23,32 @@ class UserResource extends JsonResource
                 'name' => $this->institution->name,
             ]),
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')->values()),
+            // User-level biodata (used when no linked alumni record exists,
+            // e.g. admin accounts). For alumni users these are typically null
+            // since their biodata lives on the alumni record.
+            'gender' => $this->gender,
+            'phone' => $this->phone,
+            'birth_date' => $this->birth_date?->toDateString(),
+            'birthplace' => $this->birthplace,
+            'birthplace_regency' => $this->birthplace_regency,
+            'birthplace_province' => $this->birthplace_province,
+            'address' => $this->address,
             // Requires eager-loading 'alumni.department' & 'alumni.graduationYear'
             // to avoid lazy N+1 queries (see AuthController load strings).
             'alumni' => $this->whenLoaded('alumni', fn () => $this->alumni ? [
                 'id' => $this->alumni->id,
                 'name' => $this->alumni->name,
                 'nis_nim' => $this->alumni->nis_nim,
+                'nisn' => $this->alumni->nisn,
+                'socials' => $this->alumni->socials ?? [],
+                'skills' => $this->alumni->skills ?? [],
+                'gender' => $this->alumni->gender,
+                'phone' => $this->alumni->phone,
+                'birth_date' => $this->alumni->birth_date?->toDateString(),
+                'birthplace' => $this->alumni->birthplace,
+                'birthplace_regency' => $this->alumni->birthplace_regency,
+                'birthplace_province' => $this->alumni->birthplace_province,
+                'address' => $this->alumni->address,
                 'department' => $this->alumni->department?->name,
                 'graduation_year' => $this->alumni->graduationYear?->year,
                 'birthplace_label' => $this->alumni->birthplace_label,

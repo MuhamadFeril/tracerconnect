@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Concerns\ResolvesGoogleUser;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
@@ -16,6 +17,7 @@ use App\Models\Department;
 use App\Models\GraduationYear;
 use App\Models\User;
 use App\Support\ApiResponse;
+use Google\Client as GoogleClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -26,6 +28,8 @@ use Throwable;
 
 class AuthController extends Controller
 {
+    use ResolvesGoogleUser;
+
     /**
      * Public registration. Creates a user with the 'alumni' role only
      * (never an admin role) and auto-links an existing imported alumni
@@ -201,6 +205,56 @@ class AuthController extends Controller
     }
 
     /**
+     * Login via Google (Google Identity Services).
+     *
+     * The client sends an ID token obtained from Google's Sign-In popup; the
+     * token is verified here with google/apiclient (signature + audience). The
+     * account is created on first sign-in with the 'alumni' role and linked to
+     * an existing imported alumni record by email when one matches.
+     */
+    public function googleLogin(Request $request)
+    {
+        $request->validate([
+            'id_token' => ['required', 'string'],
+        ]);
+
+        $clientId = config('services.google.client_id');
+
+        if (! $clientId) {
+            return ApiResponse::error('Login Google belum dikonfigurasi di server', [], 503);
+        }
+
+        try {
+            /** @var GoogleClient $client */
+            $client = app(GoogleClient::class);
+            $client->setClientId($clientId);
+            $payload = $client->verifyIdToken($request->id_token, $clientId);
+        } catch (Throwable $e) {
+            Log::warning('Verifikasi ID token Google gagal', ['error' => $e->getMessage()]);
+            $payload = null;
+        }
+
+        if (! $payload || empty($payload['email']) || ($payload['email_verified'] ?? false) !== true) {
+            return ApiResponse::error('Token Google tidak valid atau kedaluwarsa', [], 401);
+        }
+
+        $result = $this->resolveGoogleUser($payload);
+
+        if (is_string($result)) {
+            return ApiResponse::error($result, [], 403);
+        }
+
+        $token = $result->createToken('api-token', ['*'], now()->addDays(7));
+
+        return ApiResponse::success([
+            'token' => $token->plainTextToken,
+            'token_type' => 'Bearer',
+            'expires_in' => 60 * 60 * 24 * 7,
+            'user' => new UserResource($result->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
+        ], 'Login berhasil');
+    }
+
+    /**
      * Revoke the current access token.
      */
     public function logout(Request $request)
@@ -222,12 +276,63 @@ class AuthController extends Controller
     }
 
     /**
-     * Update the authenticated user's profile (name / email).
+     * Update the authenticated user's profile (name / email) plus any
+     * alumni-editable fields (NIS, NISN, social media links, skills, biodata)
+     * which are persisted onto the linked alumni record when one exists.
+     * Users without an alumni record (admins, operators, etc.) get their
+     * biodata persisted on the users table instead, so every account can
+     * maintain a profile.
      */
     public function updateProfile(UpdateProfileRequest $request)
     {
         $user = $request->user();
-        $user->update($request->validated());
+        $user->update($request->safe()->only(['name', 'email']));
+
+        // Only fields actually present in the payload are persisted, so the
+        // name/email-only update never touches biodata. Empty strings mean
+        // "clear this field" and are stored as null.
+        if ($user->alumni) {
+            $alumniData = [];
+            foreach ([
+                'nis_nim' => 'nis',
+                'nisn' => 'nisn',
+                'socials' => 'socials',
+                'skills' => 'skills',
+                'gender' => 'gender',
+                'phone' => 'phone',
+                'birth_date' => 'birth_date',
+                'birthplace' => 'birthplace',
+                'birthplace_regency' => 'birthplace_regency',
+                'birthplace_province' => 'birthplace_province',
+                'address' => 'address',
+                'employment_status' => 'employment_status',
+            ] as $column => $input) {
+                if (! $request->has($input)) {
+                    continue;
+                }
+                $alumniData[$column] = $request->input($input) === '' ? null : $request->input($input);
+            }
+
+            if ($alumniData !== []) {
+                $user->alumni()->update($alumniData);
+            }
+        } else {
+            // Non-alumni accounts persist their biodata on the users table.
+            // Alumni-only fields (NIS, NISN, socials, skills, employment
+            // status) are intentionally ignored here.
+            $userData = [];
+            foreach (['gender', 'phone', 'birth_date', 'birthplace', 'birthplace_regency', 'birthplace_province', 'address'] as $column) {
+                if (! $request->has($column)) {
+                    continue;
+                }
+                $value = $request->input($column);
+                $userData[$column] = $value === '' ? null : $value;
+            }
+
+            if ($userData !== []) {
+                $user->update($userData);
+            }
+        }
 
         return ApiResponse::success(
             new UserResource($user->fresh()->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),

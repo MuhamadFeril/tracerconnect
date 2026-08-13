@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['institution_id', 'title', 'company_name', 'description', 'location', 'employment_type', 'application_link', 'status', 'posted_at', 'created_by'])]
@@ -38,21 +37,5 @@ class JobVacancy extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Alumni applications to this vacancy (career center).
-     */
-    public function applications(): HasMany
-    {
-        return $this->hasMany(JobApplication::class);
-    }
-
-    /**
-     * Bookmarks of this vacancy (career center).
-     */
-    public function savedBy(): HasMany
-    {
-        return $this->hasMany(SavedJob::class);
     }
 }

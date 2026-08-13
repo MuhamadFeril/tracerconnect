@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\Alumni;
 use App\Models\Institution;
 use App\Models\User;
+use Google\Client as GoogleClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -139,6 +141,229 @@ class AuthTest extends TestCase
             ->assertJsonPath('data.email', $user->email);
 
         $this->assertDatabaseHas('users', ['id' => $user->id, 'name' => 'Nama Baru']);
+    }
+
+    public function test_user_can_update_alumni_nis_nisn_socials_and_skills(): void
+    {
+        $institution = Institution::factory()->create(['status' => 'active']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Alumni Update',
+            'email' => 'alumni.update@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'nis' => '1234567890',
+            'nisn' => '0987654321',
+        ])->assertStatus(201);
+
+        $token = $response->json('data.token');
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => 'Alumni Update',
+            'email' => 'alumni.update@example.com',
+            'nis' => '1111111111',
+            'nisn' => '2222222222',
+            'socials' => [
+                ['platform' => 'instagram', 'url' => 'https://instagram.com/alumni.update'],
+                ['platform' => 'linkedin', 'url' => 'https://linkedin.com/in/alumni.update'],
+            ],
+            'skills' => ['PHP', 'Laravel', 'Public Speaking'],
+        ])->assertOk()
+            ->assertJsonPath('data.alumni.nis_nim', '1111111111')
+            ->assertJsonPath('data.alumni.nisn', '2222222222')
+            ->assertJsonPath('data.alumni.socials.0.platform', 'instagram')
+            ->assertJsonPath('data.alumni.skills', ['PHP', 'Laravel', 'Public Speaking']);
+
+        $user = User::where('email', 'alumni.update@example.com')->firstOrFail();
+        $this->assertDatabaseHas('alumni', [
+            'user_id' => $user->id,
+            'nis_nim' => '1111111111',
+            'nisn' => '2222222222',
+        ]);
+        $this->assertSame(
+            [['platform' => 'instagram', 'url' => 'https://instagram.com/alumni.update']],
+            array_slice($user->alumni->socials, 0, 1),
+        );
+        $this->assertSame(['PHP', 'Laravel', 'Public Speaking'], $user->alumni->skills);
+    }
+
+    public function test_user_can_clear_alumni_socials_and_skills(): void
+    {
+        $institution = Institution::factory()->create(['status' => 'active']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Alumni Kosong',
+            'email' => 'alumni.kosong@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'nis' => '1234567890',
+            'socials' => [['platform' => 'facebook', 'url' => 'https://facebook.com/x']],
+            'skills' => ['Java'],
+        ])->assertStatus(201);
+
+        $token = $response->json('data.token');
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => 'Alumni Kosong',
+            'email' => 'alumni.kosong@example.com',
+            'socials' => [],
+            'skills' => [],
+        ])->assertOk()
+            ->assertJsonPath('data.alumni.socials', [])
+            ->assertJsonPath('data.alumni.skills', []);
+
+        $user = User::where('email', 'alumni.kosong@example.com')->firstOrFail();
+        $this->assertSame([], $user->alumni->socials);
+        $this->assertSame([], $user->alumni->skills);
+    }
+
+    public function test_user_can_update_alumni_biodata(): void
+    {
+        $institution = Institution::factory()->create(['status' => 'active']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Alumni Biodata',
+            'email' => 'alumni.biodata@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+        ])->assertStatus(201);
+
+        $token = $response->json('data.token');
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => 'Alumni Biodata',
+            'email' => 'alumni.biodata@example.com',
+            'gender' => 'female',
+            'phone' => '081234567890',
+            'birth_date' => '2005-06-15',
+            'birthplace' => 'Coblong',
+            'birthplace_regency' => 'Kota Bandung',
+            'birthplace_province' => 'Jawa Barat',
+            'address' => 'Jl. Merdeka No. 1, Bandung',
+            'employment_status' => 'working',
+        ])->assertOk()
+            ->assertJsonPath('data.alumni.gender', 'female')
+            ->assertJsonPath('data.alumni.phone', '081234567890')
+            ->assertJsonPath('data.alumni.birth_date', '2005-06-15')
+            ->assertJsonPath('data.alumni.birthplace', 'Coblong')
+            ->assertJsonPath('data.alumni.address', 'Jl. Merdeka No. 1, Bandung')
+            ->assertJsonPath('data.alumni.employment_status', 'working');
+
+        $user = User::where('email', 'alumni.biodata@example.com')->firstOrFail();
+        $this->assertDatabaseHas('alumni', [
+            'user_id' => $user->id,
+            'gender' => 'female',
+            'phone' => '081234567890',
+            'birthplace' => 'Coblong',
+            'birthplace_regency' => 'Kota Bandung',
+            'birthplace_province' => 'Jawa Barat',
+            'address' => 'Jl. Merdeka No. 1, Bandung',
+            'employment_status' => 'working',
+        ]);
+    }
+
+    public function test_user_can_clear_alumni_biodata_fields(): void
+    {
+        $institution = Institution::factory()->create(['status' => 'active']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Alumni Bersih',
+            'email' => 'alumni.bersih@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'phone' => '081234567890',
+            'address' => 'Jl. Lama No. 1',
+            'gender' => 'male',
+        ])->assertStatus(201);
+
+        $token = $response->json('data.token');
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => 'Alumni Bersih',
+            'email' => 'alumni.bersih@example.com',
+            'gender' => '',
+            'phone' => '',
+            'address' => '',
+        ])->assertOk()
+            ->assertJsonPath('data.alumni.gender', null)
+            ->assertJsonPath('data.alumni.phone', null)
+            ->assertJsonPath('data.alumni.address', null);
+
+        $user = User::where('email', 'alumni.bersih@example.com')->firstOrFail();
+        $this->assertDatabaseHas('alumni', [
+            'user_id' => $user->id,
+            'gender' => null,
+            'phone' => null,
+            'address' => null,
+        ]);
+    }
+
+    public function test_user_without_alumni_can_update_own_biodata(): void
+    {
+        // Super admin has no linked alumni record — biodata must be persisted
+        // on the users table so admin/operator accounts can edit profiles too.
+        $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'gender' => 'male',
+            'phone' => '081234567890',
+            'birth_date' => '1990-01-01',
+            'birthplace' => 'Kebayoran Baru',
+            'birthplace_regency' => 'Kota Jakarta Selatan',
+            'birthplace_province' => 'DKI Jakarta',
+            'address' => 'Jl. Sudirman No. 1, Jakarta',
+        ])->assertOk()
+            ->assertJsonPath('data.gender', 'male')
+            ->assertJsonPath('data.phone', '081234567890')
+            ->assertJsonPath('data.birth_date', '1990-01-01')
+            ->assertJsonPath('data.birthplace', 'Kebayoran Baru')
+            ->assertJsonPath('data.birthplace_regency', 'Kota Jakarta Selatan')
+            ->assertJsonPath('data.birthplace_province', 'DKI Jakarta')
+            ->assertJsonPath('data.address', 'Jl. Sudirman No. 1, Jakarta');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'gender' => 'male',
+            'phone' => '081234567890',
+            'birthplace' => 'Kebayoran Baru',
+            'address' => 'Jl. Sudirman No. 1, Jakarta',
+        ]);
+    }
+
+    public function test_user_without_alumni_can_clear_own_biodata(): void
+    {
+        $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
+        $user->update([
+            'gender' => 'male',
+            'phone' => '081234567890',
+            'address' => 'Jl. Lama No. 1',
+        ]);
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'gender' => '',
+            'phone' => '',
+            'address' => '',
+        ])->assertOk()
+            ->assertJsonPath('data.gender', null)
+            ->assertJsonPath('data.phone', null)
+            ->assertJsonPath('data.address', null);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'gender' => null,
+            'phone' => null,
+            'address' => null,
+        ]);
     }
 
     public function test_profile_email_must_be_unique(): void
@@ -348,6 +573,206 @@ class AuthTest extends TestCase
         ])->assertStatus(401);
 
         $this->deleteJson('/api/v1/auth/me/avatar')->assertStatus(401);
+    }
+
+    // --- Google OAuth login ---------------------------------------------------
+
+    private function fakeGoogleToken(array $payload = []): string
+    {
+        config(['services.google.client_id' => 'test-client-id.apps.googleusercontent.com']);
+
+        $mock = \Mockery::mock(GoogleClient::class);
+        $mock->shouldReceive('setClientId')->once();
+        $mock->shouldReceive('verifyIdToken')->once()->andReturn(array_merge([
+            'sub' => 'google-subject-id',
+            'email' => 'alumni.google@example.com',
+            'email_verified' => true,
+            'name' => 'Alumni Google',
+            'aud' => 'test-client-id.apps.googleusercontent.com',
+        ], $payload));
+        $this->app->instance(GoogleClient::class, $mock);
+
+        return 'fake-google-id-token';
+    }
+
+    public function test_google_login_creates_account_with_alumni_role_and_token(): void
+    {
+        $token = $this->fakeGoogleToken();
+
+        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'data' => [
+                    'token',
+                    'token_type',
+                    'expires_in',
+                    'user' => ['id', 'name', 'email', 'roles'],
+                ],
+            ]);
+
+        $this->assertNotEmpty($response->json('data.token'));
+        $this->assertSame('Alumni Google', $response->json('data.user.name'));
+        $this->assertSame('alumni.google@example.com', $response->json('data.user.email'));
+        $this->assertContains('alumni', $response->json('data.user.roles'));
+        $this->assertDatabaseHas('users', [
+            'email' => 'alumni.google@example.com',
+            'google_id' => 'google-subject-id',
+        ]);
+    }
+
+    public function test_google_login_links_existing_alumni_record_by_email(): void
+    {
+        $alumni = Alumni::factory()->create([
+            'email' => 'alumni.google@example.com',
+            'user_id' => null,
+        ]);
+
+        $token = $this->fakeGoogleToken();
+
+        $this->postJson('/api/v1/auth/google', ['id_token' => $token])->assertOk();
+
+        $user = User::where('email', 'alumni.google@example.com')->firstOrFail();
+        $this->assertDatabaseHas('alumni', ['id' => $alumni->id, 'user_id' => $user->id]);
+    }
+
+    public function test_google_login_logs_into_existing_account_without_duplicating(): void
+    {
+        $existing = User::factory()->create([
+            'email' => 'admin.google@example.com',
+            'password' => 'password',
+        ]);
+        $existing->assignRole('institution_admin');
+
+        $token = $this->fakeGoogleToken(['email' => 'admin.google@example.com', 'name' => 'Admin Google']);
+
+        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token]);
+
+        $response->assertOk()->assertJsonPath('data.user.email', 'admin.google@example.com');
+        $this->assertContains('institution_admin', $response->json('data.user.roles'));
+        $this->assertSame(1, User::where('email', 'admin.google@example.com')->count());
+        // First Google sign-in for an email/password account links google_id.
+        $this->assertSame('google-subject-id', $existing->fresh()->google_id);
+    }
+
+    public function test_google_login_rejects_unverified_email(): void
+    {
+        $token = $this->fakeGoogleToken(['email_verified' => false]);
+
+        $this->postJson('/api/v1/auth/google', ['id_token' => $token])
+            ->assertStatus(401)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_google_login_rejects_invalid_token(): void
+    {
+        config(['services.google.client_id' => 'test-client-id.apps.googleusercontent.com']);
+
+        $mock = \Mockery::mock(GoogleClient::class);
+        $mock->shouldReceive('setClientId')->once();
+        $mock->shouldReceive('verifyIdToken')->once()->andThrow(new \Exception('Invalid token'));
+        $this->app->instance(GoogleClient::class, $mock);
+
+        $this->postJson('/api/v1/auth/google', ['id_token' => 'tampered-token'])
+            ->assertStatus(401)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_google_login_rejects_inactive_account(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'nonaktif.google@example.com',
+            'is_active' => false,
+        ]);
+        $user->assignRole('alumni');
+
+        $token = $this->fakeGoogleToken(['email' => 'nonaktif.google@example.com']);
+
+        $this->postJson('/api/v1/auth/google', ['id_token' => $token])
+            ->assertStatus(403)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_google_login_requires_id_token(): void
+    {
+        $this->postJson('/api/v1/auth/google', [])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    // --- Google OAuth redirect flow (server-side account chooser, PKCE) -----
+
+    public function test_google_redirect_builds_account_chooser_url(): void
+    {
+        config(['services.google.client_id' => 'test-client-id.apps.googleusercontent.com']);
+        config(['services.google.client_secret' => 'test-secret']);
+        config(['services.google.redirect' => 'http://localhost:8000/api/v1/auth/google/callback']);
+
+        $response = $this->get('/api/v1/auth/google');
+
+        $response->assertRedirect();
+        $location = $response->headers->get('Location');
+        $this->assertStringContainsString('https://accounts.google.com/o/oauth2/v2/auth', $location);
+        $this->assertStringContainsString('prompt=select_account', $location);
+        $this->assertStringContainsString('response_type=code', $location);
+        $this->assertStringContainsString('code_challenge=', $location);
+        $this->assertStringContainsString('code_challenge_method=S256', $location);
+        $this->assertStringContainsString('nonce=', $location);
+        $this->assertStringContainsString('redirect_uri='.urlencode('http://localhost:8000/api/v1/auth/google/callback'), $location);
+    }
+
+    public function test_google_redirect_requires_client_id(): void
+    {
+        config(['services.google.client_id' => null]);
+        config(['app.frontend_url' => 'http://localhost:5173']);
+
+        $this->get('/api/v1/auth/google')
+            ->assertRedirect('http://localhost:5173/login?google_error=not_configured');
+    }
+
+    public function test_google_callback_exchanges_code_and_redirects_with_token(): void
+    {
+        config(['services.google.client_id' => 'test-client-id.apps.googleusercontent.com']);
+        config(['services.google.client_secret' => 'test-secret']);
+        config(['services.google.redirect' => 'http://localhost:8000/api/v1/auth/google/callback']);
+        config(['app.frontend_url' => 'http://localhost:5173']);
+
+        $state = 'test-state-123';
+        $nonce = 'test-nonce-456';
+        Cache::put('google_oauth_'.$state, ['verifier' => 'test-verifier', 'nonce' => $nonce], now()->addMinutes(10));
+
+        $mock = \Mockery::mock(GoogleClient::class);
+        $mock->shouldReceive('setClientId')->once();
+        $mock->shouldReceive('setClientSecret')->once();
+        $mock->shouldReceive('setRedirectUri')->once();
+        $mock->shouldReceive('fetchAccessTokenWithAuthCode')->once()->with('auth-code', 'test-verifier')->andReturn([
+            'id_token' => 'fake-id-token',
+        ]);
+        $mock->shouldReceive('verifyIdToken')->once()->andReturn([
+            'sub' => 'google-subject-id',
+            'email' => 'alumni.redirect@example.com',
+            'email_verified' => true,
+            'name' => 'Alumni Redirect',
+            'aud' => 'test-client-id.apps.googleusercontent.com',
+            'nonce' => $nonce,
+        ]);
+        $this->app->instance(GoogleClient::class, $mock);
+
+        $response = $this->get('/api/v1/auth/google/callback?code=auth-code&state='.$state);
+
+        $response->assertRedirect();
+        $location = $response->headers->get('Location');
+        $this->assertStringContainsString('http://localhost:5173/google/callback?token=', $location);
+        $this->assertDatabaseHas('users', ['email' => 'alumni.redirect@example.com']);
+    }
+
+    public function test_google_callback_rejects_unknown_state(): void
+    {
+        config(['app.frontend_url' => 'http://localhost:5173']);
+
+        $this->get('/api/v1/auth/google/callback?code=auth-code&state=forged-state')
+            ->assertRedirect('http://localhost:5173/login?google_error=invalid_state');
     }
 
     public function test_register_with_institution_sets_institution_and_links_scoped_alumni(): void
