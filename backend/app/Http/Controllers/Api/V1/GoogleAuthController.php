@@ -85,7 +85,9 @@ class GoogleAuthController extends Controller
             $client->setClientId($clientId);
             $client->setClientSecret($clientSecret);
             $client->setRedirectUri($redirectUri);
-            $token = $client->fetchAccessTokenWithAuthCode($code, $stored['verifier']);
+            // fetchAccessTokenWithAuthCode($code, $redirectUri, $codeVerifier)
+            // Redirect URI is already set on the client; pass PKCE verifier as 3rd arg.
+            $token = $client->fetchAccessTokenWithAuthCode($code, null, $stored['verifier']);
             $payload = $client->verifyIdToken($token['id_token'] ?? null, $clientId);
         } catch (Throwable $e) {
             Log::warning('Google OAuth callback gagal', ['error' => $e->getMessage()]);
@@ -172,18 +174,40 @@ class GoogleAuthController extends Controller
     /**
      * Build the absolute redirect URI for Google OAuth.
      *
-     * Google requires the redirect_uri to be an absolute URL. When the config
-     * value is a relative path (e.g. "/api/v1/auth/google/callback") it is
-     * automatically prefixed with the application URL to produce a full URL.
+     * Google requires the redirect_uri to be an absolute URL that exactly
+     * matches one registered in Google Cloud Console → Credentials →
+     * Authorized redirect URIs.
+     *
+     * Priority:
+     * 1. GOOGLE_REDIRECT_URI env (full absolute URL — must match Google Cloud Console)
+     * 2. APP_URL + /api/v1/auth/google/callback
+     * 3. Request host + /api/v1/auth/google/callback (fallback)
      */
     private function googleRedirectUri(): string
     {
-        $uri = (string) config('services.google.redirect', '/api/v1/auth/google/callback');
-
+        // 1. Explicit env value (must be a full URL like http://localhost:8000/api/v1/auth/google/callback)
+        $uri = (string) env('GOOGLE_REDIRECT_URI', '');
         if (str_starts_with($uri, 'http://') || str_starts_with($uri, 'https://')) {
             return $uri;
         }
 
-        return rtrim((string) config('app.url', 'http://localhost'), '/').'/'.ltrim($uri, '/');
+        // 2. From APP_URL config
+        $appUrl = (string) config('app.url', '');
+        if (str_starts_with($appUrl, 'http://') || str_starts_with($appUrl, 'https://')) {
+            return rtrim($appUrl, '/').'/api/v1/auth/google/callback';
+        }
+
+        // 3. Build from actual request (last resort)
+        $request = request();
+        $scheme = $request->getScheme();
+        $host = $request->getHost();
+        $port = $request->getPort();
+
+        $base = $scheme.'://'.$host;
+        if (($scheme === 'http' && $port != 80) || ($scheme === 'https' && $port != 443)) {
+            $base .= ':'.$port;
+        }
+
+        return $base.'/api/v1/auth/google/callback';
     }
 }

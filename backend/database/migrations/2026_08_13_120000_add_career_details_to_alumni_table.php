@@ -9,13 +9,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('alumni', function (Blueprint $table) {
-            // Further study (kuliah) details.
-            $table->string('study_institution')->nullable()->after('position');
-            $table->string('study_program')->nullable()->after('study_institution');
-            $table->integer('study_entry_year')->nullable()->after('study_program');
-            // Entrepreneurship (wirausaha) details.
-            $table->string('business_name')->nullable()->after('location');
-            $table->index('study_entry_year');
+            if (! Schema::hasColumn('alumni', 'study_institution')) {
+                $table->string('study_institution')->nullable()->after('position');
+            }
+            if (! Schema::hasColumn('alumni', 'study_program')) {
+                $table->string('study_program')->nullable()->after('study_institution');
+            }
+            if (! Schema::hasColumn('alumni', 'study_entry_year')) {
+                $table->integer('study_entry_year')->nullable()->after('study_program');
+                $table->index('study_entry_year');
+            }
+            if (! Schema::hasColumn('alumni', 'business_name')) {
+                $table->string('business_name')->nullable()->after('location');
+            }
         });
     }
 

@@ -14,13 +14,27 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('gender')->nullable()->after('avatar_path');
-            $table->string('phone')->nullable()->after('gender');
-            $table->date('birth_date')->nullable()->after('phone');
-            $table->string('birthplace')->nullable()->after('birth_date');
-            $table->string('birthplace_regency')->nullable()->after('birthplace');
-            $table->string('birthplace_province')->nullable()->after('birthplace_regency');
-            $table->string('address', 1000)->nullable()->after('birthplace_province');
+            if (! Schema::hasColumn('users', 'gender')) {
+                $table->string('gender')->nullable()->after('avatar_path');
+            }
+            if (! Schema::hasColumn('users', 'phone')) {
+                $table->string('phone')->nullable()->after('gender');
+            }
+            if (! Schema::hasColumn('users', 'birth_date')) {
+                $table->date('birth_date')->nullable()->after('phone');
+            }
+            if (! Schema::hasColumn('users', 'birthplace')) {
+                $table->string('birthplace')->nullable()->after('birth_date');
+            }
+            if (! Schema::hasColumn('users', 'birthplace_regency')) {
+                $table->string('birthplace_regency')->nullable()->after('birthplace');
+            }
+            if (! Schema::hasColumn('users', 'birthplace_province')) {
+                $table->string('birthplace_province')->nullable()->after('birthplace_regency');
+            }
+            if (! Schema::hasColumn('users', 'address')) {
+                $table->string('address', 1000)->nullable()->after('birthplace_province');
+            }
         });
     }
 
