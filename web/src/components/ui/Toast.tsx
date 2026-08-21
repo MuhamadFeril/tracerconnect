@@ -35,7 +35,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             className={clsx(
-              'pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur',
+              'pointer-events-auto flex w-full max-w-sm animate-fade-in-up items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur',
               t.type === 'success'
                 ? 'border-emerald-200 bg-white/95 text-emerald-800'
                 : 'border-rose-200 bg-white/95 text-rose-800',

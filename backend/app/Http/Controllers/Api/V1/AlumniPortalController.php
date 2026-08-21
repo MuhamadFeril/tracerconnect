@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AnnouncementResource;
 use App\Http\Resources\EventResource;
 use App\Http\Resources\JobVacancyResource;
+use App\Http\Resources\SuccessStoryResource;
 use App\Models\Alumni;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\JobVacancy;
+use App\Models\SuccessStory;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\User;
@@ -49,6 +51,13 @@ class AlumniPortalController extends Controller
             ->limit(3)
             ->get();
 
+        $stories = SuccessStory::query()
+            ->with('alumni.department:id,name', 'alumni.graduationYear:id,year')
+            ->visibleToAlumni($institutionId)
+            ->orderByDesc('published_at')
+            ->limit(3)
+            ->get();
+
         $alumni = Alumni::query()
             ->with('department:id,name', 'graduationYear:id,year')
             ->where('user_id', $user->id)
@@ -65,10 +74,25 @@ class AlumniPortalController extends Controller
                 'graduation_year' => $alumni->graduationYear?->year,
                 'birthplace_label' => $alumni->birthplace_label,
                 'employment_status' => $alumni->employment_status,
+                'company_name' => $alumni->company_name,
+                'position' => $alumni->position,
+                'business_field' => $alumni->business_field,
+                'business_start_year' => $alumni->business_start_year,
+                'location' => $alumni->location,
+                'work_province' => $alumni->work_province,
+                'work_city' => $alumni->work_city,
+                'study_institution' => $alumni->study_institution,
+                'study_program' => $alumni->study_program,
+                'study_entry_year' => $alumni->study_entry_year,
+                'business_name' => $alumni->business_name,
+                'business_address' => $alumni->business_address,
+                'business_province' => $alumni->business_province,
+                'business_city' => $alumni->business_city,
             ] : null,
             'announcements' => AnnouncementResource::collection($announcements),
             'events' => EventResource::collection($events),
             'jobs' => JobVacancyResource::collection($jobs),
+            'stories' => SuccessStoryResource::collection($stories),
         ], 'Beranda alumni berhasil dimuat');
     }
 

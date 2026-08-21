@@ -15,7 +15,7 @@ class SurveyResponsePolicy
 
         return $user->institution_id !== null
             && $user->institution_id === $response->institution_id
-            && $user->hasAnyRole(['institution_admin', 'operator', 'viewer']);
+            && $user->hasAnyRole(['institution_admin']);
     }
 
     /**
@@ -23,7 +23,7 @@ class SurveyResponsePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator', 'viewer']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     /**
@@ -46,6 +46,6 @@ class SurveyResponsePolicy
 
         return $user->institution_id !== null
             && $user->institution_id === $response->institution_id
-            && $user->hasAnyRole(['institution_admin', 'operator']);
+            && $user->hasAnyRole(['institution_admin']);
     }
 }

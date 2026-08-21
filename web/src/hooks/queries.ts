@@ -3,7 +3,6 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-  type QueryClient,
 } from '@tanstack/react-query'
 import { api, unwrap, unwrapPage } from '../lib/api'
 import { clearSession, setUser } from '../lib/auth'
@@ -12,26 +11,35 @@ import type {
   AlumniHome,
   AlumniSurveyItem,
   AnalyticsOverview,
+  BlockedUserItem,
+  ChatMessage,
+  ConnectionItem,
+  Conversation,
   District,
   Announcement,
   Department,
   EmploymentAnalytics,
   EventItem,
+  EventParticipant,
   ExecutiveSummary,
   GraduationYear,
   Institution,
   InstitutionOption,
   JobApplication,
   JobVacancy,
-  SavedJob,
   LoginResponse,
+  NetworkingAlumni,
   NotificationItem,
+  OtpSentResponse,
   Permission,
   Province,
+  RegisterResponse,
   Question,
   QuestionPayload,
   Regency,
   Role,
+  SocialLink,
+  StudyProgram,
   Survey,
   SurveyDetail,
   SurveyFill,
@@ -39,6 +47,8 @@ import type {
   SurveyResponseItem,
   SurveyResults,
   SurveySection,
+  SuccessStory,
+  University,
   User,
 } from '../lib/types'
 
@@ -56,6 +66,7 @@ export const qk = {
   responses: (params: Record<string, unknown>) => ['responses', params] as const,
   response: (id: string) => ['responses', id] as const,
   announcements: (params: Record<string, unknown>) => ['announcements', params] as const,
+  stories: (params: Record<string, unknown>) => ['success-stories', params] as const,
   events: (params: Record<string, unknown>) => ['events', params] as const,
   jobVacancies: (params: Record<string, unknown>) => ['job-vacancies', params] as const,
 }
@@ -69,10 +80,31 @@ export function useLogin() {
   })
 }
 
+export function useGoogleLogin() {
+  return useMutation({
+    mutationFn: (idToken: string) =>
+      unwrap<LoginResponse>(api.post('/auth/google', { id_token: idToken })),
+  })
+}
+
 export function useRegister() {
   return useMutation({
     mutationFn: (payload: RegisterPayload) =>
-      unwrap<LoginResponse>(api.post('/auth/register', payload)),
+      unwrap<RegisterResponse>(api.post('/auth/register', payload)),
+  })
+}
+
+export function useVerifyOtp() {
+  return useMutation({
+    mutationFn: ({ email, otp }: { email: string; otp: string }) =>
+      unwrap<LoginResponse>(api.post('/auth/verify-otp', { email, otp })),
+  })
+}
+
+export function useResendOtp() {
+  return useMutation({
+    mutationFn: ({ email, purpose }: { email: string; purpose?: string }) =>
+      unwrap<OtpSentResponse>(api.post('/auth/resend-otp', { email, purpose })),
   })
 }
 
@@ -111,6 +143,19 @@ export interface RegisterPayload {
   socials?: { platform: string; url: string }[]
   skills?: string[]
   employment_status?: string
+  company_name?: string
+  position?: string
+  business_field?: string
+  business_start_year?: number
+  work_province?: string
+  work_city?: string
+  study_institution?: string
+  study_program?: string
+  study_entry_year?: number
+  business_name?: string
+  business_address?: string
+  business_province?: string
+  business_city?: string
 }
 
 export function useUploadAvatar() {
@@ -151,6 +196,23 @@ export function useInstitutionOptions() {
     queryKey: ['institutions', 'options'],
     queryFn: () => unwrap<InstitutionOption[]>(api.get('/institutions/options')),
     staleTime: 5 * 60_000,
+  })
+}
+
+export function useUniversities(search?: string) {
+  return useQuery({
+    queryKey: ['universities', search ?? ''],
+    queryFn: () => unwrap<University[]>(api.get('/universities', { params: search ? { search } : {} })),
+    staleTime: 60 * 60_000,
+  })
+}
+
+export function useStudyPrograms(universityId: string | null) {
+  return useQuery({
+    queryKey: ['universities', universityId, 'study-programs'],
+    queryFn: () => unwrap<StudyProgram[]>(api.get(`/universities/${universityId}/study-programs`)),
+    enabled: Boolean(universityId),
+    staleTime: 60 * 60_000,
   })
 }
 
@@ -204,8 +266,9 @@ export function useUnreadNotificationsCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => unwrap<{ count: number }>(api.get('/notifications/unread-count')),
-    // Poll so the sidebar badge stays fresh while the user navigates.
-    refetchInterval: 30_000,
+    // Polled fairly frequently so the bell badge reflects new chat messages
+    // and other notifications without waiting for a manual refresh.
+    refetchInterval: 10_000,
   })
 }
 
@@ -428,12 +491,43 @@ export function useExecutiveSummary() {
 // --- Settings ----------------------------------------------------------------
 
 export function useUpdateProfile() {
+  const queryClient = useQueryClient()
+
   return useMutation({
-    mutationFn: ({ name, email }: { name: string; email: string }) =>
-      unwrap<User>(api.put('/auth/profile', { name, email })),
+    mutationFn: (payload: {
+      name: string
+      email: string
+      nis?: string | null
+      nisn?: string | null
+      socials?: SocialLink[]
+      skills?: string[]
+      gender?: string | null
+      phone?: string | null
+      birth_date?: string | null
+      birthplace?: string | null
+      birthplace_regency?: string | null
+      birthplace_province?: string | null
+      address?: string | null
+      employment_status?: string | null
+      company_name?: string | null
+      position?: string | null
+      business_field?: string | null
+      business_start_year?: number | string | null
+      work_province?: string | null
+      work_city?: string | null
+      study_institution?: string | null
+      study_program?: string | null
+      study_entry_year?: number | string | null
+      business_name?: string | null
+      business_address?: string | null
+      business_province?: string | null
+      business_city?: string | null
+    }) => unwrap<User>(api.put('/auth/profile', payload)),
     onSuccess: (user) => {
-      // Keep the stored session in sync with the edited profile.
+      // Keep the stored session and the /auth/me cache in sync with the
+      // edited profile (name, email, and alumni fields).
       setUser(user)
+      queryClient.setQueryData(['auth', 'me'], user)
     },
   })
 }
@@ -442,6 +536,21 @@ export function useUpdatePassword() {
   return useMutation({
     mutationFn: (payload: { current_password: string; password: string; password_confirmation: string }) =>
       api.put('/auth/password', payload),
+  })
+}
+
+/** Send a change-password OTP to the authenticated user's email. */
+export function useSendPasswordChangeOtp() {
+  return useMutation({
+    mutationFn: () => unwrap<OtpSentResponse>(api.post('/auth/password/otp')),
+  })
+}
+
+/** Change the password using the OTP sent by useSendPasswordChangeOtp. */
+export function useChangePasswordWithOtp() {
+  return useMutation({
+    mutationFn: (payload: { otp: string; password: string; password_confirmation: string }) =>
+      api.put('/auth/password/otp', payload),
   })
 }
 
@@ -484,6 +593,43 @@ export function useAnnouncementMutations() {
   return useEntityMutations<Announcement>('announcements', '/announcements')
 }
 
+export function useSuccessStories(params: { search?: string; status?: string; category?: string; page?: number }) {
+  return useCollection<SuccessStory>(qk.stories(params), '/success-stories', params)
+}
+
+export function useSuccessStory(id: string | undefined) {
+  return useQuery({
+    queryKey: ['success-stories', id],
+    queryFn: () => unwrap<SuccessStory>(api.get(`/success-stories/${id}`)),
+    enabled: Boolean(id),
+  })
+}
+
+export function useSuccessStoryMutations() {
+  const queryClient = useQueryClient()
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['success-stories'] })
+    queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
+  }
+
+  const create = useMutation({
+    mutationFn: (payload: FormData) => unwrap<SuccessStory>(api.post('/success-stories', payload)),
+    onSuccess: invalidate,
+  })
+  const update = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: FormData }) =>
+      unwrap<SuccessStory>(api.post(`/success-stories/${id}`, payload, { params: { _method: 'PUT' } })),
+    onSuccess: invalidate,
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/success-stories/${id}`),
+    onSuccess: invalidate,
+  })
+
+  return { create, update, remove }
+}
+
 export function useEvents(params: { search?: string; status?: string; upcoming?: boolean; page?: number }) {
   return useCollection<EventItem>(qk.events(params), '/events', params)
 }
@@ -492,98 +638,371 @@ export function useEventMutations() {
   return useEntityMutations<EventItem>('events', '/events')
 }
 
-export function useJobVacancies(params: { search?: string; status?: string; employment_type?: string; page?: number; per_page?: number }) {
+export function useJobVacancies(params: { search?: string; status?: string; employment_type?: string; page?: number }) {
   return useCollection<JobVacancy>(qk.jobVacancies(params), '/job-vacancies', params)
+}
+
+export function useJobVacancy(id: string | undefined) {
+  return useQuery({
+    queryKey: ['job-vacancies', id],
+    queryFn: () => unwrap<JobVacancy>(api.get(`/job-vacancies/${id}`)),
+    enabled: Boolean(id),
+  })
 }
 
 export function useJobVacancyMutations() {
   return useEntityMutations<JobVacancy>('job-vacancies', '/job-vacancies')
 }
 
-// --- Career center: job applications & saved jobs (phase 9) ------------------
+// --- Job applications (phase 8) ----------------------------------------------
 
-function invalidateCareerCenter(queryClient: QueryClient) {
+export function useMyApplications(params: { page?: number; per_page?: number } = {}) {
+  return useQuery({
+    queryKey: ['applications', 'my', params],
+    queryFn: () => unwrapPage<JobApplication>(api.get('/applications/my', { params })),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useJobApplicants(jobId: string, params: { status?: string; page?: number } = {}) {
+  return useQuery({
+    queryKey: ['job-vacancies', jobId, 'applications', params],
+    queryFn: () => unwrapPage<JobApplication>(api.get(`/job-vacancies/${jobId}/applications`, { params })),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(jobId),
+  })
+}
+
+function invalidateJobs(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['job-vacancies'] })
-  queryClient.invalidateQueries({ queryKey: ['job-applications'] })
-  queryClient.invalidateQueries({ queryKey: ['saved-jobs'] })
-  queryClient.invalidateQueries({ queryKey: ['alumni', 'home'] })
+  queryClient.invalidateQueries({ queryKey: ['applications'] })
 }
 
-export function useMyJobApplications(params: { page?: number } = {}) {
+export function useApplyJob(jobId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { cover_letter?: string; cv?: File; portfolio?: File }) => {
+      const form = new FormData()
+      if (payload.cover_letter) form.append('cover_letter', payload.cover_letter)
+      if (payload.cv) form.append('cv', payload.cv)
+      if (payload.portfolio) form.append('portfolio', payload.portfolio)
+      return unwrap<JobApplication>(api.post(`/job-vacancies/${jobId}/apply`, form))
+    },
+    onSuccess: () => invalidateJobs(queryClient),
+  })
+}
+
+export function useBookmarkJob(jobId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap<{ bookmarked: boolean }>(api.post(`/job-vacancies/${jobId}/bookmark`)),
+    onSuccess: () => invalidateJobs(queryClient),
+  })
+}
+
+export function useUnbookmarkJob(jobId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap<{ bookmarked: boolean }>(api.delete(`/job-vacancies/${jobId}/bookmark`)),
+    onSuccess: () => invalidateJobs(queryClient),
+  })
+}
+
+export function useWithdrawApplication(applicationId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap<JobApplication>(api.post(`/applications/${applicationId}/withdraw`)),
+    onSuccess: () => invalidateJobs(queryClient),
+  })
+}
+
+export function useUpdateApplicationStatus(applicationId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (status: JobApplication['status']) =>
+      unwrap<JobApplication>(api.put(`/applications/${applicationId}/status`, { status })),
+    onSuccess: () => invalidateJobs(queryClient),
+  })
+}
+
+/** Record/update the hiring result of an accepted application. */
+export function useSaveAcceptance(applicationId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: {
+      position_offered?: string | null
+      contract_type?: string | null
+      start_date?: string | null
+      salary?: string | null
+      notes?: string | null
+    }) => unwrap<JobApplication>(api.put(`/applications/${applicationId}/acceptance`, payload)),
+    onSuccess: () => invalidateJobs(queryClient),
+  })
+}
+
+// --- Event registration (phase 10) -------------------------------------------
+
+export function useEventRegister(eventId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap<{ registered: boolean }>(api.post(`/events/${eventId}/register`)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
+    },
+  })
+}
+
+export function useEventUnregister(eventId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap<{ registered: boolean }>(api.delete(`/events/${eventId}/register`)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['events'] }),
+  })
+}
+
+export function useEventParticipants(eventId: string, params: { page?: number; per_page?: number } = {}) {
   return useQuery({
-    queryKey: ['job-applications', 'my', params],
-    queryFn: () => unwrapPage<JobApplication>(api.get('/job-applications/my', { params })),
+    queryKey: ['events', eventId, 'participants', params],
+    queryFn: () => unwrapPage<EventParticipant>(api.get(`/events/${eventId}/participants`, { params })),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(eventId),
+  })
+}
+
+export function useMarkAttended(eventId: string, registrationId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (attended: boolean) =>
+      unwrap<{ attended: boolean }>(api.post(`/events/${eventId}/participants/${registrationId}/attendance`, { attended })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['events', eventId, 'participants'] }),
+  })
+}
+
+// --- Networking (phase 12) ---------------------------------------------------
+
+export function useNetworkingAlumni(params: { search?: string; page?: number; per_page?: number }) {
+  return useQuery({
+    queryKey: ['networking', 'alumni', params],
+    queryFn: () => unwrapPage<NetworkingAlumni>(api.get('/networking/alumni', { params })),
     placeholderData: keepPreviousData,
   })
 }
 
-export function useApplyJob() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ jobId, message }: { jobId: string; message?: string }) =>
-      unwrap<JobApplication>(api.post(`/job-vacancies/${jobId}/apply`, { message })),
-    onSuccess: () => invalidateCareerCenter(queryClient),
-  })
-}
-
-export function useCancelApplication() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (id: string) => api.delete(`/job-applications/${id}`),
-    onSuccess: () => invalidateCareerCenter(queryClient),
-  })
-}
-
-export function useJobApplications(params: {
-  job_vacancy_id?: string
-  status?: string
-  search?: string
-  page?: number
-}) {
+export function useNetworkingAlumnus(id: string) {
   return useQuery({
-    queryKey: ['job-applications', params],
-    queryFn: () => unwrapPage<JobApplication>(api.get('/job-applications', { params })),
+    queryKey: ['networking', 'alumni', id],
+    queryFn: () => unwrap<NetworkingAlumni>(api.get(`/networking/alumni/${id}`)),
+    enabled: Boolean(id),
+  })
+}
+
+export function useNetworkingConnections() {
+  return useQuery({
+    queryKey: ['networking', 'connections'],
+    queryFn: () => unwrap<ConnectionItem[]>(api.get('/networking/connections')),
+  })
+}
+
+export function useNetworkingRequests() {
+  return useQuery({
+    queryKey: ['networking', 'requests'],
+    queryFn: () => unwrap<ConnectionItem[]>(api.get('/networking/requests')),
+  })
+}
+
+function invalidateNetworking(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['networking'] })
+}
+
+export function useSendConnectionRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (receiverId: string) => api.post('/networking/connections', { receiver_id: receiverId }),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+export function useAcceptConnectionRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/networking/connections/${id}/accept`),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+export function useRejectConnectionRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/networking/connections/${id}/reject`),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+export function useRemoveConnection() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/networking/connections/${id}`),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+export function useNetworkingBlocked() {
+  return useQuery({
+    queryKey: ['networking', 'blocked'],
+    queryFn: () => unwrap<BlockedUserItem[]>(api.get('/networking/blocked')),
+  })
+}
+
+export function useUnblockUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/networking/blocked/${id}`),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+export function useBlockUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (blockedId: string) => api.post('/networking/block', { blocked_id: blockedId }),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+export function useReportUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { reported_id: string; reason: string; details?: string }) =>
+      api.post('/networking/report', payload),
+    onSuccess: () => invalidateNetworking(queryClient),
+  })
+}
+
+// --- Chat (career chat, REST polling) ---------------------------------------
+
+export function useConversations(search?: string) {
+  return useQuery({
+    queryKey: ['chat', 'conversations', search ?? ''],
+    queryFn: () => unwrap<Conversation[]>(api.get('/conversations', { params: search ? { search } : {} })),
+    // REST polling transport per the blueprint (shared-hosting friendly).
+    refetchInterval: 5_000,
+  })
+}
+
+/**
+ * Total unread incoming messages — powers the chat badge next to the
+ * notification bell so new messages surface without opening the chat page.
+ */
+export function useUnreadConversationsCount() {
+  return useQuery({
+    queryKey: ['chat', 'unread-count'],
+    queryFn: () => unwrap<{ count: number }>(api.get('/conversations/unread-count')),
+    refetchInterval: 10_000,
+  })
+}
+
+export function useConversation(conversationId: string | null) {
+  return useQuery({
+    queryKey: ['chat', 'conversation', conversationId],
+    queryFn: () => unwrap<Conversation>(api.get(`/conversations/${conversationId}`)),
+    enabled: Boolean(conversationId),
+    refetchInterval: 5_000,
+  })
+}
+
+/** Latest page = page 1 (newest first, reversed by the UI). */
+export function useConversationMessages(conversationId: string | null, page = 1) {
+  return useQuery({
+    queryKey: ['chat', 'messages', conversationId, page],
+    queryFn: () => unwrapPage<ChatMessage>(api.get(`/conversations/${conversationId}/messages`, { params: { page } })),
+    enabled: Boolean(conversationId),
+    refetchInterval: page === 1 ? 5_000 : false,
     placeholderData: keepPreviousData,
   })
 }
 
-export function useUpdateApplicationStatus() {
+export function useStartConversation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      unwrap<JobApplication>(api.patch(`/job-applications/${id}/status`, { status })),
-    onSuccess: () => invalidateCareerCenter(queryClient),
+    mutationFn: (payload: { user_id?: string; job_vacancy_id?: string }) =>
+      unwrap<Conversation>(api.post('/conversations', payload)),
+    onSuccess: (conversation) => {
+      queryClient.invalidateQueries({ queryKey: ['chat'] })
+      queryClient.setQueryData(['chat', 'conversation', conversation.id], conversation)
+    },
   })
 }
 
-export function useSavedJobs(params: { page?: number } = {}) {
-  return useQuery({
-    queryKey: ['saved-jobs', params],
-    queryFn: () => unwrapPage<SavedJob>(api.get('/saved-jobs', { params })),
-    placeholderData: keepPreviousData,
-  })
-}
-
-export function useSaveJob() {
+export function useSendMessage() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (jobId: string) => unwrap<SavedJob>(api.post(`/job-vacancies/${jobId}/save`)),
-    onSuccess: () => invalidateCareerCenter(queryClient),
+    mutationFn: ({
+      conversationId,
+      type,
+      body,
+      attachment,
+    }: {
+      conversationId: string
+      type: 'text' | 'image' | 'file'
+      body?: string
+      attachment?: File
+    }) => {
+      const form = new FormData()
+      form.append('type', type)
+      if (body) form.append('body', body)
+      if (attachment) form.append('attachment', attachment)
+      return unwrap<ChatMessage>(api.post(`/conversations/${conversationId}/messages`, form))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat'] }),
   })
 }
 
-export function useUnsaveJob() {
+export function useDeleteChatMessage() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (jobId: string) => api.delete(`/job-vacancies/${jobId}/save`),
-    onSuccess: () => invalidateCareerCenter(queryClient),
+    mutationFn: (messageId: string) => api.delete(`/messages/${messageId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat'] }),
   })
 }
+
+export function useMarkConversationRead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (conversationId: string) => api.post(`/conversations/${conversationId}/read`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat'] }),
+  })
+}
+
+export function useToggleConversationMute() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ conversationId, muted }: { conversationId: string; muted: boolean }) =>
+      api.post(`/conversations/${conversationId}/mute`, { muted }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat'] }),
+  })
+}
+
+export function useReportConversation() {
+  return useMutation({
+    mutationFn: ({ conversationId, reason, description }: { conversationId: string; reason: string; description?: string }) =>
+      api.post(`/conversations/${conversationId}/report`, { reason, description }),
+  })
+}
+
 
 // --- Analytics --------------------------------------------------------------
 

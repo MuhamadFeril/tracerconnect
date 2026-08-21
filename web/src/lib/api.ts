@@ -1,20 +1,67 @@
 import axios from 'axios'
 import { clearSession, getToken } from './auth'
+import { ENDPOINT_LIMITS, parseRetryAfter, rateLimiter } from './rateLimiter'
 import type { ApiEnvelope, Paginated } from './types'
 
 export const api = axios.create({ baseURL: '/api/v1' })
+
+/**
+ * Resolve the rate-limiter key for a given URL.
+ * Falls back to the full path when no prefix match is found.
+ */
+function resolveLimitKey(url: string): { key: string; minInterval: number } | null {
+  // Try longest-prefix match first.
+  const sorted = Object.keys(ENDPOINT_LIMITS).sort((a, b) => b.length - a.length)
+  for (const prefix of sorted) {
+    if (url.startsWith(prefix)) return ENDPOINT_LIMITS[prefix]
+  }
+  return null
+}
 
 api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  // Client-side rate limiting: block rapid-fire requests.
+  const url = config.url ?? ''
+  const limit = resolveLimitKey(url)
+  if (limit) {
+    if (!rateLimiter.allow(limit.key, limit.minInterval)) {
+      const remaining = rateLimiter.cooldown(limit.key)
+      const msg = remaining > 0
+        ? `Terlalu banyak percobaan. Silakan tunggu ${remaining} detik.`
+        : 'Terlalu banyak percobaan. Silakan tunggu sebentar.'
+      return Promise.reject(new Error(msg))
+    }
+    rateLimiter.record(limit.key)
+  }
+
   return config
 })
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Clear cooldown on success for the endpoint.
+    const url = response.config.url ?? ''
+    const limit = resolveLimitKey(url)
+    if (limit) rateLimiter.clear(limit.key)
+    return response
+  },
   (error) => {
+    // 429 Too Many Requests: parse Retry-After and lock the endpoint.
+    if (error.response?.status === 429) {
+      const url = error.config?.url ?? ''
+      const limit = resolveLimitKey(url)
+      const retryAfter = parseRetryAfter(error.response.headers?.['retry-after'])
+      if (limit) {
+        rateLimiter.block(limit.key, retryAfter)
+      }
+      // Replace the raw 429 error with a user-friendly message.
+      error.message = `Terlalu banyak percobaan. Silakan tunggu ${retryAfter} detik lalu coba lagi.`
+    }
+
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
       clearSession()
       window.location.assign('/login')

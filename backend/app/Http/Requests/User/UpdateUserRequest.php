@@ -21,8 +21,8 @@ class UpdateUserRequest extends FormRequest
         $target = $this->route('user');
 
         $allowedRoles = $user->hasRole('super_admin')
-            ? ['super_admin', 'institution_admin', 'operator', 'alumni', 'employer', 'viewer']
-            : ['operator', 'alumni', 'employer', 'viewer'];
+            ? ['super_admin', 'institution_admin', 'alumni', 'employer']
+            : ['alumni', 'employer'];
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],

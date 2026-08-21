@@ -89,36 +89,22 @@ class DepartmentTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_operator_can_create_viewer_cannot(): void
+    public function test_alumni_cannot_create_department(): void
     {
         $institution = $this->demoInstitution();
 
-        $operator = User::create([
-            'name' => 'Operator',
-            'email' => 'operator-dep@test.test',
+        $alumni = User::create([
+            'name' => 'Alumni Dept',
+            'email' => 'alumni-dep@test.test',
             'password' => 'password',
             'institution_id' => $institution->id,
             'is_active' => true,
         ]);
-        $operator->assignRole('operator');
-        $operatorToken = $operator->createToken('test-token')->plainTextToken;
+        $alumni->assignRole('alumni');
+        $alumniToken = $alumni->createToken('test-token')->plainTextToken;
 
-        $this->withToken($operatorToken)->postJson('/api/v1/departments', [
-            'name' => 'Operator Dept',
-        ])->assertCreated();
-
-        $viewer = User::create([
-            'name' => 'Viewer',
-            'email' => 'viewer-dep@test.test',
-            'password' => 'password',
-            'institution_id' => $institution->id,
-            'is_active' => true,
-        ]);
-        $viewer->assignRole('viewer');
-        $viewerToken = $viewer->createToken('test-token')->plainTextToken;
-
-        $this->withToken($viewerToken)->postJson('/api/v1/departments', [
-            'name' => 'Viewer Dept',
+        $this->withToken($alumniToken)->postJson('/api/v1/departments', [
+            'name' => 'Alumni Dept',
         ])->assertStatus(403);
     }
 

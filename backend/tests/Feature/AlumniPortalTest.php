@@ -90,7 +90,7 @@ class AlumniPortalTest extends TestCase
         Event::factory()->create(['institution_id' => $institution->id, 'status' => 'draft']);
 
         $myJob = JobVacancy::factory()->create(['institution_id' => $institution->id, 'status' => 'published']);
-        JobVacancy::factory()->create(['institution_id' => $other->id, 'status' => 'published']);
+        $foreignJob = JobVacancy::factory()->create(['institution_id' => $other->id, 'status' => 'published']);
 
         $alumni = User::factory()->create(['institution_id' => $institution->id]);
         $alumni->assignRole('alumni');
@@ -101,10 +101,13 @@ class AlumniPortalTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $myEvent->id);
 
+        // Alumni see their own school's published jobs PLUS cross-school
+        // employer vacancies (announced to every school). Other schools'
+        // tenant-scoped vacancies stay hidden.
         $this->withToken($token)->getJson('/api/v1/job-vacancies')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $myJob->id);
+            ->assertJsonFragment(['id' => $myJob->id])
+            ->assertJsonMissing(['id' => $foreignJob->id]);
     }
 
     public function test_alumni_home_returns_scoped_content(): void

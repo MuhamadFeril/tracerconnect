@@ -15,8 +15,8 @@ import { LandingSections } from './sections'
 const NAV_LINKS = [
   { href: '#fitur', label: 'Fitur' },
   { href: '#cara-kerja', label: 'Cara Kerja' },
-  { href: '#keunggulan', label: 'Keunggulan' },
-  { href: '#harga', label: 'Harga' },
+  { href: '#alumni-network', label: 'Jejaring' },
+
   { href: '#faq', label: 'FAQ' },
 ]
 
@@ -35,7 +35,7 @@ function LandingNavbar() {
   return (
     <header
       className={clsx(
-        'sticky top-0 z-50 transition-all duration-300',
+        'sticky top-0 z-50 animate-fade-in-down transition-all duration-300',
         scrolled || open
           ? 'border-b border-slate-200/70 bg-white/90 shadow-sm backdrop-blur'
           : 'bg-transparent',
@@ -174,8 +174,7 @@ function LandingFooter() {
               {[
                 ['Fitur', '#fitur'],
                 ['Cara Kerja', '#cara-kerja'],
-                ['Analytics', '#analytics'],
-                ['Harga', '#harga'],
+                ['Jejaring Alumni', '#alumni-network'],
               ].map(([label, href]) => (
                 <li key={label}>
                   <a href={href} className="transition-colors hover:text-white">

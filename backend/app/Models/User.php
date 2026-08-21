@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -53,6 +54,22 @@ class User extends Authenticatable
     public function alumni(): HasOne
     {
         return $this->hasOne(Alumni::class);
+    }
+
+    /**
+     * Job applications submitted by this user.
+     */
+    public function jobApplications(): HasMany
+    {
+        return $this->hasMany(JobApplication::class);
+    }
+
+    /**
+     * Job vacancies bookmarked by this user.
+     */
+    public function jobBookmarks(): HasMany
+    {
+        return $this->hasMany(JobBookmark::class);
     }
 
     /**

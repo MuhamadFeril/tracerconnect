@@ -54,18 +54,9 @@ class ReportTest extends TestCase
             ]]);
     }
 
-    public function test_viewer_can_fetch_executive_summary(): void
+    public function test_institution_admin_can_fetch_executive_summary(): void
     {
-        $viewer = User::create([
-            'name' => 'Viewer Report',
-            'email' => 'viewer-report@test.test',
-            'password' => 'password',
-            'institution_id' => Institution::where('slug', 'smk-negeri-1-tracer')->firstOrFail()->id,
-            'is_active' => true,
-        ]);
-        $viewer->assignRole('viewer');
-
-        $this->withToken($viewer->createToken('test-token')->plainTextToken)
+        $this->withToken($this->loginAs('admin@smkn1tracer.sch.id'))
             ->getJson('/api/v1/reports/executive-summary')
             ->assertOk();
     }

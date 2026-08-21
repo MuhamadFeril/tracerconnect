@@ -526,20 +526,11 @@ class ResponseTest extends TestCase
             ->assertJsonPath('data.0.status', 'submitted');
     }
 
-    public function test_viewer_can_list_responses_but_not_delete(): void
+    public function test_alumni_can_list_own_history_but_not_delete(): void
     {
-        $viewer = User::create([
-            'name' => 'Viewer Response',
-            'email' => 'viewer-response@test.test',
-            'password' => 'password',
-            'institution_id' => $this->demoInstitution()->id,
-            'is_active' => true,
-        ]);
-        $viewer->assignRole('viewer');
+        $token = $this->loginAs('andi.pratama@example.com');
 
-        $token = $viewer->createToken('test-token')->plainTextToken;
-
-        $this->withToken($token)->getJson('/api/v1/responses')->assertOk();
+        $this->withToken($token)->getJson('/api/v1/responses/my')->assertOk();
 
         $response = SurveyResponse::firstOrFail();
 

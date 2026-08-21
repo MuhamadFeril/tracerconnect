@@ -15,12 +15,12 @@ class SurveyPolicy
     private function canManage(User $user, Survey $survey): bool
     {
         return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $survey) && $user->hasAnyRole(['institution_admin', 'operator']));
+            || ($this->inSameInstitution($user, $survey) && $user->hasAnyRole(['institution_admin']));
     }
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator', 'viewer']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function view(User $user, Survey $survey): bool
@@ -30,7 +30,7 @@ class SurveyPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function update(User $user, Survey $survey): bool

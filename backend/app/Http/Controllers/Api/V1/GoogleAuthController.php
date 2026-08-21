@@ -24,7 +24,7 @@ class GoogleAuthController extends Controller
     public function redirect()
     {
         $clientId = config('services.google.client_id');
-        $redirectUri = config('services.google.redirect');
+        $redirectUri = $this->googleRedirectUri();
 
         if (! $clientId || ! $redirectUri) {
             return redirect()->away($this->frontendUrl().'/login?google_error=not_configured');
@@ -73,7 +73,7 @@ class GoogleAuthController extends Controller
 
         $clientId = config('services.google.client_id');
         $clientSecret = config('services.google.client_secret');
-        $redirectUri = config('services.google.redirect');
+        $redirectUri = $this->googleRedirectUri();
 
         if (! $clientId || ! $clientSecret || ! $redirectUri) {
             return redirect()->away($frontendUrl.'/login?google_error=not_configured');
@@ -97,6 +97,8 @@ class GoogleAuthController extends Controller
             return redirect()->away($frontendUrl.'/login?google_error=invalid_token');
         }
 
+        $email = mb_strtolower((string) $payload['email']);
+
         // Nonce replay protection: the ID token must carry the nonce this flow
         // generated, proving the token was minted for this exact request.
         if (empty($payload['nonce']) || ! hash_equals((string) $stored['nonce'], (string) $payload['nonce'])) {
@@ -109,13 +111,79 @@ class GoogleAuthController extends Controller
             return redirect()->away($frontendUrl.'/login?google_error='.urlencode($result));
         }
 
-        $token = $result->createToken('api-token', ['*'], now()->addDays(7));
+        [$user, $isNew] = $result;
 
-        return redirect()->away($frontendUrl.'/google/callback?token='.$token->plainTextToken);
+        $permissions = $user->getAllPermissions()->pluck('name')->all();
+        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+
+        // Store token + metadata in a short-lived cache keyed by a random code
+        // so the plaintext token never appears in the URL.
+        $authCode = Str::random(32);
+        Cache::put('google_auth_code_'.$authCode, [
+            'token' => $token->plainTextToken,
+            'new_user' => $isNew,
+        ], now()->addMinutes(5));
+
+        $redirectUrl = $frontendUrl.'/google/callback?auth_code='.$authCode;
+
+        return redirect()->away($redirectUrl);
+    }
+
+    /**
+     * Exchange a short-lived authorization code (from the Google OAuth callback
+     * redirect) for the actual Sanctum token. The code is single-use and
+     * expires after 5 minutes.
+     */
+    public function exchange(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'auth_code' => ['required', 'string', 'size:32'],
+        ]);
+
+        $key = 'google_auth_code_'.$request->auth_code;
+        $cached = Cache::pull($key);
+
+        if (! $cached) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode otorisasi tidak valid atau sudah kedaluwarsa',
+            ], 422);
+        }
+
+        $isNewUser = is_array($cached) && ($cached['new_user'] ?? false);
+        $token = is_array($cached) ? $cached['token'] : $cached;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Autentikasi berhasil',
+            'data' => [
+                'token' => $token,
+                'token_type' => 'Bearer',
+                'new_google_user' => $isNewUser,
+            ],
+        ]);
     }
 
     private function frontendUrl(): string
     {
         return rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
+    }
+
+    /**
+     * Build the absolute redirect URI for Google OAuth.
+     *
+     * Google requires the redirect_uri to be an absolute URL. When the config
+     * value is a relative path (e.g. "/api/v1/auth/google/callback") it is
+     * automatically prefixed with the application URL to produce a full URL.
+     */
+    private function googleRedirectUri(): string
+    {
+        $uri = (string) config('services.google.redirect', '/api/v1/auth/google/callback');
+
+        if (str_starts_with($uri, 'http://') || str_starts_with($uri, 'https://')) {
+            return $uri;
+        }
+
+        return rtrim((string) config('app.url', 'http://localhost'), '/').'/'.ltrim($uri, '/');
     }
 }

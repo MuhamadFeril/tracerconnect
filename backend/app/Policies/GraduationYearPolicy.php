@@ -14,7 +14,7 @@ class GraduationYearPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator', 'viewer']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function view(User $user, GraduationYear $graduationYear): bool
@@ -24,13 +24,13 @@ class GraduationYearPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function update(User $user, GraduationYear $graduationYear): bool
     {
         return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $graduationYear) && $user->hasAnyRole(['institution_admin', 'operator']));
+            || ($this->inSameInstitution($user, $graduationYear) && $user->hasAnyRole(['institution_admin']));
     }
 
     public function delete(User $user, GraduationYear $graduationYear): bool

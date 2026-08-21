@@ -21,24 +21,20 @@ import { formatDate } from '../lib/format'
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   institution_admin: 'Admin Institusi',
-  operator: 'Operator',
   alumni: 'Alumni',
   employer: 'Employer',
-  viewer: 'Viewer',
 }
 
 const ROLE_TONES: Record<string, BadgeTone> = {
   super_admin: 'violet',
   institution_admin: 'indigo',
-  operator: 'sky',
   alumni: 'green',
   employer: 'amber',
-  viewer: 'slate',
 }
 
 // Roles a platform admin may assign; institution admins get the subset below.
-const ALL_ROLES = ['super_admin', 'institution_admin', 'operator', 'alumni', 'employer', 'viewer']
-const INSTITUTION_ADMIN_ROLES = ['operator', 'alumni', 'employer', 'viewer']
+const ALL_ROLES = ['super_admin', 'institution_admin', 'alumni', 'employer']
+const INSTITUTION_ADMIN_ROLES = ['alumni', 'employer']
 
 function RoleBadge({ role }: { role: string }) {
   return <Badge tone={ROLE_TONES[role] ?? 'slate'}>{ROLE_LABELS[role] ?? role}</Badge>
@@ -48,7 +44,7 @@ function initialForm(user?: User | null) {
   return {
     name: user?.name ?? '',
     email: user?.email ?? '',
-    role: user?.roles?.[0] ?? 'operator',
+    role: user?.roles?.[0] ?? 'employer',
     institution_id: user?.institution_id ?? '',
     password: '',
     password_confirmation: '',

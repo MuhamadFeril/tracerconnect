@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Briefcase, Cake, CalendarDays, GraduationCap, Mail, MapPin, Phone, User } from 'lucide-react'
+import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, GraduationCap, Mail, MapPin, Phone, Store, User } from 'lucide-react'
 import { useAlumnus } from '../hooks/queries'
 import { formatDate } from '../lib/format'
 import { Card } from '../components/ui/Card'
@@ -63,17 +63,38 @@ export function AlumniDetail() {
       </Card>
 
       <Card>
-        <div className="border-b border-slate-100 px-6 py-4">
-          <h3 className="text-sm font-semibold text-slate-900">Informasi Pekerjaan</h3>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h3 className="text-sm font-semibold text-slate-900">Detail Karir</h3>
+          <EmploymentBadge status={a.employment_status} />
         </div>
         <div className="grid grid-cols-1 gap-5 px-6 py-5 sm:grid-cols-2">
-          <InfoItem icon={Briefcase} label="Perusahaan" value={a.company_name} />
-          <InfoItem icon={GraduationCap} label="Jabatan" value={a.position} />
-          <InfoItem icon={MapPin} label="Lokasi Kerja" value={a.location} />
-        </div>
-        <div className="px-6 pb-5">
-          <p className="mb-2 text-xs text-slate-400">Status Pekerjaan</p>
-          <EmploymentBadge status={a.employment_status} />
+          {a.employment_status === 'working' && (
+            <>
+              <InfoItem icon={Briefcase} label="Perusahaan" value={a.company_name} />
+              <InfoItem icon={GraduationCap} label="Jabatan" value={a.position} />
+              <InfoItem icon={Store} label="Bidang Usaha / Industri" value={a.business_field} />
+              <InfoItem icon={CalendarDays} label="Tahun Mulai Bekerja" value={a.business_start_year} />
+              <InfoItem icon={MapPin} label="Lokasi Kerja" value={[a.work_city, a.work_province].filter(Boolean).join(', ') || a.location} />
+            </>
+          )}
+          {a.employment_status === 'continuing_study' && (
+            <>
+              <InfoItem icon={GraduationCap} label="Kuliah di" value={a.study_institution} />
+              <InfoItem icon={BookOpen} label="Jurusan / Prodi" value={a.study_program} />
+              <InfoItem icon={CalendarDays} label="Tahun Masuk Kuliah" value={a.study_entry_year} />
+            </>
+          )}
+          {a.employment_status === 'entrepreneur' && (
+            <>
+              <InfoItem icon={Store} label="Nama Usaha" value={a.business_name} />
+              <InfoItem icon={BookOpen} label="Bidang Usaha" value={a.business_field} />
+              <InfoItem icon={CalendarDays} label="Tahun Mulai Usaha" value={a.business_start_year} />
+              <InfoItem icon={MapPin} label="Lokasi Usaha" value={[a.business_city, a.business_province].filter(Boolean).join(', ') || a.business_address} />
+            </>
+          )}
+          {(!a.employment_status || a.employment_status === 'unemployed') && (
+            <p className="text-sm text-slate-400 sm:col-span-2">Belum ada detail karir untuk alumni ini.</p>
+          )}
         </div>
       </Card>
 

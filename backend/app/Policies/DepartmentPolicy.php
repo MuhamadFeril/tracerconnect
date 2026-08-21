@@ -14,7 +14,7 @@ class DepartmentPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator', 'viewer']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function view(User $user, Department $department): bool
@@ -24,13 +24,13 @@ class DepartmentPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function update(User $user, Department $department): bool
     {
         return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $department) && $user->hasAnyRole(['institution_admin', 'operator']));
+            || ($this->inSameInstitution($user, $department) && $user->hasAnyRole(['institution_admin']));
     }
 
     public function delete(User $user, Department $department): bool

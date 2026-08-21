@@ -43,7 +43,18 @@ class ConnectionResource extends JsonResource
                 'employment_status' => $alumni->employment_status,
                 'company_name' => $alumni->company_name,
                 'position' => $alumni->position,
+                'business_field' => $alumni->business_field,
+                'business_start_year' => $alumni->business_start_year,
                 'location' => $alumni->location,
+                'work_province' => $alumni->work_province,
+                'work_city' => $alumni->work_city,
+                'study_institution' => $alumni->study_institution,
+                'study_program' => $alumni->study_program,
+                'study_entry_year' => $alumni->study_entry_year,
+                'business_name' => $alumni->business_name,
+                'business_address' => $alumni->business_address,
+                'business_province' => $alumni->business_province,
+                'business_city' => $alumni->business_city,
             ] : null,
         ];
     }

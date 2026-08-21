@@ -45,18 +45,9 @@ class AnalyticsTest extends TestCase
             ]]);
     }
 
-    public function test_viewer_can_fetch_overview(): void
+    public function test_institution_admin_can_fetch_overview(): void
     {
-        $viewer = User::create([
-            'name' => 'Viewer Analytics',
-            'email' => 'viewer-analytics@test.test',
-            'password' => 'password',
-            'institution_id' => Institution::where('slug', 'smk-negeri-1-tracer')->firstOrFail()->id,
-            'is_active' => true,
-        ]);
-        $viewer->assignRole('viewer');
-
-        $this->withToken($viewer->createToken('test-token')->plainTextToken)
+        $this->withToken($this->loginAs('admin@smkn1tracer.sch.id'))
             ->getJson('/api/v1/analytics/overview')
             ->assertOk();
     }

@@ -84,7 +84,7 @@ class AlumniController extends Controller
     {
         $this->authorize('viewAny', Alumni::class);
 
-        $alumni = $this->baseQuery($request)->orderBy('name')->get();
+        $alumni = $this->baseQuery($request)->orderBy('name')->cursor();
 
         $filename = 'alumni-'.now()->format('Ymd-His').'.csv';
 

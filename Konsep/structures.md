@@ -1,162 +1,146 @@
-Tracerconnect/
+TracerConnect/
 │
-├── backend/                         # Laravel REST API
+├── backend/                              # Laravel REST API
 │   ├── app/
 │   │   ├── Http/
 │   │   │   ├── Controllers/
 │   │   │   │   ├── Auth/
 │   │   │   │   ├── Admin/
 │   │   │   │   ├── Alumni/
-│   │   │   │   ├── Questionnaire/
-│   │   │   │   ├── Analytics/
-│   │   │   │   ├── Report/
+│   │   │   │   ├── Institution/
+│   │   │   │   ├── Tracer/
 │   │   │   │   ├── Career/
-│   │   │   │   └── Profile/
+│   │   │   │   ├── Employer/
+│   │   │   │   ├── Chat/
+│   │   │   │   ├── Networking/
+│   │   │   │   ├── Event/
+│   │   │   │   ├── Report/
+│   │   │   │   └── Notification/
 │   │   │   │
 │   │   │   ├── Requests/
-│   │   │   │   ├── Auth/
-│   │   │   │   ├── Alumni/
-│   │   │   │   ├── Questionnaire/
-│   │   │   │   ├── Profile/
-│   │   │   │   └── Career/
-│   │   │   │
-│   │   │   └── Resources/
+│   │   │   ├── Resources/
+│   │   │   └── Middleware/
 │   │   │
 │   │   ├── Models/
-│   │   ├── Services/
-│   │   ├── Repositories/
 │   │   ├── Policies/
+│   │   ├── Services/
 │   │   ├── Actions/
-│   │   └── Exceptions/
+│   │   ├── Notifications/
+│   │   └── Support/
 │   │
 │   ├── database/
 │   │   ├── migrations/
 │   │   ├── seeders/
-│   │   └── factories/
+│   │   ├── factories/
+│   │   └── data/
+│   │       └── regions/
+│   │           ├── provinces.json
+│   │           ├── regencies.json
+│   │           ├── districts.json
+│   │           └── villages.json
 │   │
 │   ├── routes/
 │   │   ├── api.php
+│   │   ├── auth.php
 │   │   └── web.php
 │   │
 │   ├── storage/
-│   │   └── app/
-│   │       └── public/
-│   │           └── avatars/
-│   │
 │   ├── tests/
 │   │   ├── Feature/
-│   │   └── Unit/
+│   │   ├── Unit/
+│   │   └── Security/
 │   │
 │   ├── .env
 │   └── composer.json
 │
-├── frontend/                        # React Admin + Landing Page
-│   ├── public/
-│   │   ├── logo/
-│   │   ├── images/
-│   │   └── favicon/
-│   │
+├── frontend/                             # React + Tailwind
 │   ├── src/
 │   │   ├── assets/
-│   │   │
 │   │   ├── components/
-│   │   │   ├── common/
-│   │   │   ├── landing/
-│   │   │   ├── dashboard/
-│   │   │   ├── alumni/
-│   │   │   ├── questionnaire/
-│   │   │   ├── analytics/
-│   │   │   ├── reports/
-│   │   │   ├── career/
-│   │   │   └── profile/
+│   │   │   ├── ui/
+│   │   │   ├── forms/
+│   │   │   ├── tables/
+│   │   │   ├── charts/
+│   │   │   ├── chat/
+│   │   │   ├── jobs/
+│   │   │   └── tracer/
 │   │   │
 │   │   ├── layouts/
-│   │   │   ├── LandingLayout.jsx
-│   │   │   ├── AuthLayout.jsx
-│   │   │   └── DashboardLayout.jsx
+│   │   │   ├── PublicLayout.jsx
+│   │   │   ├── AdminLayout.jsx
+│   │   │   ├── AlumniLayout.jsx
+│   │   │   └── EmployerLayout.jsx
 │   │   │
 │   │   ├── pages/
 │   │   │   ├── landing/
-│   │   │   │   ├── LandingPage.jsx
-│   │   │   │   ├── Features.jsx
-│   │   │   │   ├── Pricing.jsx
-│   │   │   │   ├── FAQ.jsx
-│   │   │   │   └── Contact.jsx
-│   │   │   │
 │   │   │   ├── auth/
-│   │   │   │   ├── Login.jsx
-│   │   │   │   ├── Register.jsx
-│   │   │   │   ├── ForgotPassword.jsx
-│   │   │   │   └── ResetPassword.jsx
-│   │   │   │
-│   │   │   ├── dashboard/
+│   │   │   ├── admin/
 │   │   │   ├── alumni/
-│   │   │   ├── questionnaire/
+│   │   │   ├── institution/
+│   │   │   ├── tracer/
 │   │   │   ├── analytics/
 │   │   │   ├── reports/
-│   │   │   ├── career/
-│   │   │   └── profile/
+│   │   │   ├── jobs/
+│   │   │   ├── applications/
+│   │   │   ├── employer/
+│   │   │   ├── networking/
+│   │   │   ├── chat/
+│   │   │   └── events/
 │   │   │
-│   │   ├── hooks/
 │   │   ├── services/
-│   │   ├── lib/
-│   │   │   ├── api.js
-│   │   │   ├── auth.js
-│   │   │   └── utils.js
-│   │   │
+│   │   │   └── api/
+│   │   ├── hooks/
+│   │   ├── contexts/
+│   │   ├── utils/
 │   │   ├── routes/
-│   │   ├── context/
-│   │   ├── types/
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
+│   │   └── App.jsx
 │   │
-│   ├── .env
+│   ├── public/
+│   ├── tests/
 │   ├── package.json
 │   └── vite.config.js
 │
-├── mobile/                         # Flutter Alumni App
+├── mobile/                               # Flutter
 │   ├── lib/
 │   │   ├── core/
+│   │   │   ├── config/
 │   │   │   ├── constants/
 │   │   │   ├── network/
 │   │   │   ├── storage/
-│   │   │   ├── theme/
-│   │   │   ├── router/
+│   │   │   ├── security/
 │   │   │   └── utils/
 │   │   │
-│   │   ├── shared/
-│   │   │   ├── widgets/
-│   │   │   ├── buttons/
-│   │   │   ├── cards/
-│   │   │   ├── inputs/
-│   │   │   └── dialogs/
+│   │   ├── data/
+│   │   │   ├── models/
+│   │   │   ├── repositories/
+│   │   │   └── datasources/
 │   │   │
 │   │   ├── features/
 │   │   │   ├── auth/
-│   │   │   ├── home/
 │   │   │   ├── profile/
-│   │   │   ├── questionnaire/
-│   │   │   ├── career/
+│   │   │   ├── tracer/
+│   │   │   ├── jobs/
 │   │   │   ├── applications/
+│   │   │   ├── networking/
+│   │   │   ├── chat/
 │   │   │   ├── events/
 │   │   │   └── notifications/
 │   │   │
+│   │   ├── widgets/
 │   │   └── main.dart
 │   │
-│   ├── assets/
-│   │   ├── images/
-│   │   ├── icons/
-│   │   └── fonts/
-│   │
 │   ├── test/
+│   ├── android/
 │   └── pubspec.yaml
 │
 ├── docs/
 │   ├── architecture/
 │   ├── api/
 │   ├── database/
-│   ├── deployment/
-│   └── user-guide/
+│   ├── security/
+│   ├── qa/
+│   └── deployment/
 │
-└── README.md
+├── .gitignore
+├── README.md
+└── MASTER_PROMPT.json

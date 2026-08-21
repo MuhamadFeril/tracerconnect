@@ -25,7 +25,7 @@ class AnnouncementController extends Controller
             ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->when($currentUser->hasRole('alumni'), fn ($query) => $query->visibleToAlumni($currentUser->institution_id))
             ->when($request->filled('search'), function ($query) use ($request) {
-                $search = trim((string) $request->search);
+                $search = addcslashes(trim((string) $request->search), '%_\\');
                 $query->where(fn ($q) => $q->where('title', 'like', "%{$search}%")->orWhere('body', 'like', "%{$search}%"));
             })
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))
@@ -41,6 +41,8 @@ class AnnouncementController extends Controller
 
     public function store(StoreAnnouncementRequest $request)
     {
+        $this->authorize('create', Announcement::class);
+
         $data = $request->validated();
 
         $announcement = Announcement::create([...$data, 'created_by' => $request->user()->id]);

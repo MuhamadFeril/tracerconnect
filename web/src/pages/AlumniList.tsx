@@ -127,7 +127,18 @@ function AlumniFormModal({
       birthplace_province: form.birthplace_province || null,
       company_name: form.company_name || null,
       position: form.position || null,
+      business_field: form.business_field || null,
+      business_start_year: form.business_start_year ? Number(form.business_start_year) : null,
       location: form.location || null,
+      work_province: form.work_province || null,
+      work_city: form.work_city || null,
+      study_institution: form.study_institution || null,
+      study_program: form.study_program || null,
+      study_entry_year: form.study_entry_year ? Number(form.study_entry_year) : null,
+      business_name: form.business_name || null,
+      business_address: form.business_address || null,
+      business_province: form.business_province || null,
+      business_city: form.business_city || null,
     }
     try {
       await saveAlumni.mutateAsync({ id: alumni?.id, payload })
@@ -244,15 +255,82 @@ function AlumniFormModal({
           <Field label="Alamat">
             <Input value={form.address ?? ''} onChange={(e) => set('address', e.target.value)} />
           </Field>
-          <Field label="Perusahaan">
-            <Input value={form.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} />
-          </Field>
-          <Field label="Jabatan">
-            <Input value={form.position ?? ''} onChange={(e) => set('position', e.target.value)} />
-          </Field>
-          <Field label="Lokasi Kerja">
-            <Input value={form.location ?? ''} onChange={(e) => set('location', e.target.value)} />
-          </Field>
+          {form.employment_status === 'working' && (
+            <>
+              <Field label="Perusahaan">
+                <Input value={form.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} />
+              </Field>
+              <Field label="Jabatan">
+                <Input value={form.position ?? ''} onChange={(e) => set('position', e.target.value)} />
+              </Field>
+              <Field label="Bidang Usaha / Industri">
+                <Input value={form.business_field ?? ''} onChange={(e) => set('business_field', e.target.value)} />
+              </Field>
+              <Field label="Tahun Mulai Bekerja">
+                <Input
+                  type="number"
+                  min={1990}
+                  value={form.business_start_year ?? ''}
+                  onChange={(e) => set('business_start_year', e.target.value || null)}
+                />
+              </Field>
+              <Field label="Provinsi Kerja">
+                <Input value={form.work_province ?? ''} onChange={(e) => set('work_province', e.target.value)} />
+              </Field>
+              <Field label="Kota Kerja">
+                <Input value={form.work_city ?? ''} onChange={(e) => set('work_city', e.target.value)} />
+              </Field>
+              <Field label="Lokasi Kerja">
+                <Input value={form.location ?? ''} onChange={(e) => set('location', e.target.value)} />
+              </Field>
+            </>
+          )}
+          {form.employment_status === 'continuing_study' && (
+            <>
+              <Field label="Kuliah di">
+                <Input value={form.study_institution ?? ''} onChange={(e) => set('study_institution', e.target.value)} placeholder="Contoh: Universitas Indonesia" />
+              </Field>
+              <Field label="Jurusan / Prodi">
+                <Input value={form.study_program ?? ''} onChange={(e) => set('study_program', e.target.value)} placeholder="Contoh: Teknik Informatika" />
+              </Field>
+              <Field label="Tahun Masuk Kuliah">
+                <Input
+                  type="number"
+                  min={1990}
+                  value={form.study_entry_year ?? ''}
+                  onChange={(e) => set('study_entry_year', e.target.value || null)}
+                  placeholder="Contoh: 2021"
+                />
+              </Field>
+            </>
+          )}
+          {form.employment_status === 'entrepreneur' && (
+            <>
+              <Field label="Nama Usaha">
+                <Input value={form.business_name ?? ''} onChange={(e) => set('business_name', e.target.value)} placeholder="Contoh: Toko Kopi Nusantara" />
+              </Field>
+              <Field label="Bidang Usaha">
+                <Input value={form.business_field ?? ''} onChange={(e) => set('business_field', e.target.value)} />
+              </Field>
+              <Field label="Tahun Mulai Usaha">
+                <Input
+                  type="number"
+                  min={1990}
+                  value={form.business_start_year ?? ''}
+                  onChange={(e) => set('business_start_year', e.target.value || null)}
+                />
+              </Field>
+              <Field label="Provinsi Usaha">
+                <Input value={form.business_province ?? ''} onChange={(e) => set('business_province', e.target.value)} />
+              </Field>
+              <Field label="Kota Usaha">
+                <Input value={form.business_city ?? ''} onChange={(e) => set('business_city', e.target.value)} />
+              </Field>
+              <Field label="Alamat Usaha">
+                <Input value={form.business_address ?? ''} onChange={(e) => set('business_address', e.target.value)} placeholder="Contoh: Jl. Raya No. 45, Jakarta Selatan" />
+              </Field>
+            </>
+          )}
         </div>
       </form>
     </Modal>
@@ -276,7 +354,18 @@ function initialForm(alumni?: Alumni | null) {
     employment_status: alumni?.employment_status ?? '',
     company_name: alumni?.company_name ?? '',
     position: alumni?.position ?? '',
+    business_field: alumni?.business_field ?? '',
+    business_start_year: alumni?.business_start_year ? String(alumni.business_start_year) : '',
     location: alumni?.location ?? '',
+    work_province: alumni?.work_province ?? '',
+    work_city: alumni?.work_city ?? '',
+    study_institution: alumni?.study_institution ?? '',
+    study_program: alumni?.study_program ?? '',
+    study_entry_year: alumni?.study_entry_year ? String(alumni.study_entry_year) : '',
+    business_name: alumni?.business_name ?? '',
+    business_address: alumni?.business_address ?? '',
+    business_province: alumni?.business_province ?? '',
+    business_city: alumni?.business_city ?? '',
   }
 }
 
@@ -338,7 +427,7 @@ export function AlumniList() {
         }
       />
 
-      <Card>
+      <Card className="animate-fade-in-up">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-4">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
@@ -388,8 +477,12 @@ export function AlumniList() {
                 <Th className="text-right">Aksi</Th>
               </THead>
               <TBody>
-                {rows.map((a) => (
-                  <TRow key={a.id}>
+                {rows.map((a, i) => (
+                  <TRow
+                    key={a.id}
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
+                  >
                     <Td className="font-mono text-xs">{a.nis_nim ?? '—'}</Td>
                     <Td>
                       <Link to={`/alumni/${a.id}`} className="font-medium text-slate-900 hover:text-indigo-600">

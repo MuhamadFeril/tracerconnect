@@ -12,10 +12,27 @@ class JobVacancyPolicy
         return $user->can('job.view');
     }
 
+    /**
+     * A vacancy is visible to its creator (employer), staff of its
+     * institution, and — for cross-school (institution-less) published
+     * vacancies — anyone holding the job.view permission (alumni included).
+     */
     public function view(User $user, JobVacancy $jobVacancy): bool
     {
-        return $user->can('job.view')
-            && ($user->hasRole('super_admin') || $user->institution_id === $jobVacancy->institution_id);
+        if (! $user->can('job.view')) {
+            return false;
+        }
+
+        if ($user->hasRole('super_admin') || $jobVacancy->created_by === $user->id) {
+            return true;
+        }
+
+        // Cross-school employer vacancies are announced to every school.
+        if ($jobVacancy->institution_id === null) {
+            return $jobVacancy->status === 'published' || $user->hasRole('employer');
+        }
+
+        return $user->institution_id === $jobVacancy->institution_id;
     }
 
     public function create(User $user): bool
@@ -26,12 +43,14 @@ class JobVacancyPolicy
     public function update(User $user, JobVacancy $jobVacancy): bool
     {
         return $user->can('job.update')
-            && ($user->hasRole('super_admin') || $user->institution_id === $jobVacancy->institution_id);
+            && ($user->hasRole('super_admin') || $jobVacancy->created_by === $user->id
+                || ($jobVacancy->institution_id !== null && $user->institution_id === $jobVacancy->institution_id));
     }
 
     public function delete(User $user, JobVacancy $jobVacancy): bool
     {
         return $user->can('job.delete')
-            && ($user->hasRole('super_admin') || $user->institution_id === $jobVacancy->institution_id);
+            && ($user->hasRole('super_admin') || $jobVacancy->created_by === $user->id
+                || ($jobVacancy->institution_id !== null && $user->institution_id === $jobVacancy->institution_id));
     }
 }

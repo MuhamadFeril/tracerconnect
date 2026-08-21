@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
@@ -27,26 +27,35 @@ import {
   Trash2,
   Upload,
   UserRound,
+  X,
 } from 'lucide-react'
 import { apiError } from '../lib/api'
 import { hasAdminRole, setSession } from '../lib/auth'
+import { useDebounce } from '../hooks/useDebounce'
+import type { LoginResponse } from '../lib/types'
 import {
   useDistricts,
   useInstitutionOptions,
   useProvinces,
   useRegister,
   useRegencies,
+  useResendOtp,
+  useStudyPrograms,
+  useUniversities,
   useUploadAvatar,
+  useVerifyOtp,
 } from '../hooks/queries'
 import { Button } from '../components/ui/Button'
-import { Logo } from '../components/ui/Logo'
+import { AuthLayout } from '../components/auth/AuthLayout'
+import { GoogleErrorNotice } from '../components/auth/GoogleErrorNotice'
+import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { useToast } from '../components/ui/Toast'
 
 /* ------------------------------------------------------------------ */
 /* Constants & data                                                    */
 /* ------------------------------------------------------------------ */
 
-const STEP_LABELS = ['Informasi Akun', 'Informasi lanjut', 'Status Karir']
+const STEP_LABELS = ['Informasi Akun', 'Informasi lanjut', 'Status Karir', 'Verifikasi']
 
 const DEPARTMENTS = [
   'Rekayasa Perangkat Lunak',
@@ -78,6 +87,22 @@ const SOCIAL_PLATFORMS = [
   { value: 'linkedin', label: 'LinkedIn', icon: Globe },
 ]
 
+interface CareerDetails {
+  companyName: string
+  position: string
+  businessField: string
+  businessStartYear: string
+  workProvince: string
+  workCity: string
+  studyInstitution: string
+  studyProgram: string
+  studyEntryYear: string
+  businessName: string
+  businessAddress: string
+  businessProvince: string
+  businessCity: string
+}
+
 const CAREERS = [
   { key: 'working', label: 'Bekerja', caption: 'Working', icon: Briefcase },
   { key: 'continuing_study', label: 'Kuliah', caption: 'Studying', icon: GraduationCap },
@@ -86,32 +111,32 @@ const CAREERS = [
   { key: 'active_student', label: 'Siswa Aktif', caption: 'Active Student', icon: BookOpen },
 ]
 
+/**
+ * Lightweight password strength meter used on the registration step 1.
+ * Scores 0–4 based on length, uppercase, digits, and symbols.
+ */
+function passwordStrength(pw: string): { score: number; label: string; bar: string; text: string } {
+  if (!pw) return { score: 0, label: '', bar: 'bg-slate-200', text: 'text-slate-400' }
+
+  let score = 0
+  if (pw.length >= 8) score++
+  if (/[A-Z]/.test(pw)) score++
+  if (/\d/.test(pw)) score++
+  if (/[^A-Za-z0-9]/.test(pw)) score++
+
+  const levels = [
+    { label: 'Lemah', bar: 'bg-rose-500', text: 'text-rose-500' },
+    { label: 'Cukup', bar: 'bg-amber-400', text: 'text-amber-500' },
+    { label: 'Kuat', bar: 'bg-emerald-400', text: 'text-emerald-600' },
+    { label: 'Sangat kuat', bar: 'bg-emerald-500', text: 'text-emerald-600' },
+  ]
+
+  return { score, ...levels[score - 1] }
+}
+
 /* ------------------------------------------------------------------ */
 /* Small building blocks                                               */
 /* ------------------------------------------------------------------ */
-
-function GoogleLogo() {
-  return (
-    <svg className="size-4.5" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84Z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52Z"
-      />
-    </svg>
-  )
-}
 
 function Stepper({ current }: { current: number }) {
   return (
@@ -257,6 +282,8 @@ function AccountStep({
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
 
+  const strength = passwordStrength(password)
+
   const passwordIcon = (open: boolean) =>
     open ? <EyeOff className="size-4" /> : <Eye className="size-4" />
 
@@ -315,6 +342,22 @@ function AccountStep({
                 {passwordIcon(showPassword)}
               </button>
             </div>
+            {password && (
+              <div className="mt-2 animate-fade-in-up">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={clsx(
+                        'h-1 flex-1 rounded-full transition-colors duration-300',
+                        i <= strength.score ? strength.bar : 'bg-slate-200',
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className={clsx('mt-1 text-[11px] font-medium', strength.text)}>{strength.label}</p>
+              </div>
+            )}
             <Helper>minimal 8 karakter</Helper>
             <FieldError message={errors.password} />
           </div>
@@ -393,14 +436,9 @@ function AccountStep({
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="secondary"
-          size="lg"
-          className="w-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-        >
-          <GoogleLogo /> Login dengan Google
-        </Button>
+        <GoogleSignInButton />
+
+        <GoogleErrorNotice />
       </div>
     </section>
   )
@@ -463,10 +501,25 @@ function InfoStep({
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Entry years: 1990 (matching the backend validation floor) up to the
+  // current year — older alumni can pick their real entry year.
   const years = useMemo(() => {
     const current = new Date().getFullYear()
-    return Array.from({ length: 12 }, (_, i) => String(current - i))
+    return Array.from({ length: current - 1989 }, (_, i) => String(current - i)).reverse()
   }, [])
+
+  // Graduation years follow the entry year: minimum entry + 3 (backend rule),
+  // up to entry + 6. The range is also extended to include the current year so
+  // recent graduates always have a valid option, while never showing years
+  // far in the future that don't relate to the chosen entry year.
+  const graduationYears = useMemo(() => {
+    const current = new Date().getFullYear()
+    const entry = form.yearIn ? Number(form.yearIn) : 0
+    const start = Math.max(1990, entry + 3)
+    const end = Math.max(current, entry + 6)
+    if (start > end) return []
+    return Array.from({ length: end - start + 1 }, (_, i) => String(start + i))
+  }, [form.yearIn])
 
   const selectClass = (invalid?: boolean) =>
     clsx(
@@ -635,7 +688,15 @@ function InfoStep({
               id="reg-year-in"
               name="entry_year"
               value={form.yearIn}
-              onChange={(e) => update({ yearIn: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                update({ yearIn: value })
+                // Reset graduation year when it's no longer valid for the new
+                // entry year (graduation must be >= entry + 3).
+                if (form.yearOut && (!value || Number(form.yearOut) < Number(value) + 3)) {
+                  update({ yearOut: '' })
+                }
+              }}
               className={clsx(selectClass(Boolean(errors.yearIn)), errors.yearIn && 'border-rose-400')}
             >
               <option value="">Pilih Tahun</option>
@@ -656,10 +717,17 @@ function InfoStep({
               name="graduation_year"
               value={form.yearOut}
               onChange={(e) => update({ yearOut: e.target.value })}
-              className={clsx(selectClass(Boolean(errors.yearOut)), errors.yearOut && 'border-rose-400')}
+              disabled={!form.yearIn}
+              className={clsx(
+                selectClass(Boolean(errors.yearOut)),
+                errors.yearOut && 'border-rose-400',
+                !form.yearIn && 'cursor-not-allowed opacity-60',
+              )}
             >
-              <option value="">Pilih Tahun</option>
-              {years.map((y) => (
+              <option value="">
+                {form.yearIn ? 'Pilih tahun lulus' : 'Pilih tahun masuk dahulu'}
+              </option>
+              {graduationYears.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
@@ -934,25 +1002,195 @@ function InfoStep({
 }
 
 /* ------------------------------------------------------------------ */
+/* Searchable university combobox (4.700+ kampus di seluruh Indonesia) */
+/* ------------------------------------------------------------------ */
+
+function UniversitySelect({
+  universities,
+  value,
+  onChange,
+  onSearch,
+  invalid,
+}: {
+  universities: { id: string; name: string; city: string | null }[]
+  value: string
+  onChange: (name: string) => void
+  onSearch: (query: string) => void
+  invalid?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return universities.slice(0, 60)
+    return universities
+      .filter((u) => u.name.toLowerCase().includes(q))
+      .slice(0, 80)
+  }, [universities, query])
+
+  return (
+    <div ref={wrapRef} className="relative mt-2">
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          role="combobox"
+          data-testid="university-input"
+          aria-expanded={open}
+          value={open ? query : value}
+          readOnly={!open}
+          placeholder="Ketik untuk mencari universitas…"
+          onFocus={() => {
+            setOpen(true)
+            setQuery('')
+            onSearch('')
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            onSearch(e.target.value)
+          }}
+          className={clsx(
+            'w-full rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900 placeholder:text-slate-400',
+            'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+            invalid ? 'border-rose-400' : 'border-slate-300',
+          )}
+        />
+        {value && !open ? (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            aria-label="Hapus universitas"
+            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:text-slate-600"
+          >
+            <X className="size-4" />
+          </button>
+        ) : (
+          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+        )}
+      </div>
+      {open && (
+        <div
+          data-testid="university-dropdown"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs text-slate-400">Universitas tidak ditemukan</p>
+          ) : (
+            filtered.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => {
+                  onChange(u.name)
+                  setOpen(false)
+                }}
+                className="block w-full border-b border-slate-50 px-3 py-2 text-left text-sm text-slate-800 transition-colors last:border-0 hover:bg-indigo-50"
+              >
+                {u.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* Step 3 — Status Karir                                                */
 /* ------------------------------------------------------------------ */
 
 function CareerStep({
   career,
   setCareer,
-  error,
+  details,
+  setDetails,
+  errors,
+  graduationYear,
 }: {
   career: string | null
   setCareer: (v: string) => void
-  error?: string
+  details: {
+    companyName: string
+    position: string
+    businessField: string
+    businessStartYear: string
+    workProvince: string
+    workCity: string
+    studyInstitution: string
+    studyProgram: string
+    studyEntryYear: string
+    businessName: string
+    businessAddress: string
+    businessProvince: string
+    businessCity: string
+  }
+  setDetails: (patch: Partial<CareerDetails>) => void
+  errors: Record<string, string>
+  graduationYear: string
 }) {
+  const provincesQuery = useProvinces()
+  const provinces = provincesQuery.data ?? []
+  const [workProvinceId, setWorkProvinceId] = useState('')
+  const [bizProvinceId, setBizProvinceId] = useState('')
+  const workRegenciesQuery = useRegencies(workProvinceId || null)
+  const bizRegenciesQuery = useRegencies(bizProvinceId || null)
+  const workRegencies = workRegenciesQuery.data ?? []
+  const bizRegencies = bizRegenciesQuery.data ?? []
+  const workCityId = workRegencies.find((r) => r.name === details.workCity)?.id ?? ''
+  const bizCityId = bizRegencies.find((r) => r.name === details.businessCity)?.id ?? ''
+
+  // The university combobox searches server-side (debounced) so the national
+  // dataset (5.000+ kampus) is never downloaded in one shot. When a campus has
+  // already been picked, also fetch it by name so its id stays resolvable for
+  // the study-program dropdown.
+  const [universitySearch, setUniversitySearch] = useState('')
+  const debouncedUniversitySearch = useDebounce(universitySearch, 300)
+  const universitiesQuery = useUniversities(
+    debouncedUniversitySearch || details.studyInstitution || undefined,
+  )
+  const universities = universitiesQuery.data ?? []
+  const selectedUniversityId =
+    universities.find((u) => u.name === details.studyInstitution)?.id ?? ''
+  const studyProgramsQuery = useStudyPrograms(selectedUniversityId || null)
+  const studyPrograms = studyProgramsQuery.data ?? []
+
+  // Years available for "tahun mulai bekerja/berusaha": 1990..current.
+  const workYears = useMemo(() => {
+    const current = new Date().getFullYear()
+    return Array.from({ length: current - 1989 }, (_, i) => String(current - i)).reverse()
+  }, [])
+
+  // Study entry years start at graduation + 3 (backend rule) so invalid
+  // options never appear; falls back to the recent years when the graduate
+  // hasn't filled in their graduation year yet.
+  const studyYears = useMemo(() => {
+    const current = new Date().getFullYear()
+    const graduation = graduationYear ? Number(graduationYear) : 0
+    const start = Math.max(1990, graduation ? graduation + 3 : current - 10)
+    const end = Math.max(current, graduation ? graduation + 6 : start)
+    return Array.from({ length: end - start + 1 }, (_, i) => String(start + i))
+  }, [graduationYear])
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="px-6 py-6">
         <h2 className="text-base font-bold tracking-tight text-slate-900">
           Seperti apa karir anda sekarang? <span className="text-rose-500">*</span>
         </h2>
-        {error && <p className="mt-1.5 text-xs font-medium text-rose-600">{error}</p>}
+        {errors.career && <p className="mt-1.5 text-xs font-medium text-rose-600">{errors.career}</p>}
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {CAREERS.map((item) => {
@@ -991,10 +1229,436 @@ function CareerStep({
           })}
         </div>
 
+        {/* Follow-up questions depend on the chosen status */}
+        {career === 'working' && (
+          <div className="mt-6 animate-fade-in-up space-y-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-5">
+            <h3 className="text-sm font-bold text-slate-800">Detail Pekerjaan</h3>
+            <div>
+              <Label label="Nama Perusahaan" htmlFor="reg-company" required />
+              <input
+                type="text"
+                id="reg-company"
+                value={details.companyName}
+                onChange={(e) => setDetails({ companyName: e.target.value })}
+                placeholder="Contoh: PT Maju Bersama"
+                className={clsx(
+                  'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.companyName ? 'border-rose-400' : 'border-slate-300',
+                )}
+              />
+              <FieldError message={errors.companyName} />
+            </div>
+            <div>
+              <Label label="Posisi / Jabatan" htmlFor="reg-position" required />
+              <input
+                type="text"
+                id="reg-position"
+                value={details.position}
+                onChange={(e) => setDetails({ position: e.target.value })}
+                placeholder="Contoh: Software Engineer"
+                className={clsx(
+                  'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.position ? 'border-rose-400' : 'border-slate-300',
+                )}
+              />
+              <FieldError message={errors.position} />
+            </div>
+            <div>
+              <Label label="Bidang Usaha / Industri" htmlFor="reg-business-field" required />
+              <input
+                type="text"
+                id="reg-business-field"
+                value={details.businessField}
+                onChange={(e) => setDetails({ businessField: e.target.value })}
+                placeholder="Contoh: Teknologi Informasi"
+                className={clsx(
+                  'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.businessField ? 'border-rose-400' : 'border-slate-300',
+                )}
+              />
+              <FieldError message={errors.businessField} />
+            </div>
+            <div>
+              <Label label="Tahun Mulai Bekerja" htmlFor="reg-work-start" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-work-start"
+                  value={details.businessStartYear}
+                  onChange={(e) => setDetails({ businessStartYear: e.target.value })}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.businessStartYear ? 'border-rose-400' : 'border-slate-300',
+                  )}
+                >
+                  <option value="">Pilih tahun mulai</option>
+                  {workYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.businessStartYear} />
+            </div>
+            <div>
+              <Label label="Provinsi Kerja" htmlFor="reg-work-province" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-work-province"
+                  value={workProvinceId}
+                  onChange={(e) => {
+                    const p = provinces.find((x) => String(x.id) === e.target.value)
+                    setWorkProvinceId(e.target.value)
+                    setDetails({ workProvince: p?.name ?? '', workCity: '' })
+                  }}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.workProvince ? 'border-rose-400' : 'border-slate-300',
+                  )}
+                >
+                  <option value="">Pilih provinsi</option>
+                  {provinces.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.workProvince} />
+            </div>
+            <div>
+              <Label label="Kota Kerja" htmlFor="reg-work-city" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-work-city"
+                  value={workCityId}
+                  disabled={!workProvinceId}
+                  onChange={(e) => {
+                    const r = workRegencies.find((x) => String(x.id) === e.target.value)
+                    setDetails({ workCity: r?.name ?? '' })
+                  }}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.workCity ? 'border-rose-400' : 'border-slate-300',
+                    !workProvinceId && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  <option value="">{workProvinceId ? 'Pilih kota' : 'Pilih provinsi dahulu'}</option>
+                  {workRegencies.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.workCity} />
+            </div>
+          </div>
+        )}
+
+        {career === 'continuing_study' && (
+          <div className="mt-6 animate-fade-in-up space-y-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-5">
+            <h3 className="text-sm font-bold text-slate-800">Detail Pendidikan Lanjutan</h3>
+            <div>
+              <Label label="Kuliah di mana?" htmlFor="reg-study-inst" required />
+              <UniversitySelect
+                universities={universities}
+                value={details.studyInstitution}
+                onChange={(name) => setDetails({ studyInstitution: name, studyProgram: '' })}
+                onSearch={setUniversitySearch}
+                invalid={Boolean(errors.studyInstitution)}
+              />
+              {universitiesQuery.isPending && (
+                <p className="mt-1.5 text-xs text-slate-400 italic">Memuat daftar universitas…</p>
+              )}
+              <FieldError message={errors.studyInstitution} />
+            </div>
+            <div>
+              <Label label="Jurusan / Prodi" htmlFor="reg-study-prog" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-study-prog"
+                  value={details.studyProgram}
+                  disabled={!selectedUniversityId}
+                  onChange={(e) => setDetails({ studyProgram: e.target.value })}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.studyProgram ? 'border-rose-400' : 'border-slate-300',
+                    !selectedUniversityId && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  <option value="">
+                    {!selectedUniversityId
+                      ? 'Pilih universitas dahulu'
+                      : studyProgramsQuery.isPending
+                        ? 'Memuat prodi…'
+                        : 'Pilih program studi'}
+                  </option>
+                  {studyPrograms.map((p) => (
+                    <option key={p.id} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.studyProgram} />
+            </div>
+            <div>
+              <Label label="Kapan masuk kuliah?" htmlFor="reg-study-year" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-study-year"
+                  value={details.studyEntryYear}
+                  onChange={(e) => setDetails({ studyEntryYear: e.target.value })}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.studyEntryYear ? 'border-rose-400' : 'border-slate-300',
+                  )}
+                >
+                  <option value="">
+                    {graduationYear
+                      ? `Pilih tahun masuk (minimal ${Number(graduationYear) + 3})`
+                      : 'Pilih tahun masuk kuliah'}
+                  </option>
+                  {studyYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.studyEntryYear} />
+            </div>
+          </div>
+        )}
+
+        {career === 'entrepreneur' && (
+          <div className="mt-6 animate-fade-in-up space-y-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-5">
+            <h3 className="text-sm font-bold text-slate-800">Detail Usaha</h3>
+            <div>
+              <Label label="Nama Usaha" htmlFor="reg-business" required />
+              <input
+                type="text"
+                id="reg-business"
+                value={details.businessName}
+                onChange={(e) => setDetails({ businessName: e.target.value })}
+                placeholder="Contoh: Kedai Kopi Sukses"
+                className={clsx(
+                  'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.businessName ? 'border-rose-400' : 'border-slate-300',
+                )}
+              />
+              <FieldError message={errors.businessName} />
+            </div>
+            <div>
+              <Label label="Bidang Usaha" htmlFor="reg-biz-field" required />
+              <input
+                type="text"
+                id="reg-biz-field"
+                value={details.businessField}
+                onChange={(e) => setDetails({ businessField: e.target.value })}
+                placeholder="Contoh: Kuliner"
+                className={clsx(
+                  'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.businessField ? 'border-rose-400' : 'border-slate-300',
+                )}
+              />
+              <FieldError message={errors.businessField} />
+            </div>
+            <div>
+              <Label label="Tahun Mulai Usaha" htmlFor="reg-biz-start" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-biz-start"
+                  value={details.businessStartYear}
+                  onChange={(e) => setDetails({ businessStartYear: e.target.value })}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.businessStartYear ? 'border-rose-400' : 'border-slate-300',
+                  )}
+                >
+                  <option value="">Pilih tahun mulai</option>
+                  {workYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.businessStartYear} />
+            </div>
+            <div>
+              <Label label="Provinsi Usaha" htmlFor="reg-biz-province" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-biz-province"
+                  value={bizProvinceId}
+                  onChange={(e) => {
+                    const p = provinces.find((x) => String(x.id) === e.target.value)
+                    setBizProvinceId(e.target.value)
+                    setDetails({ businessProvince: p?.name ?? '', businessCity: '' })
+                  }}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.businessProvince ? 'border-rose-400' : 'border-slate-300',
+                  )}
+                >
+                  <option value="">Pilih provinsi</option>
+                  {provinces.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.businessProvince} />
+            </div>
+            <div>
+              <Label label="Kota Usaha" htmlFor="reg-biz-city" required />
+              <div className="relative mt-2">
+                <select
+                  id="reg-biz-city"
+                  value={bizCityId}
+                  disabled={!bizProvinceId}
+                  onChange={(e) => {
+                    const r = bizRegencies.find((x) => String(x.id) === e.target.value)
+                    setDetails({ businessCity: r?.name ?? '' })
+                  }}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-3 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.businessCity ? 'border-rose-400' : 'border-slate-300',
+                    !bizProvinceId && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  <option value="">{bizProvinceId ? 'Pilih kota' : 'Pilih provinsi dahulu'}</option>
+                  {bizRegencies.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError message={errors.businessCity} />
+            </div>
+            <div>
+              <Label label="Alamat Usaha" htmlFor="reg-business-address" required />
+              <input
+                type="text"
+                id="reg-business-address"
+                value={details.businessAddress}
+                onChange={(e) => setDetails({ businessAddress: e.target.value })}
+                placeholder="Contoh: Jl. Raya No. 45, Jakarta Selatan"
+                className={clsx(
+                  'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.businessAddress ? 'border-rose-400' : 'border-slate-300',
+                )}
+              />
+              <FieldError message={errors.businessAddress} />
+            </div>
+          </div>
+        )}
+
         <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-4 text-center">
           <p className="text-sm text-slate-400 italic">
             Semangat! Tetaplah berusaha dan tingkatkan skill Anda.
           </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* OTP verification screen                                             */
+/* ------------------------------------------------------------------ */
+
+function OtpStep({
+  email,
+  onVerified,
+  onBack,
+}: {
+  email: string
+  onVerified: (data: LoginResponse) => void
+  onBack: () => void
+}) {
+  const verify = useVerifyOtp()
+  const resend = useResendOtp()
+  const toast = useToast()
+  const [otp, setOtp] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      const data = await verify.mutateAsync({ email, otp })
+      onVerified(data)
+    } catch (err) {
+      setError(apiError(err))
+    }
+  }
+
+  const onResend = async () => {
+    setError(null)
+    try {
+      await resend.mutateAsync({ email, purpose: 'register' })
+      toast('Kode OTP baru telah dikirim ke email Anda')
+    } catch {
+      toast('Gagal mengirim ulang OTP', 'error')
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <CardHeader icon={<ShieldCheck className="size-5" />} title="Verifikasi Email" step={4} />
+      <div className="space-y-5 px-6 py-6">
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-slate-600">
+          Kami telah mengirim kode OTP 6 digit ke <span className="font-semibold text-slate-800">{email}</span>.
+          Masukkan kode tersebut untuk mengaktifkan akun Anda.
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-5">
+          <div>
+            <Label label="Kode OTP" htmlFor="reg-otp" required />
+            <input
+              type="text"
+              id="reg-otp"
+              name="otp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••••"
+              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-center font-mono text-2xl tracking-[0.5em] text-slate-900 placeholder:text-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+            />
+          </div>
+
+          {error && <FieldError message={error} />}
+
+          <Button type="submit" size="lg" className="w-full" loading={verify.isPending}>
+            <ShieldCheck className="size-4" /> Verifikasi Akun
+          </Button>
+        </form>
+
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <button
+            type="button"
+            onClick={onResend}
+            disabled={resend.isPending}
+            className="font-semibold text-indigo-600 transition-colors hover:text-indigo-500 disabled:opacity-50"
+          >
+            {resend.isPending ? 'Mengirim…' : 'Kirim ulang kode'}
+          </button>
+          <button type="button" onClick={onBack} className="font-semibold text-slate-500 transition-colors hover:text-slate-700">
+            Ganti email
+          </button>
         </div>
       </div>
     </section>
@@ -1011,6 +1675,7 @@ export function Register() {
   const register = useRegister()
   const uploadAvatar = useUploadAvatar()
   const institutionsQuery = useInstitutionOptions()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [step, setStep] = useState(1)
   const [error, setError] = useState<string | null>(null)
@@ -1029,6 +1694,7 @@ export function Register() {
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [institutionId, setInstitutionId] = useState('')
+  const [pendingOtp, setPendingOtp] = useState<{ email: string } | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -1045,7 +1711,24 @@ export function Register() {
     skills: [] as string[],
     socials: [] as SocialRow[],
   })
+
+
   const [career, setCareer] = useState<string | null>(null)
+  const [careerDetails, setCareerDetails] = useState<CareerDetails>({
+    companyName: '',
+    position: '',
+    businessField: '',
+    businessStartYear: '',
+    workProvince: '',
+    workCity: '',
+    studyInstitution: '',
+    studyProgram: '',
+    studyEntryYear: '',
+    businessName: '',
+    businessAddress: '',
+    businessProvince: '',
+    businessCity: '',
+  })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
 
@@ -1106,8 +1789,8 @@ export function Register() {
       else if (form.nisn.trim().length !== 10) next.nisn = 'NISN harus tepat 10 karakter'
       if (!form.yearIn) next.yearIn = 'Pilih tahun masuk'
       if (!form.yearOut) next.yearOut = 'Pilih tahun lulus'
-      if (form.yearIn && form.yearOut && Number(form.yearOut) - Number(form.yearIn) < 2) {
-        next.yearOut = 'Tahun lulus minimal 2 tahun setelah tahun masuk'
+      if (form.yearIn && form.yearOut && Number(form.yearOut) - Number(form.yearIn) < 3) {
+        next.yearOut = 'Tahun lulus minimal 3 tahun setelah tahun masuk'
       }
       if (!provinceId) next.province = 'Pilih provinsi'
       if (!regencyId) next.birthplace = 'Pilih kabupaten/kota'
@@ -1116,7 +1799,36 @@ export function Register() {
       if (!form.address.trim()) next.address = 'Alamat wajib diisi'
     }
 
-    if (target === 3 && !career) next.career = 'Pilih salah satu status karir'
+    if (target === 3) {
+      if (!career) next.career = 'Pilih salah satu status karir'
+      if (career === 'working') {
+        if (!careerDetails.companyName.trim()) next.companyName = 'Nama perusahaan wajib diisi'
+        if (!careerDetails.position.trim()) next.position = 'Posisi wajib diisi'
+        if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
+        if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
+        if (!careerDetails.workProvince.trim()) next.workProvince = 'Pilih provinsi kerja'
+        if (!careerDetails.workCity.trim()) next.workCity = 'Pilih kota kerja'
+      }
+      if (career === 'continuing_study') {
+        if (!careerDetails.studyInstitution.trim()) next.studyInstitution = 'Pilih tempat kuliah'
+        if (!careerDetails.studyProgram.trim()) next.studyProgram = 'Pilih program studi'
+        if (!careerDetails.studyEntryYear) next.studyEntryYear = 'Pilih tahun masuk kuliah'
+        else if (
+          form.yearOut &&
+          Number(careerDetails.studyEntryYear) < Number(form.yearOut) + 3
+        ) {
+          next.studyEntryYear = 'Tahun masuk kuliah minimal 3 tahun setelah tahun lulus'
+        }
+      }
+      if (career === 'entrepreneur') {
+        if (!careerDetails.businessName.trim()) next.businessName = 'Nama usaha wajib diisi'
+        if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
+        if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
+        if (!careerDetails.businessAddress.trim()) next.businessAddress = 'Alamat usaha wajib diisi'
+        if (!careerDetails.businessProvince.trim()) next.businessProvince = 'Pilih provinsi usaha'
+        if (!careerDetails.businessCity.trim()) next.businessCity = 'Pilih kota usaha'
+      }
+    }
 
     setErrors(next)
     return Object.keys(next).length === 0
@@ -1168,21 +1880,31 @@ export function Register() {
           : undefined,
         skills: form.skills.length ? form.skills : undefined,
         employment_status: career ?? undefined,
+        company_name: career === 'working' ? careerDetails.companyName.trim() || undefined : undefined,
+        position: career === 'working' ? careerDetails.position.trim() || undefined : undefined,
+        business_field: career === 'working' || career === 'entrepreneur'
+          ? careerDetails.businessField.trim() || undefined
+          : undefined,
+        business_start_year: career === 'working' || career === 'entrepreneur'
+          ? (careerDetails.businessStartYear ? Number(careerDetails.businessStartYear) : undefined)
+          : undefined,
+        work_province: career === 'working' ? careerDetails.workProvince.trim() || undefined : undefined,
+        work_city: career === 'working' ? careerDetails.workCity.trim() || undefined : undefined,
+        study_institution: career === 'continuing_study' ? careerDetails.studyInstitution.trim() || undefined : undefined,
+        study_program: career === 'continuing_study' ? careerDetails.studyProgram.trim() || undefined : undefined,
+        study_entry_year: career === 'continuing_study' && careerDetails.studyEntryYear
+          ? Number(careerDetails.studyEntryYear)
+          : undefined,
+        business_name: career === 'entrepreneur' ? careerDetails.businessName.trim() || undefined : undefined,
+        business_address: career === 'entrepreneur' ? careerDetails.businessAddress.trim() || undefined : undefined,
+        business_province: career === 'entrepreneur' ? careerDetails.businessProvince.trim() || undefined : undefined,
+        business_city: career === 'entrepreneur' ? careerDetails.businessCity.trim() || undefined : undefined,
       })
 
-      setSession(data.token, data.user)
-
-      // Upload the chosen profile photo right after registration succeeds.
-      if (photoFile) {
-        try {
-          await uploadAvatar.mutateAsync(photoFile)
-        } catch {
-          // Non-fatal: account was created; photo can be set later from Profile.
-          toast('Akun dibuat, tetapi foto gagal diunggah', 'error')
-        }
-      }
-
-      navigate(hasAdminRole(data.user) ? '/dashboard' : '/home', { replace: true })
+      // Registration now requires email verification via OTP — show the OTP
+      // screen instead of logging straight in.
+      setPendingOtp({ email: data.email })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       setError(apiError(err))
     } finally {
@@ -1190,39 +1912,64 @@ export function Register() {
     }
   }
 
+  const handleOtpVerified = async (data: LoginResponse) => {
+    setSession(data.token, data.user)
+
+    // Upload the chosen profile photo right after verification succeeds.
+    if (photoFile) {
+      try {
+        await uploadAvatar.mutateAsync(photoFile)
+      } catch {
+        // Non-fatal: account was created; photo can be set later from Profile.
+        toast('Akun dibuat, tetapi foto gagal diunggah', 'error')
+      }
+    }
+
+    navigate(hasAdminRole(data.user) ? '/dashboard' : '/home', { replace: true })
+  }
+
   const institutions = institutionsQuery.data ?? []
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
-      {/* Top bar */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <Link to="/" className="flex min-w-0 items-center gap-3">
-            <Logo className="size-10 shrink-0" />
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">TracerConnect</p>
-              <p className="hidden truncate text-[11px] text-slate-400 sm:block">Pendaftaran Alumni</p>
-            </div>
-          </Link>
-          <Link
-            to="/login"
-            className="shrink-0 text-[13px] font-medium whitespace-nowrap text-slate-500 transition-colors hover:text-slate-900"
-          >
-            <span className="hidden sm:inline">Sudah punya akun? </span>Masuk →
-          </Link>
+    <AuthLayout wide>
+      <StepHeader step={step} />
+
+      <div className="mt-8">
+        <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 px-5 py-4">
+          <p className="text-sm font-semibold text-indigo-800">Daftar gratis sebagai alumni</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+            Lengkapi data diri Anda dalam 3 langkah untuk terhubung dengan sesama alumni dan
+            mengikuti tracer study institusi Anda.
+          </p>
         </div>
-      </header>
+      </div>
 
-      <main className="mx-auto max-w-5xl px-4 pt-10 sm:px-6">
-        <StepHeader step={step} />
-
-        <form className="mt-10 space-y-6" onSubmit={onSubmit}>
+      {pendingOtp ? (
+        <div className="mt-8">
+          <OtpStep
+            email={pendingOtp.email}
+            onVerified={handleOtpVerified}
+            onBack={() => setPendingOtp(null)}
+          />
+          <div className="mt-6 text-center">
+            <p className="text-sm text-slate-500">
+              Sudah punya akun?{' '}
+              <Link to="/login" className="font-semibold text-indigo-600 transition-colors hover:text-indigo-500">
+                Masuk sekarang
+              </Link>
+            </p>
+          </div>
+        </div>
+      ) : (
+      <form className="mt-8 space-y-6" onSubmit={onSubmit}>
           {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="animate-fade-in-up rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
             </div>
           )}
 
+          {/* Step content re-animates whenever the step changes */}
+          <div key={step} className="animate-fade-in-up">
           {step === 1 && (
             <AccountStep
               email={email}
@@ -1258,11 +2005,19 @@ export function Register() {
           )}
 
           {step === 3 && (
-            <CareerStep career={career} setCareer={setCareer} error={errors.career} />
+            <CareerStep
+              career={career}
+              setCareer={setCareer}
+              details={careerDetails}
+              setDetails={(patch) => setCareerDetails((d) => ({ ...d, ...patch }))}
+              errors={errors}
+              graduationYear={form.yearOut}
+            />
           )}
+          </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between">
+          <div className="flex animate-fade-in-up items-center justify-between" style={{ animationDelay: '120ms' }}>
             <Button variant="secondary" type="button" onClick={goBack} disabled={step === 1 || submitting} className="border-slate-300">
               <ArrowLeft className="size-4" /> Kembali
             </Button>
@@ -1282,8 +2037,15 @@ export function Register() {
             <a href="#syarat" className="underline hover:text-slate-600">Syarat &amp; Ketentuan</a> dan{' '}
             <a href="#privasi" className="underline hover:text-slate-600">Kebijakan Privasi</a> TracerConnect.
           </p>
+
+          <p className="text-center text-sm text-slate-500">
+            Sudah punya akun?{' '}
+            <Link to="/login" className="font-semibold text-indigo-600 transition-colors hover:text-indigo-500">
+              Masuk sekarang
+            </Link>
+          </p>
         </form>
-      </main>
-    </div>
+      )}
+    </AuthLayout>
   )
 }

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, MapPin, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { CalendarDays, MapPin, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
 import { apiError } from '../lib/api'
-import { useEventMutations, useEvents } from '../hooks/queries'
+import { useEventMutations, useEventParticipants, useEvents, useInstitutionOptions, useMarkAttended } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
-import type { EventItem } from '../lib/types'
+import { getUser } from '../lib/auth'
+import type { EventItem, EventParticipant, InstitutionOption } from '../lib/types'
 import { formatDateTime } from '../lib/format'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
@@ -30,6 +31,7 @@ function initialForm(event?: EventItem | null) {
     starts_at: toDatetimeLocal(event?.starts_at ?? null),
     ends_at: toDatetimeLocal(event?.ends_at ?? null),
     status: event?.status ?? 'draft',
+    institution_id: event?.institution_id ?? '',
   }
 }
 
@@ -37,10 +39,14 @@ function EventFormModal({
   open,
   onClose,
   event,
+  institutions,
+  isSuperAdmin,
 }: {
   open: boolean
   onClose: () => void
   event?: EventItem | null
+  institutions: InstitutionOption[]
+  isSuperAdmin: boolean
 }) {
   const mutations = useEventMutations()
   const toast = useToast()
@@ -61,11 +67,22 @@ function EventFormModal({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    // Super admin must pick the target institution (everyone else is
+    // auto-scoped to their own institution on the backend).
+    if (!event && isSuperAdmin && !form.institution_id) {
+      setError('Pilih institusi terlebih dahulu')
+      return
+    }
+
     const payload = {
       ...form,
       description: form.description || null,
       location: form.location || null,
       ends_at: form.ends_at || null,
+      // institution_id is only sent on create; updates never move an
+      // event between institutions.
+      ...(isSuperAdmin && !event ? { institution_id: form.institution_id } : {}),
     }
     try {
       if (event) {
@@ -101,6 +118,22 @@ function EventFormModal({
     >
       <form id="event-form" onSubmit={onSubmit} className="space-y-4">
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</div>}
+        {isSuperAdmin && !event && (
+          <Field label="Institusi" required>
+            <Select
+              name="institution_id"
+              value={form.institution_id}
+              onChange={(e) => set('institution_id', e.target.value)}
+            >
+              <option value="">Pilih institusi…</option>
+              {institutions.map((institution) => (
+                <option key={institution.id} value={institution.id}>
+                  {institution.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="Nama Acara" required>
           <Input required name="title" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Contoh: Career Day 2026" />
         </Field>
@@ -129,12 +162,92 @@ function EventFormModal({
   )
 }
 
+function ParticipantsModal({
+  event,
+  onClose,
+}: {
+  event: EventItem | null
+  onClose: () => void
+}) {
+  const [page, setPage] = useState(1)
+  const { data, isPending, isError, refetch } = useEventParticipants(event?.id ?? '', { page, per_page: 50 })
+  const participants = data?.data ?? []
+
+  return (
+    <Modal
+      open={Boolean(event)}
+      onClose={onClose}
+      title="Daftar Peserta"
+      description={event ? `Peserta acara ${event.title}` : undefined}
+      size="lg"
+    >
+      {isPending ? (
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState message="Gagal memuat peserta" onRetry={() => refetch()} />
+      ) : participants.length === 0 ? (
+        <EmptyState title="Belum ada peserta" description="Belum ada alumni yang mendaftar acara ini." />
+      ) : (
+        <>
+          <div className="divide-y divide-slate-100">
+            {participants.map((participant) => (
+              <ParticipantRow key={participant.id} eventId={event!.id} participant={participant} />
+            ))}
+          </div>
+          <Pagination meta={data?.meta} onPageChange={setPage} />
+        </>
+      )}
+    </Modal>
+  )
+}
+
+function ParticipantRow({ eventId, participant }: { eventId: string; participant: EventParticipant }) {
+  const toast = useToast()
+  const markAttended = useMarkAttended(eventId, participant.id)
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-slate-800">
+          {participant.alumni?.name ?? participant.user?.name ?? '—'}
+        </p>
+        {participant.alumni?.department && (
+          <p className="text-xs text-slate-400">
+            {participant.alumni.department}
+            {participant.alumni.graduation_year ? ` · ${participant.alumni.graduation_year}` : ''}
+          </p>
+        )}
+      </div>
+      <Button
+        size="sm"
+        variant={participant.attended ? 'secondary' : 'primary'}
+        onClick={async () => {
+          try {
+            await markAttended.mutateAsync(!participant.attended)
+            toast(participant.attended ? 'Kehadiran dibatalkan' : 'Peserta ditandai hadir')
+          } catch (err) {
+            toast(apiError(err), 'error')
+          }
+        }}
+        loading={markAttended.isPending}
+      >
+        {participant.attended ? 'Hadir' : 'Tandai Hadir'}
+      </Button>
+    </div>
+  )
+}
+
 export function Events() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search)
   const [status, setStatus] = useState('')
   const [upcoming, setUpcoming] = useState(false)
   const [page, setPage] = useState(1)
+
+  const currentUser = getUser()
+  const isSuperAdmin = currentUser?.roles?.includes('super_admin') ?? false
+  const institutionsQuery = useInstitutionOptions()
+  const institutions = institutionsQuery.data ?? []
 
   const { data, isPending, isError, refetch } = useEvents({
     search: debouncedSearch || undefined,
@@ -148,6 +261,7 @@ export function Events() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<EventItem | null>(null)
   const [deleting, setDeleting] = useState<EventItem | null>(null)
+  const [viewingParticipants, setViewingParticipants] = useState<EventItem | null>(null)
 
   const rows = useMemo(() => data?.data ?? [], [data])
 
@@ -216,6 +330,7 @@ export function Events() {
                 <Th>Mulai</Th>
                 <Th>Lokasi</Th>
                 <Th>Status</Th>
+                <Th>Peserta</Th>
                 <Th className="text-right">Aksi</Th>
               </THead>
               <TBody>
@@ -240,6 +355,16 @@ export function Events() {
                       )}
                     </Td>
                     <Td><StatusBadge status={ev.status} /></Td>
+                    <Td>
+                      <button
+                        onClick={() => setViewingParticipants(ev)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+                        title="Lihat peserta"
+                      >
+                        <Users className="size-3.5" />
+                        {ev.participants_count ?? 0}
+                      </button>
+                    </Td>
                     <Td>
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -272,7 +397,11 @@ export function Events() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         event={editing}
+        institutions={institutions}
+        isSuperAdmin={isSuperAdmin}
       />
+
+      <ParticipantsModal event={viewingParticipants} onClose={() => setViewingParticipants(null)} />
 
       <ConfirmDialog
         open={Boolean(deleting)}

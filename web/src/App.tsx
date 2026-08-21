@@ -5,9 +5,12 @@ import { AdminLayout } from './layouts/AdminLayout'
 import { Landing } from './pages/landing/Landing'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
+import { GoogleCallback } from './pages/GoogleCallback'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { ResetPassword } from './pages/ResetPassword'
 import { Profile } from './pages/Profile'
+import { Pengaturan } from './pages/Pengaturan'
+import { Bantuan } from './pages/Bantuan'
 import { LoadingState } from './components/ui/StateViews'
 
 // Code-split pages so the heavy charting bundle only loads on demand.
@@ -25,21 +28,33 @@ const Institutions = lazy(() => import('./pages/Institutions').then((m) => ({ de
 const Users = lazy(() => import('./pages/Users').then((m) => ({ default: m.Users })))
 const Roles = lazy(() => import('./pages/Roles').then((m) => ({ default: m.Roles })))
 const Announcements = lazy(() => import('./pages/Announcements').then((m) => ({ default: m.Announcements })))
+const SuccessStories = lazy(() => import('./pages/SuccessStories').then((m) => ({ default: m.SuccessStories })))
 const Events = lazy(() => import('./pages/Events').then((m) => ({ default: m.Events })))
 const Jobs = lazy(() => import('./pages/Jobs').then((m) => ({ default: m.Jobs })))
-const Applications = lazy(() => import('./pages/Applications').then((m) => ({ default: m.Applications })))
+const JobApplicants = lazy(() => import('./pages/JobApplicants').then((m) => ({ default: m.JobApplicants })))
 const AlumniHome = lazy(() => import('./pages/alumni/AlumniHome').then((m) => ({ default: m.AlumniHome })))
 const AlumniAnnouncements = lazy(() => import('./pages/alumni/AlumniAnnouncements').then((m) => ({ default: m.AlumniAnnouncements })))
+const AlumniSuccessStories = lazy(() => import('./pages/alumni/AlumniSuccessStories').then((m) => ({ default: m.AlumniSuccessStories })))
+const AlumniSuccessStoryDetail = lazy(() => import('./pages/alumni/AlumniSuccessStoryDetail').then((m) => ({ default: m.AlumniSuccessStoryDetail })))
 const AlumniEvents = lazy(() => import('./pages/alumni/AlumniEvents').then((m) => ({ default: m.AlumniEvents })))
 const AlumniJobs = lazy(() => import('./pages/alumni/AlumniJobs').then((m) => ({ default: m.AlumniJobs })))
+const AlumniJobDetail = lazy(() => import('./pages/alumni/AlumniJobDetail').then((m) => ({ default: m.AlumniJobDetail })))
 const MyApplications = lazy(() => import('./pages/alumni/MyApplications').then((m) => ({ default: m.MyApplications })))
 const Notifications = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.Notifications })))
 const AlumniSurveys = lazy(() => import('./pages/alumni/AlumniSurveys').then((m) => ({ default: m.AlumniSurveys })))
 const AlumniSurveyFill = lazy(() => import('./pages/alumni/AlumniSurveyFill').then((m) => ({ default: m.AlumniSurveyFill })))
 const AlumniSurveyResult = lazy(() => import('./pages/alumni/AlumniSurveyResult').then((m) => ({ default: m.AlumniSurveyResult })))
+const Networking = lazy(() => import('./pages/alumni/Networking').then((m) => ({ default: m.Networking })))
+const NetworkingDetail = lazy(() => import('./pages/alumni/NetworkingDetail').then((m) => ({ default: m.NetworkingDetail })))
+const Chat = lazy(() => import('./pages/chat/Chat').then((m) => ({ default: m.Chat })))
 
 function Page({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<LoadingState label="Memuat halaman…" />}>{children}</Suspense>
+  return (
+    <Suspense fallback={<LoadingState label="Memuat halaman…" />}>
+      {/* Every routed page fades in on mount for a consistent feel. */}
+      <div className="animate-fade-in-up">{children}</div>
+    </Suspense>
+  )
 }
 
 export default function App() {
@@ -51,6 +66,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/google/callback" element={<GoogleCallback />} />
 
       {/* Authenticated admin area */}
       <Route
@@ -74,21 +90,31 @@ export default function App() {
         <Route path="/users" element={<Page><Users /></Page>} />
         <Route path="/roles" element={<Page><Roles /></Page>} />
         <Route path="/announcements" element={<Page><Announcements /></Page>} />
+        <Route path="/success-stories" element={<Page><SuccessStories /></Page>} />
         <Route path="/events" element={<Page><Events /></Page>} />
         <Route path="/jobs" element={<Page><Jobs /></Page>} />
-        <Route path="/applications" element={<Page><Applications /></Page>} />
+        <Route path="/jobs/:id/applicants" element={<Page><JobApplicants /></Page>} />
         <Route path="/notifications" element={<Page><Notifications /></Page>} />
         {/* Alumni portal */}
         <Route path="/home" element={<Page><AlumniHome /></Page>} />
         <Route path="/pengumuman" element={<Page><AlumniAnnouncements /></Page>} />
+        <Route path="/kisah-sukses" element={<Page><AlumniSuccessStories /></Page>} />
+        <Route path="/kisah-sukses/:id" element={<Page><AlumniSuccessStoryDetail /></Page>} />
         <Route path="/acara" element={<Page><AlumniEvents /></Page>} />
         <Route path="/lowongan" element={<Page><AlumniJobs /></Page>} />
-        <Route path="/lamaran" element={<Page><MyApplications /></Page>} />
+        <Route path="/lowongan/:id" element={<Page><AlumniJobDetail /></Page>} />
+        <Route path="/applications" element={<Page><MyApplications /></Page>} />
         <Route path="/notifikasi" element={<Page><Notifications /></Page>} />
         <Route path="/kuisioner" element={<Page><AlumniSurveys /></Page>} />
         <Route path="/kuisioner/hasil/:responseId" element={<Page><AlumniSurveyResult /></Page>} />
         <Route path="/kuisioner/:surveyId" element={<Page><AlumniSurveyFill /></Page>} />
+        <Route path="/jejaring" element={<Page><Networking /></Page>} />
+        <Route path="/jejaring/:id" element={<Page><NetworkingDetail /></Page>} />
+        <Route path="/chat" element={<Page><Chat /></Page>} />
+        <Route path="/chat/:conversationId" element={<Page><Chat /></Page>} />
         <Route path="/profile" element={<Page><Profile /></Page>} />
+        <Route path="/pengaturan" element={<Page><Pengaturan /></Page>} />
+        <Route path="/bantuan" element={<Page><Bantuan /></Page>} />
         {/* Backward-compatible alias for the old settings URL */}
         <Route path="/settings" element={<Page><Profile /></Page>} />
       </Route>

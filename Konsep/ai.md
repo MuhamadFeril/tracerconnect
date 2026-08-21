@@ -1,1558 +1,2277 @@
-
-
-
-
-
-Klaim penawaran
-48509c69-eef1-4ae8-a472-46bb64344a2a.png
-
-Memproses selama 12s
-Analisis dihentikan sebentar
-
-Analisis dihentikan sebentar
-Sudah. Karena struktur kamu sekarang:
-
-Tracerconnect/
-├── backend/     ← Laravel sudah benar
-├── frontend/    ← akan dibuat React + Tailwind
-└── mobile/      ← akan dibuat Flutter
-Saya buatkan script bootstrap untuk menyiapkan frontend + mobile sekaligus, termasuk dependency, struktur dasar, Axios, routing React, Tailwind, Dio, Riverpod, secure storage, dan pengecekan build/analyze.
-
-Download setup_tracerconnect_frontend_mobile.ps1
-
-Cara menjalankan
-Buka PowerShell:
-
-cd D:\laragon\www\Tracerconnect
-Lalu izinkan script untuk sesi tersebut:
-
-Set-ExecutionPolicy -Scope Process Bypass
-Jalankan:
-
-.\setup_tracerconnect_frontend_mobile.ps1
-Script akan membuat:
-
-Tracerconnect/
-│
-├── backend/
-│   └── Laravel 13
-│
-├── frontend/
-│   ├── src/
-│   │   ├── lib/
-│   │   │   └── api.js
-│   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   └── Dashboard.jsx
-│   │   ├── routes/
-│   │   │   └── AppRouter.jsx
-│   │   ├── App.jsx
-│   │   └── index.css
-│   ├── .env
-│   ├── vite.config.js
-│   └── package.json
-│
-└── mobile/
-    ├── lib/
-    │   ├── core/
-    │   │   ├── network/
-    │   │   │   └── api_client.dart
-    │   │   └── storage/
-    │   │       └── token_storage.dart
-    │   ├── features/
-    │   │   ├── auth/
-    │   │   │   └── login_page.dart
-    │   │   └── dashboard/
-    │   │       └── dashboard_page.dart
-    │   └── main.dart
-    └── pubspec.yaml
-Setelah selesai, gunakan 3 terminal.
-
-Terminal 1 — Laravel
-cd D:\laragon\www\Tracerconnect\backend
-php artisan serve
-API:
-
-http://127.0.0.1:8000
-Terminal 2 — React
-cd D:\laragon\www\Tracerconnect\frontend
-npm run dev
-Buka:
-
-http://localhost:5173
-Terminal 3 — Flutter
-cd D:\laragon\www\Tracerconnect\mobile
-flutter run
-Untuk Android Emulator, Flutter sudah diarahkan ke:
-
-http://10.0.2.2:8000/api/v1
-10.0.2.2 berarti localhost komputer dari sudut pandang Android Emulator.
-
-Urutan pengerjaan setelah ini
-Jangan langsung membuat semua halaman.
-
-Kita lanjut dengan urutan:
-
-1. Laravel
-   ↓
-2. MySQL + .env
-   ↓
-3. Sanctum
-   ↓
-4. Spatie Permission
-   ↓
-5. UUID
-   ↓
-6. User + Role
-   ↓
-7. Institution
-   ↓
-8. Alumni
-   ↓
-9. API Authentication
-   ↓
-10. React Login
-   ↓
-11. React Dashboard
-   ↓
-12. Flutter Login
-   ↓
-13. Flutter Dashboard
-   ↓
-14. Questionnaire Engine
-   ↓
-15. Tracer Response
-   ↓
-16. Analytics
-   ↓
-17. Career Center / Job Board
-Untuk TracerConnect, Career Center/job board tetap masuk roadmap, sehingga alumni nantinya bukan cuma mengisi kuesioner, tetapi juga bisa mencari, menyimpan, dan melamar lowongan serta melihat status lamaran.
-
-
-setup_tracerconnect_frontend_mobile.ps1
-File
-
-
-hari ini 19.35
-buatkan json prompt super lengkap semua instruksi di data pada file tersendiri .     frontend backend dan mobile    ini masih belum ada untuk tampilan landing page nya
-
-Sudah. Saya buatkan JSON Master Prompt super lengkap untuk seluruh TracerConnect:
-
-Backend Laravel 13 + MySQL + Sanctum + Spatie Permission
-
-Frontend React + Vite + Tailwind
-
-Landing Page lengkap
-
-Admin dashboard
-
-Questionnaire Builder
-
-Tracer Study
-
-Alumni Management
-
-Analytics
-
-Report
-
-Career Center
-
-Job Board
-
-Event Alumni
-
-Notification
-
-Flutter Mobile
-
-Authentication
-
-RBAC
-
-UUID
-
-Multi-institution/tenant isolation
-
-Shared hosting deployment
-
-Testing
-
-Vibe-coding protocol
-
-Development phases
-
-Acceptance criteria
-
-VPS tidak dijadikan requirement.
-
-File
-Download TracerConnect_Master_Prompt.json
-
-Struktur utamanya:
-
-TracerConnect_Master_Prompt.json
-│
-├── project
-├── master_ai_instruction
-├── repository
-├── stack
-├── product
-│
-├── landing_page              ← sudah dimasukkan
-│   ├── navbar
-│   ├── hero
-│   ├── trust
-│   ├── problem
-│   ├── solution
-│   ├── features
-│   ├── workflow
-│   ├── analytics
-│   ├── mobile
-│   ├── career center
-│   ├── pricing
-│   ├── testimonial
-│   ├── FAQ
-│   ├── CTA
-│   └── footer
-│
-├── backend
-│   ├── modules
-│   ├── roles
-│   ├── entities
-│   ├── database rules
-│   ├── API
-│   ├── questionnaire engine
-│   ├── analytics
-│   └── security
-│
-├── frontend
-│   ├── public routes
-│   ├── authenticated routes
-│   ├── components
-│   ├── dashboard
-│   └── questionnaire builder
-│
-├── mobile
-│   ├── screens
-│   ├── alumni home
-│   ├── survey UX
-│   ├── architecture
-│   └── networking
-│
-├── authentication
-├── shared_hosting
-├── testing
-├── phases
-├── commands
-└── final_acceptance
-Jadi file ini bisa dijadikan context/master instruction utama untuk AI coding sebelum mulai melakukan vibecoding TracerConnect. 
-
-
-TracerConnect_Master_Prompt.json
-Kode
-
-
-ohyah ini msaih belum bisa update foto profile lalu belum menggunakan register login
-
-Betul. Itu memang harus masuk requirement inti, bukan sekadar tambahan UI.
-
-Saya sudah update master JSON menjadi v2, khusus menambahkan:
-
-Authentication
-Landing
-   ↓
-Register
-   ↓
-Login
-   ↓
-Dashboard
-Termasuk:
-
-Register alumni
-
-Login
-
-Logout
-
-Forgot password
-
-Reset password
-
-Current user /me
-
-Role dari backend
-
-Password hashing
-
-Secure token storage Flutter
-
-Protected routes
-
-Auth error handling
-
-Profile
-Sekarang ada requirement:
-
-Profile
-├── Nama
-├── Email
-├── No. HP
-├── Alamat
-├── Bio
-├── Data alumni
-├── Foto profile
-│   ├── Upload
-│   ├── Preview
-│   ├── Ganti
-│   ├── Hapus
-│   └── Fallback initials
-└── Ganti password
-API yang direncanakan:
-
-POST   /api/v1/auth/register
-POST   /api/v1/auth/login
-POST   /api/v1/auth/forgot-password
-POST   /api/v1/auth/reset-password
-POST   /api/v1/auth/logout
-
-GET    /api/v1/me
-PUT    /api/v1/me/profile
-POST   /api/v1/me/avatar
-DELETE /api/v1/me/avatar
-PUT    /api/v1/me/password
-Upload foto menggunakan:
-
-multipart/form-data
-dengan validasi:
-
-jpg
-jpeg
-png
-webp
-max 2 MB
-MIME validation
-extension validation
-safe filename
-Dan sudah dimasukkan juga requirement supaya benar-benar kompatibel dengan shared hosting, termasuk Laravel filesystem/storage.
-
-Untuk React:
-
-/register
-/login
-/forgot-password
-/reset-password
-/profile
-/settings/profile
-Untuk Flutter:
-
-Register
-Login
-Forgot Password
-Reset Password
-Profile
-Edit Profile
-Change Password
-Upload Avatar
-File terbaru
-Download TracerConnect Master Prompt v2 — Auth & Profile
-
-Ini yang sebaiknya kamu gunakan sebagai master context untuk vibecoding, bukan file JSON versi sebelumnya. 
-
-
-TracerConnect_Master_Prompt_v2_AUTH_PROFILE.json
-Kode
-
-
-Perpustakaan
-/
-TracerConnect_Master_Prompt_v2_AUTH_PROFILE.json
-
-
 {
-  "project": {
-    "name": "TracerConnect",
-    "type": "Tracer Study & Alumni Engagement SaaS",
-    "goal": "Membangun platform tracer study untuk sekolah, kampus, dan lembaga pendidikan yang mengelola alumni, kuisioner dinamis, respons, analitik, laporan, career center, dan engagement alumni.",
-    "current_environment": "Local computer",
-    "deployment_target": "Shared hosting",
-    "vps": "Future optional only; never make VPS infrastructure a mandatory dependency"
+  "meta": {
+    "name": "TracerConnect Master Blueprint",
+    "version": "MASTER-QA-FINAL-3.0.0",
+    "purpose": "Single source of truth untuk vibe coding backend, frontend, mobile, database, UX, deployment, testing, dan fitur bisnis.",
+    "language": "id-ID",
+    "status": "QA_AND_SECURITY_RELEASE_GATE"
   },
-  "master_ai_instruction": {
-    "role": "Senior full-stack architect, Laravel developer, React developer, Flutter developer, UI/UX designer, database architect, API designer, security engineer, QA engineer, and technical writer.",
-    "rules": [
-      "Baca struktur project sebelum mengubah kode.",
-      "Backend adalah source of truth; frontend dan mobile hanya client.",
-      "Jangan membuat endpoint, database field, role, atau business rule palsu tanpa menandainya sebagai planned.",
-      "Sebelum membuat file baru, cek apakah fungsi serupa sudah ada.",
-      "Gunakan reusable components dan service/repository yang masuk akal.",
-      "Jangan hardcode secret, password, token, API key, atau production URL.",
-      "Semua input harus divalidasi di backend.",
-      "Semua protected resource harus memiliki authorization.",
-      "Jangan mengandalkan frontend untuk security atau tenant isolation.",
-      "Setelah perubahan penting jalankan lint, build, analyze, test, atau command validasi yang relevan.",
-      "Jangan mengklaim test/build berhasil jika belum benar-benar dijalankan.",
-      "Prioritaskan kompatibilitas shared hosting.",
-      "Jangan mewajibkan Docker, Redis, Supervisor, VPS, atau persistent worker.",
-      "Jika error muncul, cari root cause sebelum membuat workaround.",
-      "Jangan menghapus kode yang masih dipakai tanpa alasan yang jelas.",
-      "Jaga backward compatibility API jika endpoint sudah digunakan client."
+  "ai_instructions": {
+    "role": "Senior Full Stack Architect + Laravel + React + Flutter + Database + QA",
+    "workflow": [
+      "Inspect repository.",
+      "Compare existing code dengan blueprint.",
+      "Identify gaps.",
+      "Implement per phase.",
+      "Run migration, seeder, test, lint, analyze, dan build.",
+      "Fix root cause.",
+      "Jangan melakukan refactor tidak terkait."
     ],
-    "vibe_coding_protocol": [
-      "Inspect project.",
-      "Identify affected modules/files.",
-      "State implementation plan.",
-      "Implement minimal complete change.",
-      "Validate/build/test.",
-      "Fix errors.",
-      "Summarize changed files and remaining issues."
+    "must_not_create": [
+      "Chat",
+      "Messaging",
+      "Direct Message",
+      "Follower system",
+      "WebSocket chat"
+    ],
+    "security_rules": [
+      "Never hardcode secrets.",
+      "Never trust frontend authorization.",
+      "Never expose private alumni data without authorization.",
+      "Never use fake production data."
     ]
   },
-  "repository": {
-    "root": "Tracerconnect/",
-    "structure": {
-      "backend": "Laravel REST API",
-      "frontend": "React + Vite + Tailwind CSS",
-      "mobile": "Flutter Android-first",
-      "docs": "Architecture/API/Database/Deployment documentation"
-    },
-    "target_tree": [
-      "Tracerconnect/backend/",
-      "Tracerconnect/frontend/",
-      "Tracerconnect/mobile/",
-      "Tracerconnect/docs/architecture/",
-      "Tracerconnect/docs/api/",
-      "Tracerconnect/docs/database/",
-      "Tracerconnect/docs/deployment/"
-    ]
+  "product": {
+    "name": "TracerConnect",
+    "category": "Digital Alumni Intelligence & Engagement Platform",
+    "target_clients": [
+      "SMK",
+      "SMA",
+      "Perguruan Tinggi",
+      "Lembaga Pendidikan",
+      "Dinas Pendidikan"
+    ],
+    "positioning": "Mengubah data alumni menjadi insight, laporan, career ecosystem, dan alumni engagement.",
+    "core_value": [
+      "Centralized alumni database",
+      "Tracer study",
+      "Response monitoring",
+      "Analytics",
+      "Automated reports",
+      "Career center",
+      "Alumni networking",
+      "Events"
+    ],
+    "commercial_scope": {
+      "subscription": false,
+      "packages": false,
+      "billing": false,
+      "invoice": false,
+      "payment_gateway": false,
+      "renewal": false,
+      "expired_subscription": false,
+      "note": "Pricing hanya informasi pada landing page. Tidak ada sistem subscription, paket, billing, atau pembayaran di dalam aplikasi."
+    }
   },
-  "stack": {
+  "technology": {
     "backend": {
       "framework": "Laravel 13",
-      "php": "8.3+",
+      "php": "PHP 8.3+",
       "database": "MySQL",
-      "api": "REST /api/v1",
+      "api": "REST API /api/v1",
       "authentication": "Laravel Sanctum",
       "authorization": "Spatie Laravel Permission",
-      "ids": "UUID for major entities",
-      "architecture": "MVC + Form Request + API Resource + Service Layer + Policy",
-      "pdf": "Dompdf or shared-hosting-compatible PDF library",
-      "cache": "file/database cache; Redis optional only",
-      "queue": "database queue only when needed; core system must work without persistent workers"
+      "architecture": [
+        "MVC",
+        "Form Request",
+        "API Resource",
+        "Service Layer",
+        "Policy"
+      ],
+      "principles": [
+        "Thin controller.",
+        "Business logic di Service.",
+        "Validation di Form Request.",
+        "Output melalui API Resource.",
+        "Authorization melalui Policy/Permission."
+      ],
+      "services": [
+        "AuthService",
+        "ProfileService",
+        "AvatarService",
+        "RegionService",
+        "AlumniService",
+        "QuestionnaireService",
+        "TracerResponseService",
+        "AnalyticsService",
+        "ReportService",
+        "CareerService",
+        "NetworkingService",
+        "EventService",
+        "ImportService",
+        "NotificationService",
+        "AuditLogService"
+      ],
+      "middleware": [
+        "api",
+        "auth:sanctum",
+        "throttle",
+        "role/permission middleware"
+      ]
     },
     "frontend": {
       "framework": "React",
       "bundler": "Vite",
-      "styling": "Tailwind CSS",
-      "routing": "React Router",
-      "http": "Axios",
-      "server_state": "TanStack Query",
-      "forms": "React Hook Form",
-      "validation": "Zod where useful",
-      "icons": "Lucide React",
-      "charts": "Recharts or equivalent",
-      "language": "Prefer TypeScript for new code if migration cost is reasonable"
+      "css": "Tailwind CSS",
+      "libraries": [
+        "React Router",
+        "Axios",
+        "TanStack Query",
+        "React Hook Form",
+        "Zod",
+        "Lucide React",
+        "Recharts"
+      ]
     },
     "mobile": {
       "framework": "Flutter",
-      "state": "Riverpod",
-      "routing": "GoRouter",
-      "http": "Dio",
-      "secure_storage": "flutter_secure_storage",
-      "design": "Material 3 + TracerConnect design system",
-      "priority": "Android first"
+      "libraries": [
+        "Riverpod",
+        "GoRouter",
+        "Dio",
+        "flutter_secure_storage",
+        "image_picker"
+      ],
+      "design": "Material 3"
     }
   },
-  "product": {
-    "target_customers": [
-      "SMK",
-      "SMA",
-      "Universitas",
-      "Politeknik",
-      "Lembaga pendidikan",
-      "Organisasi alumni",
-      "Training center"
-    ],
-    "core_value": [
-      "Database alumni terpusat",
-      "Kuisioner dinamis tanpa coding",
-      "Tracer study digital",
-      "Response tracking",
-      "Dashboard analytics",
-      "Laporan otomatis",
-      "Import/export alumni",
-      "Career center",
-      "Alumni engagement"
-    ],
-    "premium_features": [
-      "Custom branding",
-      "Advanced analytics",
-      "Advanced reports",
-      "Career center",
-      "Job board",
-      "Event alumni",
-      "Notification/broadcast",
-      "Survey scheduling",
-      "Multiple survey templates",
-      "Institution comparison",
-      "API access",
-      "Audit log",
-      "Usage limits and subscription plans"
+  "deployment": {
+    "development": "Local computer + Laragon + MySQL",
+    "production": "Shared hosting",
+    "vps_required": false,
+    "docker_required": false,
+    "redis_required": false,
+    "websocket_required": false,
+    "production_rules": [
+      "HTTPS",
+      "APP_ENV=production",
+      "APP_DEBUG=false",
+      "Correct Laravel document root",
+      "Writable storage",
+      "Protected .env"
     ]
   },
-  "landing_page": {
-    "required": true,
-    "route": "/",
-    "purpose": "Marketing website yang menjual TracerConnect, menjelaskan manfaat, membangun trust, dan mengarahkan visitor ke demo, pricing, contact, atau login.",
-    "design": {
-      "style": "Modern SaaS, clean, premium, professional, education technology",
-      "theme": "Light-first, optional dark mode",
-      "responsive": true,
-      "accessibility": true,
-      "animation": "Subtle only; no excessive animation",
-      "visual_language": "Blue/indigo primary, slate neutrals, cards with soft borders/shadows, generous whitespace"
+  "architecture": {
+    "backend": [
+      "app/Http/Controllers/Auth/",
+      "app/Http/Controllers/Admin/",
+      "app/Http/Controllers/Alumni/",
+      "app/Http/Controllers/Region/",
+      "app/Http/Controllers/Questionnaire/",
+      "app/Http/Controllers/Analytics/",
+      "app/Http/Controllers/Reports/",
+      "app/Http/Controllers/Career/",
+      "app/Http/Controllers/Networking/",
+      "app/Http/Controllers/Messaging/",
+      "app/Http/Controllers/Events/",
+      "app/Http/Controllers/Profile/",
+      "app/Http/Requests/",
+      "app/Http/Resources/",
+      "app/Models/",
+      "app/Services/",
+      "app/Policies/",
+      "database/migrations/",
+      "database/seeders/",
+      "database/data/regions/",
+      "routes/api.php",
+      "tests/Feature/",
+      "tests/Unit/"
+    ],
+    "frontend": [
+      "src/assets/",
+      "src/components/common/",
+      "src/components/landing/",
+      "src/components/auth/",
+      "src/components/dashboard/",
+      "src/components/alumni/",
+      "src/components/region/",
+      "src/components/questionnaire/",
+      "src/components/analytics/",
+      "src/components/reports/",
+      "src/components/career/",
+      "src/components/networking/",
+      "src/components/messaging/",
+      "src/components/events/",
+      "src/components/profile/",
+      "src/layouts/",
+      "src/pages/",
+      "src/hooks/",
+      "src/services/",
+      "src/lib/",
+      "src/routes/",
+      "src/context/",
+      "src/App.jsx",
+      "src/main.jsx"
+    ],
+    "mobile": [
+      "lib/core/constants/",
+      "lib/core/network/",
+      "lib/core/storage/",
+      "lib/core/theme/",
+      "lib/core/router/",
+      "lib/shared/widgets/",
+      "lib/shared/buttons/",
+      "lib/shared/cards/",
+      "lib/shared/inputs/",
+      "lib/features/auth/",
+      "lib/features/home/",
+      "lib/features/profile/",
+      "lib/features/region/",
+      "lib/features/questionnaire/",
+      "lib/features/career/",
+      "lib/features/networking/",
+      "lib/features/messaging/",
+      "lib/features/events/",
+      "lib/features/notifications/",
+      "lib/main.dart"
+    ],
+    "docs": [
+      "architecture",
+      "api",
+      "database",
+      "deployment",
+      "user-guide"
+    ],
+    "patterns": [
+      "MVC",
+      "Form Request",
+      "API Resource",
+      "Service Layer",
+      "Policy",
+      "Eloquent"
+    ],
+    "final_structure": {
+      "root": "Tracerconnect/",
+      "backend": "backend/",
+      "frontend": "frontend/",
+      "mobile": "mobile/",
+      "docs": "docs/",
+      "database_data": "backend/database/data/",
+      "rule": "Backend, frontend, dan mobile dipisahkan dengan tanggung jawab yang jelas."
+    }
+  },
+  "access_control": {
+    "roles": {
+      "super_admin": "Full platform access",
+      "institution_admin": "Institution-scoped management",
+      "operator": "Operational alumni/tracer management",
+      "alumni": "Profile, tracer, career, networking, events",
+      "employer": "Company and job management"
     },
-    "sections": [
-      {
-        "name": "Navbar",
-        "items": [
-          "Logo",
-          "Fitur",
-          "Cara Kerja",
-          "Keunggulan",
-          "Harga",
-          "FAQ",
-          "Login",
-          "Demo"
-        ]
-      },
-      {
-        "name": "Hero",
-        "headline": "Kelola Tracer Study Alumni Lebih Mudah, Cepat, dan Terukur.",
-        "description": "TracerConnect membantu institusi mengelola data alumni, membuat kuisioner, memantau respons, menganalisis hasil, dan menghasilkan laporan dalam satu platform.",
-        "primary_cta": "Coba Demo",
-        "secondary_cta": "Lihat Fitur",
-        "visual": "Dashboard analytics mockup"
-      },
-      {
-        "name": "Trust/Benefits",
-        "items": [
-          "Data alumni terpusat",
-          "Kuisioner dinamis",
-          "Dashboard analytics",
-          "Laporan siap digunakan"
-        ]
-      },
-      {
-        "name": "Problem",
-        "title": "Masih Mengelola Tracer Study Secara Manual?",
-        "items": [
-          "Data tersebar",
-          "Rekap manual",
-          "Sulit memantau responden",
-          "Laporan memakan waktu",
-          "Sulit melihat kondisi alumni"
-        ]
-      },
-      {
-        "name": "Solution",
-        "title": "Satu Platform untuk Seluruh Proses Tracer Study",
-        "items": [
-          "Alumni management",
-          "Questionnaire builder",
-          "Survey publishing",
-          "Response tracking",
-          "Analytics",
-          "Reports",
-          "Career center",
-          "Engagement"
-        ]
-      },
-      {
-        "name": "Feature Showcase",
-        "items": [
-          "Dashboard Statistik",
-          "Questionnaire Builder",
-          "Alumni Management",
-          "Tracer Response",
-          "Report Generator",
-          "Career Center",
-          "Events",
-          "Notifications"
-        ]
-      },
-      {
-        "name": "Workflow",
-        "steps": [
-          "Buat akun institusi",
-          "Import data alumni",
-          "Buat kuisioner",
-          "Publish survey",
-          "Alumni mengisi",
-          "Sistem menghitung statistik",
-          "Download laporan"
-        ]
-      },
-      {
-        "name": "Analytics Preview",
-        "metrics": [
-          "Total alumni",
-          "Response rate",
-          "Employment rate",
-          "Further study rate",
-          "Waiting period",
-          "Job relevance",
-          "Industry distribution",
-          "Program comparison"
-        ]
-      },
-      {
-        "name": "Mobile",
-        "title": "Alumni Mengisi dari Mana Saja",
-        "items": [
-          "Login",
-          "Profile",
-          "Tracer questionnaire",
-          "Save draft",
-          "Resume survey",
-          "Jobs",
-          "Events",
-          "Notifications"
-        ]
-      },
-      {
-        "name": "Career Center",
-        "title": "Lebih dari Sekadar Tracer Study",
-        "items": [
-          "Lowongan kerja",
-          "Bookmark",
-          "Lamaran",
-          "Status lamaran",
-          "Event alumni",
-          "Networking foundation"
-        ]
-      },
-      {
-        "name": "Pricing",
-        "plans": [
-          {
-            "name": "Starter",
-            "target": "Institusi kecil",
-            "features": [
-              "Alumni management",
-              "Basic questionnaire",
-              "Basic analytics",
-              "CSV export"
-            ]
-          },
-          {
-            "name": "Professional",
-            "target": "Institusi berkembang",
-            "features": [
-              "Advanced questionnaire",
-              "Advanced analytics",
-              "PDF report",
-              "Career center",
-              "Custom branding"
-            ]
-          },
-          {
-            "name": "Enterprise",
-            "target": "Institusi besar",
-            "features": [
-              "Multi-campus",
-              "Advanced reporting",
-              "API access",
-              "Custom domain readiness",
-              "Priority support"
-            ]
-          }
-        ],
-        "rule": "Harga production harus configurable dari backend jika diperlukan; jangan hardcode data bisnis permanen."
-      },
-      {
-        "name": "Testimonial",
-        "rule": "Gunakan placeholder yang jelas; jangan membuat testimonial atau logo partner palsu."
-      },
-      {
-        "name": "FAQ",
-        "questions": [
-          "Apa itu TracerConnect?",
-          "Siapa yang dapat menggunakan?",
-          "Apakah alumni perlu mobile app?",
-          "Apakah kuisioner dapat dibuat sendiri?",
-          "Apakah data dapat diekspor?",
-          "Apakah multi-institution?",
-          "Apakah dapat di-deploy ke shared hosting?"
-        ]
-      },
-      {
-        "name": "Final CTA",
-        "headline": "Mulai Kelola Tracer Study dengan Lebih Terstruktur.",
-        "actions": [
-          "Minta Demo",
-          "Login"
-        ]
-      },
-      {
-        "name": "Footer",
-        "items": [
-          "Logo",
-          "Deskripsi",
-          "Product links",
-          "Company links",
-          "Privacy",
-          "Terms",
-          "Contact",
-          "Copyright"
-        ]
-      }
-    ],
-    "technical": [
-      "Gunakan semantic HTML.",
-      "SEO metadata tersedia.",
-      "Responsive dari mobile sampai desktop.",
-      "Optimalkan asset dan Core Web Vitals.",
-      "Landing page utama tidak boleh membutuhkan API untuk konten statis inti.",
-      "CTA harus menuju route nyata.",
-      "Navbar mobile menggunakan drawer/menu.",
-      "Tidak ada lorem ipsum pada production UI."
+    "permissions": [
+      "dashboard",
+      "institution",
+      "alumni",
+      "questionnaire",
+      "responses",
+      "analytics",
+      "reports",
+      "career",
+      "networking",
+      "events",
+      "notifications",
+      "settings",
+      "audit"
     ]
   },
-  "backend": {
-    "modules": [
-      "Authentication",
-      "User Management",
-      "Role & Permission",
-      "Institution",
-      "Campus",
-      "Department",
-      "Program",
-      "Cohort",
-      "Alumni",
-      "Questionnaire",
-      "Questionnaire Section",
-      "Question",
-      "Question Option",
-      "Questionnaire Publishing",
-      "Survey Invitation",
-      "Tracer Response",
-      "Answer",
-      "Analytics",
-      "Reports",
-      "Import/Export",
-      "Career Center",
-      "Jobs",
-      "Job Applications",
-      "Events",
-      "Event Registration",
-      "Notifications",
-      "Audit Logs",
-      "Subscription",
-      "Settings",
-      "Registration & Password Recovery",
-      "Profile & Avatar Management"
-    ],
-    "roles": [
-      {
-        "name": "super_admin",
-        "scope": "platform"
-      },
-      {
-        "name": "institution_admin",
-        "scope": "institution"
-      },
-      {
-        "name": "operator",
-        "scope": "institution"
-      },
-      {
-        "name": "survey_manager",
-        "scope": "institution"
-      },
-      {
-        "name": "alumni",
-        "scope": "self"
-      },
-      {
-        "name": "employer",
-        "scope": "career"
-      }
-    ],
-    "entities": [
-      "User",
-      "Institution",
-      "Campus",
-      "Department",
-      "Program",
-      "Cohort",
-      "Alumni",
-      "Questionnaire",
-      "QuestionnaireSection",
-      "Question",
-      "QuestionOption",
-      "SurveyInvitation",
-      "QuestionnaireResponse",
-      "Answer",
-      "Job",
-      "JobApplication",
-      "Event",
-      "EventRegistration",
-      "Notification",
-      "Report",
-      "AuditLog",
-      "Subscription",
-      "Setting",
-      "PasswordResetToken",
-      "Media"
-    ],
-    "database_rules": [
-      "UUID untuk entity utama.",
-      "Foreign key dan index harus benar.",
-      "Index institution_id, cohort_id, program_id, status, email, slug, dan kolom filter yang sering digunakan.",
-      "Timestamps pada entity yang relevan.",
-      "Soft delete hanya jika recovery diperlukan.",
-      "Gunakan relational tables untuk data inti survey; JSON hanya untuk metadata/configuration yang benar-benar fleksibel.",
-      "Tenant isolation wajib di backend."
-    ],
-    "api": {
-      "prefix": "/api/v1",
-      "groups": [
-        "auth",
+  "multi_tenancy": {
+    "enabled": true,
+    "scope": "institution_id",
+    "rules": [
+      "Institution admin hanya dapat melihat institusinya.",
+      "Super admin dapat melihat seluruh institusi.",
+      "Frontend filtering bukan security boundary.",
+      "Backend wajib melakukan institution scoping."
+    ]
+  },
+  "database": {
+    "entities": {
+      "auth": [
         "users",
+        "roles",
+        "permissions",
+        "model_has_roles",
+        "model_has_permissions"
+      ],
+      "institution": [
         "institutions",
         "campuses",
         "departments",
         "programs",
-        "cohorts",
-        "alumni",
-        "questionnaires",
-        "questions",
-        "responses",
-        "analytics",
-        "reports",
-        "imports",
-        "exports",
-        "jobs",
-        "applications",
-        "events",
-        "notifications",
-        "settings"
+        "cohorts"
       ],
-      "response": {
-        "success": {
-          "success": true,
-          "message": "Human readable message",
-          "data": {}
-        },
-        "error": {
-          "success": false,
-          "message": "Human readable message",
-          "errors": {}
+      "regions": [
+        "provinces",
+        "regencies",
+        "districts",
+        "villages"
+      ],
+      "alumni": [
+        "alumni_profiles",
+        "employment_histories",
+        "education_histories"
+      ],
+      "tracer": [
+        "questionnaires",
+        "questionnaire_sections",
+        "questions",
+        "question_options",
+        "question_conditions",
+        "tracer_responses",
+        "tracer_answers"
+      ],
+      "career": [
+        "employers",
+        "employer_verifications",
+        "jobs",
+        "job_categories",
+        "job_skills",
+        "job_bookmarks",
+        "job_applications",
+        "application_status_histories",
+        "application_attachments"
+      ],
+      "events": [
+        "events",
+        "event_registrations",
+        "event_attendances"
+      ],
+      "system": [
+        "notifications",
+        "audit_logs"
+      ],
+      "networking": [
+        "connections",
+        "blocked_users",
+        "reports"
+      ],
+      "chat": [
+        "conversations",
+        "conversation_participants",
+        "messages",
+        "message_attachments",
+        "message_reads",
+        "conversation_reports"
+      ]
+    },
+    "rules": [
+      "UUID sesuai kebutuhan.",
+      "Foreign key.",
+      "Indexes.",
+      "Unique constraints.",
+      "Timestamps.",
+      "Soft delete hanya jika diperlukan.",
+      "Jangan gunakan JSON untuk data yang membutuhkan relational analytics."
+    ]
+  },
+  "regions": {
+    "required": true,
+    "hierarchy": [
+      "Provinsi",
+      "Kabupaten/Kota",
+      "Kecamatan",
+      "Desa/Kelurahan"
+    ],
+    "tables": {
+      "provinces": [
+        "id UUID",
+        "code UNIQUE",
+        "name",
+        "created_at",
+        "updated_at"
+      ],
+      "regencies": [
+        "id UUID",
+        "province_id UUID FK",
+        "code UNIQUE",
+        "name",
+        "type",
+        "created_at",
+        "updated_at"
+      ],
+      "districts": [
+        "id UUID",
+        "regency_id UUID FK",
+        "code UNIQUE",
+        "name",
+        "created_at",
+        "updated_at"
+      ],
+      "villages": [
+        "id UUID",
+        "district_id UUID FK",
+        "code UNIQUE",
+        "name",
+        "type",
+        "postal_code",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "models": [
+      "Province",
+      "Regency",
+      "District",
+      "Village"
+    ],
+    "seeders": {
+      "files": [
+        "ProvinceSeeder.php",
+        "RegencySeeder.php",
+        "DistrictSeeder.php",
+        "VillageSeeder.php"
+      ],
+      "order": [
+        "ProvinceSeeder",
+        "RegencySeeder",
+        "DistrictSeeder",
+        "VillageSeeder"
+      ],
+      "dataset_directory": "database/data/regions/",
+      "dataset_files": [
+        "provinces.json",
+        "regencies.json",
+        "districts.json",
+        "villages.json"
+      ],
+      "rules": [
+        "Seeder wajib berurutan.",
+        "Seeder harus idempotent.",
+        "Gunakan upsert/updateOrCreate.",
+        "Gunakan batch insert/upsert untuk dataset besar.",
+        "Jangan membuat data wilayah palsu.",
+        "Gunakan code wilayah sebagai unique business key."
+      ]
+    },
+    "api": [
+      "GET /api/v1/regions/provinces",
+      "GET /api/v1/regions/provinces/{province}/regencies",
+      "GET /api/v1/regions/regencies/{regency}/districts",
+      "GET /api/v1/regions/districts/{district}/villages"
+    ],
+    "ui": {
+      "react": "RegionSelector",
+      "flutter": "RegionSelector",
+      "behavior": [
+        "Dependent dropdown",
+        "Reset child when parent changes",
+        "Loading",
+        "Empty",
+        "Error",
+        "Search"
+      ]
+    }
+  },
+  "modules": {
+    "P0_core": {
+      "landing_page": {
+        "required": true,
+        "route": "/",
+        "sections": [
+          "Navbar",
+          "Hero",
+          "Problem",
+          "Solution",
+          "Core Features",
+          "Tracer Study Workflow",
+          "Analytics Preview",
+          "Career Center",
+          "Alumni Networking",
+          "Mobile App Preview",
+          "Pricing",
+          "FAQ",
+          "Final CTA",
+          "Footer"
+        ],
+        "requirements": [
+          "Responsive",
+          "SEO-friendly",
+          "Accessible",
+          "Fast loading",
+          "CTA Login",
+          "CTA Register/Demo"
+        ],
+        "rules": [
+          "Tidak ada testimonial palsu",
+          "Tidak ada logo partner palsu",
+          "Landing dapat dibuka tanpa authentication"
+        ]
+      },
+      "authentication": {
+        "flows": [
+          "Register",
+          "Login",
+          "Logout",
+          "Forgot Password",
+          "Reset Password",
+          "Current User",
+          "Protected Route"
+        ],
+        "endpoints": [
+          "POST /api/v1/auth/register",
+          "POST /api/v1/auth/login",
+          "POST /api/v1/auth/logout",
+          "POST /api/v1/auth/forgot-password",
+          "POST /api/v1/auth/reset-password",
+          "GET /api/v1/me"
+        ],
+        "profile_endpoints": [
+          "PUT /api/v1/me/profile",
+          "POST /api/v1/me/avatar",
+          "DELETE /api/v1/me/avatar",
+          "PUT /api/v1/me/password"
+        ],
+        "avatar": {
+          "formats": [
+            "jpg",
+            "jpeg",
+            "png",
+            "webp"
+          ],
+          "max_size_mb": 2,
+          "features": [
+            "Preview",
+            "Upload",
+            "Replace",
+            "Delete",
+            "Fallback initials"
+          ],
+          "rules": [
+            "Validate MIME",
+            "Validate size",
+            "Safe filename",
+            "Delete old avatar after successful replacement"
+          ]
         }
       },
-      "rules": [
-        "Form Request validation",
-        "API Resources",
-        "Policies/permissions",
-        "Pagination",
-        "Controlled filter/search/sort",
-        "Correct HTTP status codes",
-        "Rate limiting for sensitive endpoints",
-        "Transactions for atomic multi-table operations"
-      ]
-    },
-    "questionnaire_engine": {
-      "types": [
-        "short_text",
-        "long_text",
-        "single_choice",
-        "multiple_choice",
-        "dropdown",
-        "rating",
-        "number",
-        "date",
-        "year",
-        "boolean",
-        "employment_status",
-        "salary_range",
-        "location",
-        "file"
-      ],
-      "features": [
-        "Sections",
-        "Ordering",
-        "Required/optional",
-        "Options",
-        "Conditional logic",
-        "Draft",
-        "Preview",
-        "Publish",
-        "Close",
-        "Schedule",
-        "Save progress",
-        "Resume later"
-      ]
-    },
-    "analytics": [
-      "Total alumni",
-      "Eligible respondents",
-      "Responses",
-      "Response rate",
-      "Employment rate",
-      "Unemployment rate",
-      "Further study rate",
-      "Average waiting period",
-      "Job relevance",
-      "Industry distribution",
-      "Position distribution",
-      "Location distribution",
-      "Cohort comparison",
-      "Program comparison"
-    ],
-    "security": [
-      "Sanctum",
-      "Password hashing",
-      "Spatie permissions",
-      "Policies",
-      "Tenant isolation",
-      "Validation",
-      "Rate limiting",
-      "Secure upload validation",
-      "Audit logs",
-      "No secret exposure",
-      "Minimize sensitive logs"
-    ],
-    "profile": {
-      "features": [
-        "View profile",
-        "Update profile",
-        "Change password",
-        "Upload profile photo",
-        "Replace profile photo",
-        "Delete profile photo"
-      ],
-      "avatar": {
-        "field": "avatar",
-        "formats": [
-          "jpg",
-          "jpeg",
-          "png",
-          "webp"
+      "alumni": {
+        "fields": [
+          "id",
+          "user_id",
+          "institution_id",
+          "program_id",
+          "cohort_id",
+          "graduation_year",
+          "phone",
+          "province_id",
+          "regency_id",
+          "district_id",
+          "village_id",
+          "address",
+          "postal_code",
+          "employment_status",
+          "company",
+          "position",
+          "industry"
         ],
-        "max_size_mb": 2,
-        "storage": "Laravel filesystem public disk",
-        "validation": [
-          "MIME",
-          "extension",
-          "size",
-          "safe filename",
-          "reject executable files"
+        "region_validation": [
+          "regency_id harus milik province_id",
+          "district_id harus milik regency_id",
+          "village_id harus milik district_id"
+        ]
+      },
+      "questionnaire": {
+        "question_types": [
+          "short_text",
+          "long_text",
+          "single_choice",
+          "multiple_choice",
+          "dropdown",
+          "rating",
+          "number",
+          "date",
+          "year",
+          "boolean",
+          "employment_status",
+          "salary_range",
+          "location"
         ],
-        "shared_hosting": [
-          "support storage:link when available",
-          "provide hosting-safe fallback if symlink unavailable"
+        "features": [
+          "Sections",
+          "Drag and drop",
+          "Required question",
+          "Conditional logic",
+          "Draft",
+          "Preview",
+          "Publish",
+          "Close",
+          "Schedule",
+          "Save progress",
+          "Resume later"
+        ]
+      },
+      "analytics": {
+        "metrics": [
+          "Total alumni",
+          "Total respondents",
+          "Response rate",
+          "Employment rate",
+          "Unemployment rate",
+          "Further study rate",
+          "Waiting period",
+          "Job relevance",
+          "Salary distribution",
+          "Industry distribution",
+          "Company distribution",
+          "Position distribution",
+          "Geographical distribution",
+          "Cohort comparison",
+          "Program comparison"
+        ],
+        "charts": [
+          "KPI cards",
+          "Bar",
+          "Line",
+          "Pie",
+          "Donut",
+          "Area",
+          "Geographical"
+        ]
+      },
+      "reports": {
+        "features": [
+          "PDF",
+          "Excel",
+          "CSV",
+          "Summary report",
+          "Detailed report",
+          "Period filter",
+          "Cohort filter",
+          "Program filter",
+          "Region filter"
         ]
       }
     },
-    "auth_api_contract": {
-      "public": [
-        "POST /api/v1/auth/register",
-        "POST /api/v1/auth/login",
-        "POST /api/v1/auth/forgot-password",
-        "POST /api/v1/auth/reset-password"
+    "P1_client_value": {
+      "strategy": {
+        "core_principle": "Jangan menjual aplikasi sebagai CRUD alumni. Jual hasil: data rapi, response naik, laporan cepat, keputusan berbasis data, dan alumni tetap aktif setelah lulus.",
+        "demo_rule": "Setiap fitur yang terlihat client harus menghasilkan nilai yang dapat didemokan dalam 1-3 menit.",
+        "priority": [
+          "WOW",
+          "ROI",
+          "Automation",
+          "Professional appearance",
+          "Ease of use"
+        ]
+      },
+      "wow_dashboard": {
+        "name": "Executive Command Center",
+        "purpose": "Dashboard yang langsung menunjukkan kondisi alumni dan hasil tracer study.",
+        "features": [
+          "KPI total alumni",
+          "Response rate real-time",
+          "Employment rate",
+          "Further study rate",
+          "Unemployment rate",
+          "Average waiting period",
+          "Job relevance",
+          "Top industries",
+          "Top companies",
+          "Top provinces",
+          "Cohort comparison",
+          "Program comparison",
+          "Response trend",
+          "Quick actions"
+        ],
+        "client_value": "Pimpinan dapat memahami kondisi alumni tanpa membuka spreadsheet."
+      },
+      "smart_tracer": {
+        "name": "Smart Tracer Study",
+        "features": [
+          "Questionnaire builder drag-and-drop",
+          "Template tracer study siap pakai",
+          "Question bank",
+          "Conditional questions",
+          "Auto-save",
+          "Resume later",
+          "Progress indicator",
+          "Mobile-friendly questionnaire",
+          "Preview sebelum publish",
+          "Schedule questionnaire",
+          "Open/close questionnaire",
+          "Response monitoring"
+        ],
+        "client_value": "Admin tidak perlu membuat sistem kuisioner dari nol setiap periode."
+      },
+      "response_booster": {
+        "name": "Response Booster",
+        "features": [
+          "Dashboard alumni yang belum mengisi",
+          "Progress response",
+          "Reminder campaign",
+          "Segment berdasarkan angkatan/program",
+          "Reminder schedule",
+          "Unique questionnaire link",
+          "Completion tracking",
+          "Response rate target",
+          "Campaign performance"
+        ],
+        "client_value": "Membantu institusi meningkatkan jumlah alumni yang mengisi tracer."
+      },
+      "one_click_report": {
+        "name": "One-Click Tracer Report",
+        "features": [
+          "Generate laporan otomatis",
+          "PDF professional",
+          "Excel",
+          "CSV",
+          "Executive summary",
+          "Charts",
+          "Tables",
+          "Filter periode",
+          "Filter angkatan",
+          "Filter program",
+          "Filter wilayah",
+          "Cover institusi",
+          "Logo institusi",
+          "Tanggal laporan",
+          "Generated-by information"
+        ],
+        "client_value": "Mengurangi pekerjaan manual saat membuat laporan untuk pimpinan, sekolah, kampus, atau dinas."
+      },
+      "executive_summary": {
+        "name": "AI-Ready Executive Summary",
+        "implementation_rule": "Jangan mengklaim AI jika belum ada integrasi model. Sediakan structured summary engine terlebih dahulu.",
+        "features": [
+          "Automatic KPI summary",
+          "Top findings",
+          "Positive trends",
+          "Risk indicators",
+          "Areas needing attention",
+          "Recommended follow-up actions",
+          "Export summary"
+        ],
+        "example_output": "Response rate periode ini 82%. Program X memiliki employment rate tertinggi. Alumni pada wilayah Y memiliki response rate rendah dan membutuhkan campaign tambahan.",
+        "client_value": "Pimpinan mendapatkan ringkasan yang mudah dibaca, bukan sekadar grafik."
+      },
+      "alumni_360": {
+        "name": "Alumni 360 Profile",
+        "features": [
+          "Biodata",
+          "Pendidikan",
+          "Riwayat pekerjaan",
+          "Status pekerjaan",
+          "Industri",
+          "Jabatan",
+          "Lokasi",
+          "Riwayat tracer",
+          "Event participation",
+          "Job applications",
+          "Connection status",
+          "Profile completeness"
+        ],
+        "client_value": "Institusi memiliki satu profil alumni yang jauh lebih berguna daripada data spreadsheet."
+      },
+      "data_quality_center": {
+        "name": "Data Quality Center",
+        "features": [
+          "Duplicate alumni detection",
+          "Incomplete profile detection",
+          "Invalid region detection",
+          "Missing email detection",
+          "Missing graduation year",
+          "Data freshness indicator",
+          "Validation summary",
+          "Import error report",
+          "Data cleanup suggestions"
+        ],
+        "client_value": "Client dapat melihat kualitas database mereka sebelum data digunakan untuk laporan."
+      },
+      "alumni_engagement": {
+        "name": "Alumni Engagement Center",
+        "features": [
+          "Active alumni count",
+          "Inactive alumni count",
+          "Last activity",
+          "Tracer participation",
+          "Event participation",
+          "Career activity",
+          "Profile completion",
+          "Engagement score"
+        ],
+        "client_value": "Institusi dapat mengetahui apakah hubungan dengan alumni benar-benar berjalan."
+      },
+      "career_center": {
+        "name": "Career Center",
+        "features": [
+          "Job board",
+          "Employer profile",
+          "Job posting",
+          "Job search",
+          "Job filter",
+          "Bookmark",
+          "Apply",
+          "Application status",
+          "Application history",
+          "Career articles",
+          "Recommended jobs based on profile"
+        ],
+        "client_value": "TracerConnect tidak berhenti setelah kuisioner selesai; alumni mendapatkan manfaat nyata."
+      },
+      "alumni_network": {
+        "name": "Alumni Network",
+        "features": [
+          "Search alumni",
+          "Filter by cohort",
+          "Filter by program",
+          "Filter by industry",
+          "Filter by company",
+          "Filter by province/city",
+          "View public alumni profile",
+          "Connection request",
+          "Accept/reject connection",
+          "Block",
+          "Report"
+        ],
+        "excluded": [
+          "Chat",
+          "Direct messaging",
+          "Follower system"
+        ],
+        "client_value": "Membangun jejaring alumni tanpa kompleksitas fitur chat."
+      },
+      "event_center": {
+        "name": "Alumni Event Center",
+        "features": [
+          "Create event",
+          "Event landing page",
+          "Registration",
+          "Attendance",
+          "QR attendance",
+          "Participant list",
+          "Event reminder",
+          "Event history",
+          "Certificate-ready attendance export"
+        ],
+        "client_value": "Institusi dapat menghidupkan kembali komunitas alumni."
+      },
+      "branding": {
+        "name": "White-Label Institution Branding",
+        "features": [
+          "Institution logo",
+          "Institution name",
+          "Brand color",
+          "Favicon",
+          "Report branding",
+          "Email branding",
+          "Custom landing content",
+          "Custom footer"
+        ],
+        "client_value": "Produk terasa seperti sistem milik client sendiri."
+      },
+      "smart_search": {
+        "name": "Global Alumni Search",
+        "features": [
+          "Search name",
+          "Search email",
+          "Search cohort",
+          "Search program",
+          "Search company",
+          "Search position",
+          "Search industry",
+          "Search region"
+        ],
+        "client_value": "Data alumni dapat ditemukan dalam hitungan detik."
+      },
+      "campaign_center": {
+        "name": "Tracer Campaign Center",
+        "features": [
+          "Create campaign",
+          "Select target cohort",
+          "Select target program",
+          "Select alumni segment",
+          "Campaign start/end",
+          "Progress tracking",
+          "Response rate",
+          "Incomplete response list",
+          "Reminder scheduling",
+          "Campaign comparison"
+        ],
+        "client_value": "Admin dapat mengelola tracer seperti campaign, bukan sekadar membagikan link kuisioner."
+      },
+      "automation": {
+        "name": "Operational Automation",
+        "features": [
+          "Automatic questionnaire status",
+          "Automatic response calculation",
+          "Automatic dashboard aggregation",
+          "Automatic report generation",
+          "Automatic reminder scheduling",
+          "Automatic notification",
+          "Automatic profile completeness calculation",
+          "Automatic data quality checks"
+        ],
+        "shared_hosting_rule": "Automation harus tetap dapat berjalan pada shared hosting menggunakan Laravel Scheduler/cron bila tersedia; jangan membuat VPS sebagai requirement."
+      },
+      "security_trust": {
+        "name": "Institution Security Center",
+        "features": [
+          "Role permission",
+          "Audit log",
+          "Login history",
+          "Session management",
+          "Export activity log",
+          "Data access log",
+          "Password security",
+          "Rate limiting"
+        ],
+        "client_value": "Client melihat bahwa aplikasi serius terhadap data alumni."
+      },
+      "demo_mode": {
+        "name": "Client Demo Mode",
+        "purpose": "Membantu penjualan tanpa memalsukan data produksi.",
+        "features": [
+          "Seeded demo institution",
+          "Demo alumni",
+          "Demo questionnaires",
+          "Demo responses",
+          "Demo analytics",
+          "Demo jobs",
+          "Demo events",
+          "Reset demo data"
+        ],
+        "rules": [
+          "Data demo diberi label DEMO.",
+          "Tidak boleh bercampur dengan production tenant.",
+          "Tidak menggunakan identitas orang nyata."
+        ]
+      },
+      "onboarding": {
+        "name": "Institution Setup Wizard",
+        "steps": [
+          "Create institution",
+          "Upload logo",
+          "Set branding",
+          "Import alumni",
+          "Configure cohorts/programs",
+          "Create tracer template",
+          "Preview",
+          "Publish"
+        ],
+        "client_value": "Client dapat melihat proses setup yang sederhana dan terarah."
+      },
+      "health_score": {
+        "name": "Institution Tracer Health Score",
+        "metrics": [
+          "Data completeness",
+          "Response rate",
+          "Profile completeness",
+          "Alumni engagement",
+          "Report readiness"
+        ],
+        "output": [
+          "Score",
+          "Status",
+          "Main issues",
+          "Recommended actions"
+        ],
+        "client_value": "Pimpinan mendapatkan indikator sederhana tentang kondisi sistem."
+      }
+    },
+    "career": {
+      "priority": "P1",
+      "purpose": "Career ecosystem untuk alumni dan employer.",
+      "employer_features": [
+        "Register/login employer",
+        "Company profile",
+        "Company verification",
+        "Create/edit/publish/close job",
+        "Job requirements",
+        "Manage applicants",
+        "View applicant profile",
+        "Shortlist/reject applicant",
+        "Update application status"
       ],
-      "protected": [
-        "POST /api/v1/auth/logout",
-        "GET /api/v1/me",
-        "PUT /api/v1/me/profile",
-        "POST /api/v1/me/avatar",
-        "DELETE /api/v1/me/avatar",
-        "PUT /api/v1/me/password"
+      "alumni_features": [
+        "Job search",
+        "Keyword/location/industry/employment filters",
+        "Job detail",
+        "Bookmark job",
+        "Apply job",
+        "Upload CV",
+        "Upload portfolio",
+        "Cover letter",
+        "Application history",
+        "Application status",
+        "Withdraw application",
+        "Job recommendations"
       ],
-      "requirements": [
-        "422 validation",
-        "401 invalid credentials",
-        "409 duplicate registration where applicable",
-        "never return password hash or raw secrets"
+      "application_statuses": [
+        "submitted",
+        "reviewing",
+        "shortlisted",
+        "interview",
+        "accepted",
+        "rejected",
+        "withdrawn"
       ]
+    },
+    "networking": {
+      "name": "Alumni Networking",
+      "concept": "Connection-based networking, bukan follower-based.",
+      "features": [
+        "Search alumni",
+        "Filter alumni",
+        "View profile",
+        "Connection request",
+        "Accept",
+        "Reject",
+        "Cancel",
+        "Remove connection",
+        "Block",
+        "Report",
+        "Start chat after connection accepted"
+      ],
+      "rules": [
+        "Networking menggunakan sistem connection, bukan follower.",
+        "Connection hanya digunakan untuk membangun jejaring alumni.",
+        "Tidak ada fitur chat atau direct messaging.",
+        "Semua aturan connection dipaksa oleh backend."
+      ]
+    },
+    "events": {
+      "features": [
+        "Create event",
+        "Event detail",
+        "Registration",
+        "Attendance",
+        "Reminder",
+        "Announcement",
+        "Event history"
+      ]
+    },
+    "notifications": {
+      "channels": [
+        "In-app",
+        "Email",
+        "Push mobile"
+      ],
+      "events": [
+        "Tracer published",
+        "Tracer reminder",
+        "Connection request",
+        "Connection accepted",
+        "New job",
+        "Application update",
+        "New event",
+        "Event reminder",
+        "System announcement"
+      ]
+    },
+    "commercial": {
+      "status": "excluded",
+      "features": [],
+      "landing_page_only": [
+        "Pricing information",
+        "Request demo",
+        "Contact sales"
+      ]
+    },
+    "chat": {
+      "priority": "P1",
+      "purpose": "Komunikasi terkontrol antara alumni, employer, dan institution.",
+      "supported_conversations": [
+        "Alumni-Alumni setelah connection accepted",
+        "Alumni-Employer terkait job/application",
+        "Institution Admin-Alumni",
+        "Employer-Applicant"
+      ],
+      "features": [
+        "Conversation list",
+        "Create conversation",
+        "Send/receive message",
+        "Timestamp",
+        "Read status",
+        "Unread count",
+        "Pagination",
+        "Delete own message",
+        "Block",
+        "Report",
+        "Mute conversation",
+        "Search conversation"
+      ],
+      "message_types": [
+        "text",
+        "image",
+        "file",
+        "system"
+      ],
+      "security": [
+        "Authorization per conversation",
+        "Blocked users cannot initiate messages",
+        "Secure file validation",
+        "Rate limiting",
+        "Message ownership validation",
+        "Report abuse mechanism"
+      ],
+      "transport": {
+        "initial": "REST API polling",
+        "future_optional": "WebSocket/Pusher-compatible realtime",
+        "shared_hosting_rule": "WebSocket bukan requirement versi awal."
+      }
     }
   },
   "frontend": {
-    "public_routes": [
-      "/",
-      "/features",
-      "/pricing",
-      "/faq",
-      "/contact",
-      "/login",
-      "/register",
-      "/forgot-password",
-      "/reset-password"
-    ],
-    "authenticated_routes": [
-      "/dashboard",
-      "/alumni",
-      "/alumni/:id",
-      "/cohorts",
-      "/programs",
-      "/questionnaires",
-      "/questionnaires/create",
-      "/questionnaires/:id/edit",
-      "/questionnaires/:id/preview",
-      "/responses",
-      "/analytics",
-      "/reports",
-      "/jobs",
-      "/applications",
-      "/events",
-      "/notifications",
-      "/settings",
-      "/profile",
-      "/settings/profile"
-    ],
-    "components": [
-      "LandingNavbar",
-      "Navbar",
-      "Footer",
-      "Hero",
-      "FeatureCard",
-      "PricingCard",
-      "FAQAccordion",
-      "CTASection",
-      "Sidebar",
-      "Topbar",
-      "StatCard",
-      "DataTable",
-      "Pagination",
-      "FilterBar",
-      "Modal",
-      "Drawer",
-      "ConfirmDialog",
-      "Toast",
-      "FormField",
-      "Select",
-      "DatePicker",
-      "EmptyState",
-      "LoadingState",
-      "ErrorState",
-      "ChartCard"
-    ],
-    "dashboard": [
-      "Stat cards",
-      "Response rate chart",
-      "Employment chart",
-      "Cohort chart",
-      "Recent responses",
-      "Survey status",
-      "Quick actions"
-    ],
-    "questionnaire_builder": [
-      "Create",
-      "Sections",
-      "Question types",
-      "Edit",
-      "Reorder",
-      "Required toggle",
-      "Conditional logic",
-      "Preview",
-      "Save draft",
-      "Publish"
-    ],
-    "ux_rules": [
-      "Responsive admin",
-      "Mobile-first public pages",
-      "Loading states",
-      "Empty states",
-      "Actionable errors",
-      "Form validation",
-      "Responsive tables",
-      "Confirmation for destructive actions",
-      "No browser alert for production UX when toast/dialog is appropriate"
-    ],
-    "authentication": {
-      "pages": [
-        "Login",
-        "Register",
-        "ForgotPassword",
-        "ResetPassword",
-        "Profile"
+    "pages": {
+      "public_pages": [
+        "/",
+        "/features",
+        "/pricing",
+        "/faq",
+        "/login",
+        "/register",
+        "/forgot-password",
+        "/reset-password"
       ],
-      "profile_photo": [
-        "Current avatar",
-        "Upload",
-        "Preview",
-        "Replace",
-        "Remove",
-        "Fallback initials",
-        "multipart/form-data",
-        "refresh profile after upload"
+      "admin_pages": [
+        "/dashboard",
+        "/institution",
+        "/alumni",
+        "/alumni/import",
+        "/questionnaires",
+        "/questionnaires/create",
+        "/questionnaires/:id/edit",
+        "/questionnaires/:id/responses",
+        "/analytics",
+        "/reports",
+        "/career/jobs",
+        "/career/employers",
+        "/networking",
+        "/events",
+        "/notifications",
+        "/settings",
+        "/audit-logs"
+      ],
+      "alumni_pages": [
+        "/home",
+        "/profile",
+        "/profile/edit",
+        "/tracer",
+        "/tracer/:id",
+        "/career",
+        "/career/jobs/:id",
+        "/applications",
+        "/networking",
+        "/networking/:id",
+        "/events",
+        "/events/:id",
+        "/notifications",
+        "/settings"
+      ],
+      "components_required": [
+        "Button",
+        "Input",
+        "Textarea",
+        "Select",
+        "Combobox",
+        "Modal",
+        "Drawer",
+        "Toast",
+        "Alert",
+        "Badge",
+        "Avatar",
+        "Table",
+        "Pagination",
+        "Skeleton",
+        "EmptyState",
+        "ErrorState",
+        "ConfirmDialog",
+        "DatePicker",
+        "FileUploader",
+        "RegionSelector",
+        "StatCard",
+        "ChartCard",
+        "FilterBar"
       ],
       "rules": [
-        "No fake success",
-        "Handle 413/422",
-        "Loading/error/success states"
+        "TanStack Query untuk server state.",
+        "React Hook Form untuk form.",
+        "Axios instance terpusat.",
+        "API URL dari environment.",
+        "Semua API state memiliki loading, error, empty, success."
+      ],
+      "career": [
+        "/jobs",
+        "/jobs/{id}",
+        "/applications",
+        "/applications/{id}",
+        "/employer",
+        "/employer/jobs",
+        "/employer/jobs/create",
+        "/employer/jobs/{id}/edit",
+        "/employer/jobs/{id}/applications"
+      ],
+      "chat": [
+        "/chat",
+        "/chat/{conversationId}"
       ]
-    }
+    },
+    "components": [
+      "Button",
+      "Input",
+      "Textarea",
+      "Select",
+      "Combobox",
+      "Modal",
+      "Drawer",
+      "Toast",
+      "Alert",
+      "Badge",
+      "Avatar",
+      "Table",
+      "Pagination",
+      "Skeleton",
+      "EmptyState",
+      "ErrorState",
+      "ConfirmDialog",
+      "DatePicker",
+      "FileUploader",
+      "RegionSelector",
+      "StatCard",
+      "ChartCard",
+      "FilterBar"
+    ],
+    "rules": [
+      "TanStack Query untuk server state.",
+      "React Hook Form untuk form.",
+      "Axios instance terpusat.",
+      "API URL dari environment.",
+      "Semua API state memiliki loading, error, empty, success."
+    ]
   },
   "mobile": {
-    "screens": [
-      "Splash",
-      "Onboarding",
-      "Login",
-      "Register",
-      "Forgot Password",
-      "Home",
-      "Profile",
-      "Edit Profile",
-      "Available Surveys",
-      "Survey Detail",
-      "Questionnaire",
-      "Save Draft",
-      "Resume Survey",
-      "Survey Success",
-      "Job Board",
+    "architecture": "Feature-first + repository/service separation",
+    "layers": [
+      "presentation",
+      "providers",
+      "domain",
+      "data",
+      "network"
+    ],
+    "components_required": [
+      "AppButton",
+      "AppTextField",
+      "AppDropdown",
+      "AppCard",
+      "AppAvatar",
+      "AppLoading",
+      "AppError",
+      "AppEmpty",
+      "RegionSelector",
+      "QuestionRenderer",
+      "QuestionProgress",
+      "JobCard",
+      "EventCard",
+      "ConnectionCard"
+    ],
+    "rules": [
+      "Token menggunakan secure storage.",
+      "Dio client terpusat.",
+      "Handle 401 secara global.",
+      "API URL configurable.",
+      "Tidak menggunakan localhost untuk production."
+    ],
+    "career_features": [
+      "Job List",
       "Job Detail",
       "Apply Job",
       "My Applications",
-      "Events",
-      "Event Detail",
-      "Notifications",
-      "Settings",
-      "Register",
-      "Forgot Password",
-      "Reset Password",
-      "Profile",
-      "Edit Profile",
-      "Change Password"
+      "Application Detail",
+      "Employer Jobs"
     ],
-    "home": [
-      "Unfinished surveys",
-      "Tracer progress",
-      "Profile completion",
-      "Recommended jobs",
-      "Upcoming events",
-      "Notification summary"
-    ],
-    "survey_ux": [
-      "Progress indicator",
-      "Back/next",
-      "Validation before next",
-      "Local draft where appropriate",
-      "Backend sync",
-      "Resume",
-      "Network failure handling",
-      "Prevent answer loss"
-    ],
-    "architecture": [
-      "Riverpod",
-      "GoRouter",
-      "Dio",
-      "Repository/service separation",
-      "No direct HTTP calls inside presentation widgets"
-    ],
-    "network": [
-      "Android emulator: http://10.0.2.2:8000",
-      "Physical device: computer LAN IP",
-      "Production: HTTPS domain",
-      "Production URL configurable by environment"
-    ],
-    "authentication": {
-      "required": true,
-      "avatar": [
-        "Gallery",
-        "Optional camera",
-        "Preview",
-        "Multipart upload",
-        "Progress",
-        "Remove",
-        "Initial fallback"
-      ],
-      "packages": [
-        "image_picker",
-        "flutter_secure_storage",
-        "dio"
-      ],
-      "rules": [
-        "Never store password",
-        "Secure token storage",
-        "Handle expired token",
-        "Reload profile after avatar upload"
-      ]
-    }
-  },
-  "authentication": {
-    "web": [
-      "Login",
-      "Authenticate",
-      "Fetch current user",
-      "Resolve role/permissions from backend",
-      "Redirect to correct area",
-      "Logout and clear client state"
-    ],
-    "mobile": [
-      "Login",
-      "Receive token",
-      "Store in secure storage",
-      "Dio interceptor adds Bearer token",
-      "Fetch current user",
-      "Logout and clear token"
-    ],
-    "rule": "Frontend/mobile must never determine authorization by itself. Backend permission is authoritative.",
-    "required_flows": {
-      "public": [
-        "Landing page",
-        "Register",
-        "Login",
-        "Forgot password",
-        "Reset password"
-      ],
-      "protected": [
-        "Logout",
-        "Current user",
-        "Update profile",
-        "Upload profile photo",
-        "Replace profile photo",
-        "Delete profile photo",
-        "Change password"
-      ],
-      "rules": [
-        "Register dan login wajib terhubung ke Laravel API, bukan mock UI.",
-        "Password di-hash backend.",
-        "Backend menentukan role.",
-        "Mobile token hanya secure storage.",
-        "Public registration tidak boleh memberikan role admin."
-      ]
-    }
-  },
-  "shared_hosting": {
-    "backend": [
-      "PHP compatible with Laravel",
-      "MySQL",
-      "Document root should target backend/public when hosting permits",
-      "APP_ENV=production",
-      "APP_DEBUG=false",
-      "APP_URL configured",
-      "Secure .env",
-      "Composer production install",
-      "Migrations carefully",
-      "Storage link if supported",
-      "Cache config/routes/views as appropriate",
-      "Test avatar upload on actual shared hosting",
-      "Ensure upload_max_filesize and post_max_size are adequate",
-      "Configure writable Laravel storage",
-      "Do not expose private uploads"
-    ],
-    "frontend": [
-      "npm run build",
-      "Deploy dist as static files",
-      "Set VITE_API_URL at build time",
-      "Configure SPA fallback to index.html where supported",
-      "No Node runtime required after build"
-    ],
-    "mobile": [
-      "Build APK/AAB",
-      "Production API HTTPS",
-      "No local URL in release build"
-    ],
-    "prohibited_as_requirement": [
-      "VPS",
-      "Docker",
-      "Redis",
-      "Supervisor",
-      "Persistent worker"
+    "chat_features": [
+      "Conversation List",
+      "Chat Detail",
+      "New Conversation"
     ]
+  },
+  "api": {
+    "prefix": "/api/v1",
+    "response": {
+      "success": "boolean",
+      "message": "string",
+      "data": "object|array|null",
+      "errors": "object|null",
+      "meta": "object|null"
+    },
+    "domains": {
+      "auth": [
+        "POST /auth/register",
+        "POST /auth/login",
+        "POST /auth/logout",
+        "POST /auth/forgot-password",
+        "POST /auth/reset-password",
+        "GET /me"
+      ],
+      "profile": [
+        "GET /me/profile",
+        "PUT /me/profile",
+        "POST /me/avatar",
+        "DELETE /me/avatar",
+        "PUT /me/password"
+      ],
+      "regions": [
+        "GET /regions/provinces",
+        "GET /regions/provinces/{id}/regencies",
+        "GET /regions/regencies/{id}/districts",
+        "GET /regions/districts/{id}/villages"
+      ],
+      "alumni": [
+        "GET /alumni",
+        "GET /alumni/{id}",
+        "POST /alumni",
+        "PUT /alumni/{id}",
+        "DELETE /alumni/{id}",
+        "POST /alumni/import",
+        "GET /alumni/export"
+      ],
+      "questionnaires": [
+        "GET /questionnaires",
+        "POST /questionnaires",
+        "GET /questionnaires/{id}",
+        "PUT /questionnaires/{id}",
+        "DELETE /questionnaires/{id}",
+        "POST /questionnaires/{id}/publish",
+        "POST /questionnaires/{id}/close"
+      ],
+      "responses": [
+        "GET /questionnaires/{id}/responses",
+        "POST /questionnaires/{id}/responses",
+        "PUT /responses/{id}"
+      ],
+      "analytics": [
+        "GET /analytics/overview",
+        "GET /analytics/employment",
+        "GET /analytics/programs",
+        "GET /analytics/cohorts",
+        "GET /analytics/regions"
+      ],
+      "reports": [
+        "GET /reports/tracer",
+        "GET /reports/alumni",
+        "GET /reports/analytics"
+      ],
+      "career": [
+        "GET /jobs",
+        "POST /jobs",
+        "GET /jobs/{id}",
+        "PUT /jobs/{id}",
+        "DELETE /jobs/{id}",
+        "POST /jobs/{id}/publish",
+        "POST /jobs/{id}/close",
+        "POST /jobs/{id}/bookmark",
+        "DELETE /jobs/{id}/bookmark",
+        "POST /jobs/{id}/apply",
+        "GET /applications",
+        "GET /applications/{id}",
+        "PUT /applications/{id}/withdraw",
+        "GET /employer/jobs",
+        "GET /employer/jobs/{id}/applications",
+        "PUT /applications/{id}/status",
+        "GET /employers/profile",
+        "PUT /employers/profile"
+      ],
+      "networking": [
+        "GET /networking/alumni",
+        "GET /networking/alumni/{id}",
+        "POST /networking/connections",
+        "POST /networking/connections/{id}/accept",
+        "POST /networking/connections/{id}/reject",
+        "DELETE /networking/connections/{id}",
+        "POST /networking/block",
+        "POST /networking/report"
+      ],
+      "events": [
+        "GET /events",
+        "GET /events/{id}",
+        "POST /events",
+        "PUT /events/{id}",
+        "DELETE /events/{id}",
+        "POST /events/{id}/register",
+        "DELETE /events/{id}/register"
+      ],
+      "chat": [
+        "GET /conversations",
+        "POST /conversations",
+        "GET /conversations/{id}",
+        "GET /conversations/{id}/messages",
+        "POST /conversations/{id}/messages",
+        "DELETE /messages/{id}",
+        "POST /conversations/{id}/read",
+        "POST /conversations/{id}/mute",
+        "POST /conversations/{id}/report"
+      ]
+    }
+  },
+  "file_management": {
+    "avatar": {
+      "max_mb": 2,
+      "extensions": [
+        "jpg",
+        "jpeg",
+        "png",
+        "webp"
+      ]
+    },
+    "documents": {
+      "max_mb": 5,
+      "extensions": [
+        "pdf",
+        "jpg",
+        "jpeg",
+        "png"
+      ]
+    },
+    "rules": [
+      "MIME validation server-side.",
+      "Size validation server-side.",
+      "Safe generated filename.",
+      "Jangan percaya original filename.",
+      "Reject executable extensions.",
+      "Private files harus melalui authorization."
+    ]
+  },
+  "import_export": {
+    "flow": [
+      "Upload",
+      "Validate extension",
+      "Validate header",
+      "Preview",
+      "Validate rows",
+      "Show errors",
+      "Confirm",
+      "Process",
+      "Summary"
+    ],
+    "formats": [
+      "xlsx",
+      "csv"
+    ],
+    "duplicate_strategy": [
+      "Detect duplicate.",
+      "Jangan silently overwrite data penting.",
+      "Tampilkan created, updated, skipped, failed."
+    ],
+    "exports": [
+      "Alumni",
+      "Tracer responses",
+      "Analytics",
+      "Career",
+      "Event attendance"
+    ]
+  },
+  "audit": {
+    "fields": [
+      "id",
+      "user_id",
+      "institution_id",
+      "action",
+      "entity_type",
+      "entity_id",
+      "old_values",
+      "new_values",
+      "ip_address",
+      "user_agent",
+      "created_at"
+    ],
+    "actions": [
+      "login",
+      "logout",
+      "create",
+      "update",
+      "delete",
+      "publish",
+      "export",
+      "import",
+      "permission_change"
+    ]
+  },
+  "security": {
+    "mandatory": [
+      "Sanctum",
+      "Spatie Permission",
+      "Policies",
+      "Form Requests",
+      "Rate limiting",
+      "Secure file upload",
+      "UUID",
+      "Audit logs",
+      "HTTPS in production",
+      "No secrets in repository",
+      "No password logging"
+    ],
+    "privacy": [
+      "Do not expose alumni contact data unnecessarily.",
+      "Backend controls connection permissions.",
+      "Backend controls message permissions.",
+      "Profile visibility should be configurable where appropriate."
+    ],
+    "pre_deployment_external_security_audit": {
+      "mandatory": true,
+      "timing": "Setelah semua fitur berjalan tanpa error dan sebelum deploy ke shared hosting.",
+      "deployment_gate": "BLOCKED jika terdapat temuan Critical atau High yang belum diperbaiki.",
+      "checks": {
+        "sql_injection": [
+          "Audit Eloquent, Query Builder, DB::raw, whereRaw, orderByRaw, selectRaw, dan raw SQL.",
+          "Pastikan input user tidak digabung langsung ke query.",
+          "Uji search, filter, sort, pagination, login, import, dan endpoint ID."
+        ],
+        "cors": [
+          "Whitelist origin frontend.",
+          "Jangan gunakan wildcard untuk endpoint authenticated.",
+          "Audit credentials, preflight OPTIONS, dan origin validation."
+        ],
+        "xss": [
+          "Escape seluruh user-generated content.",
+          "Audit dangerouslySetInnerHTML dan HTML mentah.",
+          "Uji profil, bio, chat, job description, nama perusahaan, dan tracer."
+        ],
+        "dos_ddos": [
+          "Rate limit login, register, password reset, API sensitif, chat, upload, import, dan report generation.",
+          "Batasi request body, file size, pagination, dan endpoint mahal.",
+          "Gunakan proteksi hosting/CDN/WAF bila tersedia."
+        ],
+        "mitm": [
+          "Production wajib HTTPS/TLS valid.",
+          "Jangan kirim credential/token melalui HTTP.",
+          "Gunakan Secure, HttpOnly, dan SameSite cookie sesuai arsitektur."
+        ],
+        "url_interpretation": [
+          "Audit open redirect pada redirect, next, return, callback, dan URL sejenis.",
+          "Allowlist destination URL.",
+          "Validasi URL dari user sebelum digunakan."
+        ],
+        "session_hijacking": [
+          "Regenerate session setelah login dan perubahan privilege.",
+          "Invalidate session/token saat logout.",
+          "Gunakan expiration/rotation.",
+          "Audit token leakage di URL, log, error, dan frontend."
+        ],
+        "brute_force": [
+          "Rate limit login dan password reset.",
+          "Gunakan throttling/backoff.",
+          "Jangan membocorkan apakah account/email terdaftar.",
+          "Monitor percobaan login berulang."
+        ],
+        "authorization_idor_bola": [
+          "Uji IDOR/BOLA pada semua endpoint.",
+          "Institution admin tidak boleh mengakses institution lain.",
+          "Employer hanya boleh mengakses lowongannya sendiri.",
+          "Alumni hanya boleh mengakses application dan conversation yang berhak diakses."
+        ],
+        "csrf": [
+          "Audit seluruh state-changing request.",
+          "Pastikan CSRF protection sesuai arsitektur authentication."
+        ],
+        "file_upload": [
+          "Whitelist MIME dan extension.",
+          "Batasi ukuran.",
+          "Generate nama file server-side.",
+          "Pastikan upload tidak dapat dieksekusi sebagai script.",
+          "Audit foto profile, CV, portfolio, chat attachment, import, dan report."
+        ],
+        "security_headers": [
+          "CSP jika kompatibel.",
+          "X-Content-Type-Options.",
+          "Referrer-Policy.",
+          "Frame protection/frame-ancestors.",
+          "Permissions-Policy.",
+          "HSTS setelah HTTPS production siap."
+        ],
+        "secrets": [
+          ".env tidak public.",
+          "APP_KEY dan secret tidak masuk Git.",
+          "API key tidak hardcode di React/Flutter.",
+          "Credential production berbeda dari local."
+        ],
+        "information_disclosure": [
+          "APP_DEBUG=false.",
+          "Jangan expose stack trace, SQL query, internal path, token, atau credential."
+        ],
+        "dependencies": [
+          "Audit Composer dependencies.",
+          "Audit npm dependencies.",
+          "Audit Flutter packages.",
+          "Perbaiki vulnerability yang relevan sebelum production."
+        ],
+        "database": [
+          "Database user menggunakan least privilege.",
+          "Backup tersedia.",
+          "Backup tidak berada di public directory."
+        ]
+      },
+      "testing": {
+        "environment": "Hanya test pada localhost, staging, atau sistem yang memang memiliki izin.",
+        "methods": [
+          "Static code review",
+          "Dependency audit",
+          "API security testing",
+          "Authentication testing",
+          "Authorization/IDOR testing",
+          "Input validation testing",
+          "File upload testing",
+          "Rate-limit testing",
+          "Browser security testing",
+          "Production configuration review"
+        ],
+        "optional_tools": [
+          "OWASP ZAP",
+          "Burp Suite",
+          "Browser DevTools",
+          "composer audit",
+          "npm audit",
+          "flutter analyze"
+        ]
+      },
+      "final_checklist": [
+        "SQL Injection PASS",
+        "CORS PASS",
+        "XSS PASS",
+        "DoS/DDoS controls PASS",
+        "MITM/TLS PASS",
+        "URL interpretation/open redirect PASS",
+        "Session hijacking PASS",
+        "Brute force PASS",
+        "Authentication/Authorization/IDOR PASS",
+        "CSRF PASS",
+        "File upload security PASS",
+        "Security headers PASS",
+        "Secrets/.env PASS",
+        "Dependency audit PASS",
+        "Production configuration PASS",
+        "No unresolved Critical/High findings"
+      ]
+    }
   },
   "testing": {
     "backend": [
-      "Auth feature tests",
-      "Authorization tests",
-      "Tenant isolation tests",
-      "Alumni CRUD",
+      "Clean migration",
+      "Clean seeding",
+      "Seeder rerun",
+      "Auth",
+      "Profile",
+      "Avatar",
+      "Regions",
+      "Alumni",
       "Questionnaire",
-      "Response submission",
+      "Tracer response",
       "Analytics",
-      "Import validation",
-      "Registration",
-      "Login",
-      "Password reset",
-      "Profile update",
-      "Avatar upload validation",
-      "Avatar replace/delete",
-      "Profile authorization"
+      "Reports",
+      "Career",
+      "Networking",
+      "Events",
+      "Permissions"
     ],
     "frontend": [
-      "npm run build",
-      "Route checks",
-      "Form validation",
-      "API error handling",
-      "Responsive checks",
-      "Register",
-      "Login",
-      "Password recovery",
-      "Avatar preview/upload/remove",
-      "Auth redirect"
+      "Build",
+      "Route guard",
+      "Auth forms",
+      "RegionSelector",
+      "Questionnaire",
+      "Analytics",
+      "Responsive UI",
+      "API errors"
     ],
     "mobile": [
       "flutter analyze",
-      "Unit tests",
-      "Widget tests for critical screens",
-      "Login flow",
-      "Survey flow",
-      "Register",
-      "Login",
-      "Password recovery",
+      "Auth",
       "Profile",
-      "Avatar picker/upload/remove",
-      "Token persistence"
-    ],
-    "definition_of_done": [
-      "No obvious compile errors",
-      "Validation exists",
-      "Authorization exists",
-      "Loading/error/empty states",
-      "Responsive UI",
-      "API contract respected",
-      "Relevant tests pass",
-      "No secrets committed"
+      "RegionSelector",
+      "Questionnaire",
+      "Career",
+      "Networking",
+      "Events",
+      "API errors"
     ]
   },
-  "phases": [
+  "business": {
+    "sales_positioning": {
+      "avoid": [
+        "Aplikasi CRUD alumni.",
+        "Aplikasi kuisioner online biasa.",
+        "Aplikasi database alumni."
+      ],
+      "position_as": [
+        "Digital Alumni Intelligence Platform.",
+        "Tracer Study Management System.",
+        "Alumni Engagement Platform.",
+        "Career and Alumni Ecosystem."
+      ],
+      "main_promise": "Dari data alumni yang tersebar menjadi sistem terpusat yang menghasilkan insight, laporan, engagement, dan manfaat karier."
+    },
+    "demo_flow": [
+      "1. Buka Landing Page.",
+      "2. Tunjukkan branding institusi.",
+      "3. Login sebagai admin.",
+      "4. Tampilkan Executive Command Center.",
+      "5. Buka Alumni 360.",
+      "6. Tunjukkan Data Quality Center.",
+      "7. Buat questionnaire dari template.",
+      "8. Tampilkan preview questionnaire.",
+      "9. Tunjukkan Response Booster.",
+      "10. Tampilkan analytics setelah response masuk.",
+      "11. Klik One-Click Report.",
+      "12. Buka Career Center.",
+      "13. Buka Alumni Network.",
+      "14. Tampilkan Event Center.",
+      "15. Tunjukkan Audit Log.",
+      "16. Tunjukkan Institution Branding."
+    ],
+    "product_modules": [
+      "Tracer Study",
+      "Alumni Management",
+      "Analytics",
+      "Automated Reports",
+      "Career Center",
+      "Job Board",
+      "Job Application",
+      "Alumni Networking",
+      "Chat",
+      "Event Center",
+      "Data Quality",
+      "Institution Branding"
+    ]
+  },
+  "development_phases": [
     {
-      "id": 0,
+      "phase": 1,
       "name": "Foundation",
-      "tasks": [
-        "Verify backend",
-        "Verify frontend",
-        "Verify Flutter",
-        "Configure env",
-        "Configure MySQL"
-      ]
+      "priority": "P0"
     },
     {
-      "id": 1,
-      "name": "Landing Page",
-      "tasks": [
-        "Navbar",
-        "Hero",
-        "Problem",
-        "Solution",
-        "Features",
-        "Workflow",
-        "Analytics preview",
-        "Mobile preview",
-        "Career center",
-        "Pricing",
-        "FAQ",
-        "CTA",
-        "Footer",
-        "Responsive",
-        "SEO"
-      ]
+      "phase": 2,
+      "name": "Landing Page + Branding",
+      "priority": "P0"
     },
     {
-      "id": 2.5,
-      "name": "Authentication & Profile",
-      "tasks": [
-        "Register API",
-        "Login API",
-        "Logout API",
-        "Forgot/reset password",
-        "Current user",
-        "Profile update",
-        "Change password",
-        "Avatar upload/replace/delete",
-        "React auth pages",
-        "React profile",
-        "Flutter auth",
-        "Flutter profile",
-        "Secure token storage",
-        "Integration tests"
-      ]
+      "phase": 3,
+      "name": "Authentication + Profile",
+      "priority": "P0"
     },
     {
-      "id": 2,
-      "name": "Backend Foundation",
-      "tasks": [
-        "Sanctum",
-        "UUID",
-        "RBAC",
-        "API response standard",
-        "Exception handling",
-        "Form Requests",
-        "Resources",
-        "Policies",
-        "Audit foundation"
-      ]
+      "phase": 4,
+      "name": "Region + Institution + Alumni",
+      "priority": "P0"
     },
     {
-      "id": 3,
-      "name": "Institution & Alumni",
-      "tasks": [
-        "Institution",
-        "Campus",
-        "Department",
-        "Program",
-        "Cohort",
-        "Alumni",
-        "Import",
-        "Profile"
-      ]
+      "phase": 5,
+      "name": "Tracer Study + Questionnaire Builder",
+      "priority": "P0"
     },
     {
-      "id": 4,
-      "name": "Questionnaire Engine",
-      "tasks": [
-        "Questionnaire",
-        "Sections",
-        "Questions",
-        "Options",
-        "Conditional logic",
-        "Draft",
-        "Preview",
-        "Publish",
-        "Close",
-        "Schedule"
-      ]
+      "phase": 6,
+      "name": "Response Booster + Analytics + Reports",
+      "priority": "P0"
     },
     {
-      "id": 5,
-      "name": "Tracer Response",
-      "tasks": [
-        "Invitation",
-        "Response",
-        "Answer",
-        "Save draft",
-        "Resume",
-        "Submit",
-        "Validation"
-      ]
+      "phase": 7,
+      "name": "Career Center + Employer + Job Board",
+      "priority": "P1"
     },
     {
-      "id": 6,
-      "name": "Analytics & Reports",
-      "tasks": [
-        "Dashboard metrics",
-        "Charts",
-        "Filters",
-        "Cohort comparison",
-        "Program comparison",
-        "CSV",
-        "Excel",
-        "PDF"
-      ]
+      "phase": 8,
+      "name": "Job Application + Applicant Management",
+      "priority": "P1"
     },
     {
-      "id": 7,
-      "name": "React Admin",
-      "tasks": [
-        "Auth",
-        "Dashboard",
-        "Alumni",
-        "Questionnaire builder",
-        "Responses",
-        "Analytics",
-        "Reports",
-        "Settings"
-      ]
+      "phase": 9,
+      "name": "Networking + Chat",
+      "priority": "P1"
     },
     {
-      "id": 8,
-      "name": "Flutter Alumni",
-      "tasks": [
-        "Auth",
-        "Profile",
-        "Survey",
-        "Draft/resume",
-        "Notifications",
-        "Jobs",
-        "Applications",
-        "Events"
-      ]
+      "phase": 10,
+      "name": "Events + Notifications + Engagement",
+      "priority": "P1"
     },
     {
-      "id": 9,
-      "name": "Engagement",
-      "tasks": [
-        "Career center",
-        "Job board",
-        "Applications",
-        "Events",
-        "Notifications",
-        "Networking foundation"
-      ]
+      "phase": 11,
+      "name": "Flutter Mobile Completion",
+      "priority": "P1"
     },
     {
-      "id": 10,
-      "name": "Commercialization",
-      "tasks": [
-        "Plans",
-        "Limits",
-        "Custom branding",
-        "Usage metrics",
-        "Feature gating"
-      ]
+      "phase": 12,
+      "name": "Security + Testing + Shared Hosting",
+      "priority": "P0"
     },
     {
-      "id": 11,
-      "name": "Production Hardening",
-      "tasks": [
-        "Security review",
-        "Performance",
-        "Indexes",
-        "Rate limiting",
-        "Backup strategy",
-        "Error logging",
-        "Shared hosting deployment"
-      ]
+      "phase": 13,
+      "name": "Mandatory Pre-Deployment External Security Audit",
+      "priority": "P0",
+      "gate": true
     }
   ],
-  "commands": {
+  "definition_of_done": {
     "backend": [
-      "cd D:\\laragon\\www\\Tracerconnect\\backend",
-      "composer install",
-      "php artisan key:generate",
-      "php artisan migrate",
-      "php artisan serve"
+      "Clean migration works.",
+      "Seeders work and are rerunnable.",
+      "Authorization tested.",
+      "Validation tested."
     ],
     "frontend": [
-      "cd D:\\laragon\\www\\Tracerconnect\\frontend",
-      "npm install",
-      "npm run dev",
-      "npm run build"
+      "Production build succeeds.",
+      "Routes work.",
+      "Loading/error/empty/success states exist.",
+      "Responsive."
     ],
     "mobile": [
-      "cd D:\\laragon\\www\\Tracerconnect\\mobile",
-      "flutter pub get",
-      "flutter analyze",
-      "flutter run"
+      "flutter analyze passes.",
+      "Authentication works.",
+      "API errors handled.",
+      "Production API is configurable."
+    ],
+    "deployment": [
+      "Local setup documented.",
+      "Shared hosting setup documented.",
+      "Environment variables documented.",
+      "Storage strategy documented."
     ]
   },
-  "final_acceptance": [
-    "Landing page profesional, responsive, dan menjual produk.",
-    "React terhubung ke Laravel API.",
-    "Flutter terhubung ke Laravel API.",
-    "Authentication terintegrasi.",
-    "RBAC dan permission backend berjalan.",
-    "Tenant/institution isolation aman.",
-    "Questionnaire dinamis dapat dibuat.",
-    "Alumni dapat mengisi, menyimpan, dan melanjutkan tracer.",
-    "Analytics tersedia.",
-    "Report export tersedia.",
-    "Career center dapat dikembangkan tanpa merombak core tracer.",
-    "Frontend dapat dibuild ke static hosting/shared hosting.",
-    "Backend dapat berjalan pada shared hosting tanpa VPS-specific dependency.",
-    "Tidak ada secret hardcoded.",
-    "Error handling tersedia di semua client.",
-    "Project dapat dikembangkan secara bertahap tanpa merusak modul sebelumnya.",
-    "Register benar-benar bekerja melalui API.",
-    "Login benar-benar bekerja melalui API.",
-    "Logout bekerja.",
-    "Password recovery tersedia.",
-    "Profile dapat diedit.",
-    "Foto profile dapat upload/ganti/hapus.",
-    "React dan Flutter menggunakan multipart upload untuk avatar.",
-    "Avatar kompatibel shared hosting.",
-    "Tidak ada authentication mock pada production flow."
-  ]
-}
+  "excluded_features": {
+    "subscription": false,
+    "package_management": false,
+    "billing": false,
+    "invoice": false,
+    "payment_gateway": false,
+    "renewal": false
+  },
+  "features_final": {
+    "public": [
+      "Landing page",
+      "Feature showcase",
+      "Tracer workflow explanation",
+      "Analytics preview",
+      "Career preview",
+      "Alumni networking preview",
+      "Event preview",
+      "FAQ",
+      "Request demo",
+      "Contact"
+    ],
+    "admin": [
+      "Dashboard",
+      "Institution management",
+      "Institution branding",
+      "Admin/operator management",
+      "Alumni management",
+      "Import CSV/XLSX",
+      "Export data",
+      "Region management through seeded master data",
+      "Questionnaire builder",
+      "Question bank",
+      "Conditional questions",
+      "Tracer campaign",
+      "Response booster",
+      "Response monitoring",
+      "Analytics",
+      "Executive summary",
+      "One-click PDF report",
+      "Excel/CSV reports",
+      "Data quality center",
+      "Audit logs",
+      "Notifications",
+      "Career center management",
+      "Employer management",
+      "Job management",
+      "Event management",
+      "Attendance management",
+      "Demo mode"
+    ],
+    "alumni": [
+      "Register",
+      "Login",
+      "Forgot/reset password",
+      "Profile",
+      "Profile photo upload/update/delete",
+      "Profile completeness",
+      "Region selector",
+      "Tracer study",
+      "Auto-save",
+      "Resume questionnaire",
+      "Questionnaire progress",
+      "Submit tracer",
+      "Career center",
+      "Job search",
+      "Bookmark job",
+      "Apply job",
+      "Application status",
+      "Alumni discovery",
+      "Connection request",
+      "Accept/reject connection",
+      "Remove connection",
+      "Block/report",
+      "Events",
+      "Event registration",
+      "QR attendance",
+      "Notifications"
+    ],
+    "employer": [
+      "Register/login",
+      "Company profile",
+      "Job posting",
+      "Edit/close job",
+      "Applicant list",
+      "Application status"
+    ],
+    "excluded": [
+      "Chat",
+      "Direct messaging",
+      "Follower system",
+      "Subscription",
+      "Package management",
+      "Billing",
+      "Invoice",
+      "Payment gateway",
+      "Renewal system"
+    ]
+  },
+  "final_business_flow": [
+    "Landing Page",
+    "Client Onboarding",
+    "Create Institution",
+    "Institution Setup Wizard",
+    "Import Alumni",
+    "Configure Program/Cohort/Region",
+    "Build Questionnaire",
+    "Publish Tracer",
+    "Alumni Register/Login",
+    "Complete Profile",
+    "Fill Tracer",
+    "Response Booster",
+    "Analytics",
+    "Executive Dashboard",
+    "One-Click Reports",
+    "Career Center",
+    "Employer Publishes Job",
+    "Alumni Finds Job",
+    "Alumni Applies",
+    "Employer Reviews Application",
+    "Application Status Updates",
+    "Networking",
+    "Connection Accepted",
+    "Chat",
+    "Events",
+    "Continuous Alumni Engagement"
+  ],
+  "master_rules": [
+    "No subscription, package, billing, invoice, or payment gateway.",
+    "Chat is active.",
+    "Job board and job application are active.",
+    "Employer module is active.",
+    "Backend enforces all chat and application authorization.",
+    "Initial chat transport uses REST polling for shared hosting.",
+    "WebSocket is optional future enhancement.",
+    "Laravel is the central REST API.",
+    "React + Tailwind is the web frontend.",
+    "Flutter is the mobile app.",
+    "MySQL is the primary database.",
+    "Region Indonesia is seeded from structured data.",
+    "Shared hosting is the initial production target.",
+    "WAJIB melakukan security audit sebelum shared-hosting deployment; jika ada Critical/High yang belum diperbaiki, deployment harus diblokir.",
+    "QA dan security audit adalah release gate wajib.",
+    "Jangan mengklaim aplikasi 100% tidak dapat diretas.",
+    "Jangan melewati test hanya agar status PASS.",
+    "Setiap fix wajib diretest dan menjalani regression test.",
+    "Authorization data wajib ditegakkan backend.",
+    "Critical/High unresolved memblokir deployment.",
+    "Clean install, migration, seeding, build, dan critical workflows wajib berhasil."
+  ],
+  "qa_release_gate": {
+    "mandatory": true,
+    "goal": "Verifikasi fungsionalitas, keamanan, stabilitas, dan kesiapan release sebelum deployment.",
+    "principles": [
+      "Jangan menyatakan PASS atau FIXED tanpa verifikasi.",
+      "Setiap bug diperbaiki lalu diretest.",
+      "Regression test wajib setelah perubahan.",
+      "Security testing hanya pada sistem sendiri atau yang memiliki izin.",
+      "Tidak ada sistem yang dapat dijamin 100% bebas serangan; target release adalah tidak ada Critical/High unresolved dan attack surface diminimalkan."
+    ],
+    "release_states": [
+      "DISCOVERY",
+      "IMPLEMENTATION",
+      "QA",
+      "SECURITY_AUDIT",
+      "RETEST",
+      "REGRESSION",
+      "RELEASE_CANDIDATE",
+      "READY_FOR_DEPLOYMENT"
+    ],
+    "block_release_if": [
+      "Critical vulnerability ditemukan.",
+      "High vulnerability belum diperbaiki atau dimitigasi.",
+      "Authentication bypass.",
+      "Authorization/IDOR/BOLA memungkinkan akses data tidak sah.",
+      "SQL injection exploitable.",
+      "Arbitrary file upload atau remote code execution.",
+      "Production secret terekspos.",
+      "Data sensitif dapat diakses tanpa authorization.",
+      "Production build gagal.",
+      "Clean database migration/seeding gagal.",
+      "Critical workflow gagal."
+    ]
+  },
+  "qa_matrix": {
+    "frontend_react_tailwind": [
+      "Landing page",
+      "Responsive layout",
+      "Register/login/logout",
+      "Forgot/reset password",
+      "Profile",
+      "Profile photo",
+      "Institution dashboard",
+      "Alumni management",
+      "Region selector",
+      "Questionnaire builder",
+      "Tracer filling",
+      "Analytics",
+      "Reports",
+      "Jobs",
+      "Job apply",
+      "Application tracking",
+      "Employer dashboard",
+      "Networking",
+      "Chat",
+      "Events",
+      "Notifications",
+      "Loading/error/empty/success states",
+      "Validation",
+      "Pagination/filter/search"
+    ],
+    "backend_laravel_api": [
+      "Routes",
+      "Controllers",
+      "Form Requests",
+      "Policies/Gates",
+      "Middleware",
+      "Models",
+      "Migrations",
+      "Seeders",
+      "Factories",
+      "Services",
+      "Storage",
+      "Authentication",
+      "Authorization",
+      "Validation",
+      "Pagination",
+      "Filtering",
+      "Search",
+      "Import/export",
+      "Reports",
+      "Notifications",
+      "Chat",
+      "Job applications",
+      "Audit logs"
+    ],
+    "mobile_flutter": [
+      "Authentication",
+      "Token lifecycle",
+      "Profile",
+      "Photo upload",
+      "Region selection",
+      "Tracer",
+      "Auto-save/resume",
+      "Submit",
+      "Jobs",
+      "Job apply",
+      "Applications",
+      "Networking",
+      "Chat",
+      "Notifications",
+      "Events",
+      "Error handling",
+      "Secure storage",
+      "Release build"
+    ]
+  },
+  "security_release_audit": {
+    "mandatory": true,
+    "scope": [
+      "SQL Injection",
+      "XSS",
+      "CSRF",
+      "CORS",
+      "SSRF",
+      "Path Traversal",
+      "Local/Remote File Inclusion",
+      "Arbitrary File Upload",
+      "Command Injection",
+      "Template Injection",
+      "Open Redirect",
+      "URL Interpretation",
+      "Session Hijacking",
+      "Session Fixation",
+      "Token Leakage",
+      "Brute Force",
+      "Credential Stuffing",
+      "Rate Limiting",
+      "DoS/Resource Exhaustion",
+      "DDoS exposure review",
+      "IDOR/BOLA",
+      "Broken Authentication",
+      "Broken Authorization",
+      "Privilege Escalation",
+      "Mass Assignment",
+      "Sensitive Data Exposure",
+      "Security Headers",
+      "HTTPS/TLS",
+      "Cookie Security",
+      "Secrets Exposure",
+      "Dependency Vulnerabilities",
+      "Database Exposure",
+      "Backup Exposure",
+      "Debug/Error Disclosure",
+      "Race Conditions",
+      "File Access Control",
+      "Chat Authorization",
+      "Job Application Privacy"
+    ],
+    "tests": {
+      "authentication": [
+        "Rate limiting",
+        "Password policy",
+        "Reset-token expiry and single-use",
+        "Session regeneration after login",
+        "Logout invalidation",
+        "Account-enumeration resistance",
+        "No token/credential in URL or logs"
+      ],
+      "authorization": [
+        "Horizontal privilege escalation",
+        "Vertical privilege escalation",
+        "Cross-institution access",
+        "Cross-employer application access",
+        "Cross-user profile modification",
+        "Cross-conversation access",
+        "Unauthorized report download",
+        "Unauthorized file download"
+      ],
+      "input_output": [
+        "Validate every external input",
+        "Context-appropriate output encoding",
+        "Sanitize rich text if enabled",
+        "Reject unexpected content types",
+        "Limit oversized payloads"
+      ],
+      "files": [
+        "MIME validation",
+        "Extension validation",
+        "File size limit",
+        "Server-generated filenames",
+        "Executable upload prevention",
+        "Private-file authorization",
+        "CV/portfolio/chat/photo isolation"
+      ],
+      "api": [
+        "Authentication on protected endpoints",
+        "Authorization on every object",
+        "Rate limits",
+        "Pagination maximums",
+        "Mass-assignment protection",
+        "No accidental sensitive-field serialization"
+      ]
+    }
+  },
+  "test_strategy": {
+    "levels": [
+      "Unit tests",
+      "Feature/API tests",
+      "Integration tests",
+      "End-to-end critical workflow tests",
+      "Mobile integration tests",
+      "Security tests",
+      "Regression tests",
+      "Production build tests"
+    ],
+    "critical_workflows": [
+      "Register → Login → Profile",
+      "Login → Questionnaire → Submit",
+      "Admin → Questionnaire → Publish",
+      "Admin → Analytics → Report",
+      "Alumni → Job → Apply → Track Application",
+      "Employer → Job → Review Application → Update Status",
+      "Alumni → Connection → Accept → Chat",
+      "Admin → Import Alumni → Validate → Persist",
+      "Profile → Upload/Update/Delete Photo"
+    ],
+    "definition_of_done": [
+      "Expected behavior passes",
+      "Invalid input is safely rejected",
+      "Unauthorized access is denied",
+      "Error states are handled",
+      "No critical API/console errors remain",
+      "Security regression passes",
+      "Relevant automated tests pass",
+      "Manual acceptance checks pass"
+    ]
+  },
+  "data_protection": {
+    "principles": [
+      "Least privilege",
+      "Data minimization",
+      "Server-side authorization",
+      "Secure defaults",
+      "Private-by-default sensitive files",
+      "No secrets in source control",
+      "No sensitive data in client logs",
+      "No sensitive data in error messages"
+    ],
+    "sensitive_data": [
+      "Passwords",
+      "Authentication tokens",
+      "Reset tokens",
+      "CV",
+      "Portfolio",
+      "Private chat messages",
+      "Private applicant data",
+      "Institution-private analytics",
+      "Private reports"
+    ]
+  },
+  "production_hardening": {
+    "shared_hosting": [
+      "HTTPS enabled",
+      "APP_ENV=production",
+      "APP_DEBUG=false",
+      "Secure APP_KEY",
+      ".env inaccessible publicly",
+      "Correct Laravel public directory",
+      "Storage configured correctly",
+      "Minimal writable directories",
+      "Protected database credentials",
+      "Protected logs",
+      "Protected backups"
+    ],
+    "web": [
+      "Secure cookies",
+      "HttpOnly where appropriate",
+      "SameSite configured",
+      "Restricted CORS",
+      "Security headers",
+      "Rate limiting",
+      "Request size limits",
+      "File upload limits"
+    ]
+  },
+  "qa_artifacts_required": {
+    "bug_register": "ID, severity, reproduction, expected, actual, fix, retest.",
+    "security_register": "ID, severity, affected component, evidence, remediation, retest.",
+    "release_checklist": "Final PASS/FAIL checklist.",
+    "test_report": "Automated and manual test results.",
+    "deployment_report": "Production configuration verification."
+  },
+  "final_release_certificate": {
+    "status": "NOT_READY_UNTIL_VERIFIED",
+    "required": [
+      "Functional QA PASS",
+      "Security Audit PASS",
+      "Regression PASS",
+      "Production Build PASS",
+      "Clean Database Migration PASS",
+      "Critical Workflows PASS",
+      "No Critical Findings",
+      "No Unresolved High Findings",
+      "Secrets Audit PASS",
+      "Shared Hosting Hardening PASS"
+    ],
+    "final_rule": "Status READY_FOR_DEPLOYMENT hanya boleh diberikan setelah seluruh gate PASS."
+  }
+} 

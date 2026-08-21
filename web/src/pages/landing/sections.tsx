@@ -15,13 +15,17 @@ import {
   Database,
   FileDown,
   FileText,
+  Globe,
   LayoutDashboard,
   ListChecks,
   Megaphone,
+  Network,
   PenLine,
   PieChart,
   RefreshCw,
+  Search,
   Send,
+  Shield,
   Smartphone,
   Sparkles,
   TrendingUp,
@@ -110,9 +114,9 @@ function Hero() {
     <section className="relative overflow-hidden">
       {/* Decorative gradients */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-32 -left-32 size-[32rem] rounded-full bg-indigo-200/50 blur-3xl" />
-        <div className="absolute top-24 -right-40 size-[36rem] rounded-full bg-indigo-200/50 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 size-[24rem] rounded-full bg-indigo-100/60 blur-3xl" />
+        <div className="absolute -top-32 -left-32 size-[32rem] animate-blob rounded-full bg-indigo-200/50 blur-3xl" />
+        <div className="absolute top-24 -right-40 size-[36rem] animate-blob rounded-full bg-indigo-200/50 blur-3xl [animation-delay:-5s]" />
+        <div className="absolute bottom-0 left-1/3 size-[24rem] animate-blob rounded-full bg-indigo-100/60 blur-3xl [animation-delay:-9s]" />
       </div>
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-28">
@@ -527,8 +531,8 @@ const METRICS = [
 function AnalyticsPreview() {
   return (
     <section id="analytics" className="relative overflow-hidden bg-slate-900">
-      <div className="pointer-events-none absolute -top-40 right-0 size-[30rem] rounded-full bg-indigo-600/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -left-20 size-[26rem] rounded-full bg-indigo-600/20 blur-3xl" />
+      <div className="pointer-events-none absolute -top-40 right-0 size-[30rem] animate-blob rounded-full bg-indigo-600/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -left-20 size-[26rem] animate-blob rounded-full bg-indigo-600/20 blur-3xl [animation-delay:-7s]" />
 
       <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
         <Reveal>
@@ -769,123 +773,90 @@ function CareerCenter() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Pricing                                                             */
+/* Alumni Networking                                                    */
 /* ------------------------------------------------------------------ */
 
-const PLANS = [
-  {
-    name: 'Starter',
-    tagline: 'Untuk institusi kecil yang baru memulai',
-    features: ['Alumni management', 'Basic questionnaire', 'Basic analytics', 'CSV export'],
-    cta: 'Mulai Sekarang',
-    featured: false,
-  },
-  {
-    name: 'Professional',
-    tagline: 'Untuk institusi yang sedang berkembang',
-    features: [
-      'Advanced questionnaire',
-      'Advanced analytics',
-      'PDF report',
-      'Career center',
-      'Custom branding',
-    ],
-    cta: 'Mulai Sekarang',
-    featured: true,
-  },
-  {
-    name: 'Enterprise',
-    tagline: 'Untuk institusi besar & multi-campus',
-    features: [
-      'Multi-campus',
-      'Advanced reporting',
-      'API access',
-      'Custom domain readiness',
-      'Priority support',
-    ],
-    cta: 'Hubungi Kami',
-    featured: false,
-  },
+const NETWORK_ITEMS = [
+  { icon: Search, label: 'Cari alumni berdasarkan jurusan, angkatan, atau industri' },
+  { icon: Globe, label: 'Filter alumni berdasarkan provinsi & kota' },
+  { icon: Users, label: 'Lihat profil publik alumni yang sudah terhubung' },
+  { icon: Network, label: 'Kirim & terima permintaan koneksi' },
+  { icon: Shield, label: 'Blokir & laporkan pengguna tidak pantas' },
+  { icon: Briefcase, label: 'Lihat detail karier & perusahaan alumni' },
 ]
 
-function Pricing() {
+function AlumniNetworking() {
   return (
-    <section id="harga" className="bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
-        <SectionHeading
-          eyebrow="Harga"
-          title="Paket yang Tumbuh Bersama Institusi Anda"
-          description="Mulai dari kebutuhan dasar hingga skala enterprise — tanpa biaya tersembunyi."
-        />
-        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {PLANS.map((plan, i) => (
-            <Reveal
-              key={plan.name}
-              delay={i * 90}
-              className={clsx(
-                'relative flex flex-col rounded-2xl border p-7 transition-all hover:-translate-y-1',
-                plan.featured
-                  ? 'border-indigo-600 bg-slate-900 shadow-2xl shadow-indigo-900/20'
-                  : 'border-slate-200 bg-white shadow-sm hover:shadow-lg',
-              )}
-            >
-              {plan.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-bold tracking-wide text-white uppercase">
-                  Paling Populer
-                </span>
-              )}
-              <p className={clsx('text-lg font-bold', plan.featured ? 'text-white' : 'text-slate-900')}>
-                {plan.name}
-              </p>
-              <p className={clsx('mt-1 text-xs', plan.featured ? 'text-slate-400' : 'text-slate-500')}>
-                {plan.tagline}
-              </p>
-              <div className="mt-5 flex items-baseline gap-1.5">
-                <span className={clsx('text-3xl font-extrabold', plan.featured ? 'text-white' : 'text-slate-900')}>
-                  {plan.name === 'Starter' ? 'Gratis' : 'Custom'}
-                </span>
-              </div>
-              <p className={clsx('mt-1 text-[11px]', plan.featured ? 'text-slate-500' : 'text-slate-400')}>
-                {plan.name === 'Starter' ? 'Trial untuk memulai' : 'Sesuai kebutuhan institusi'}
-              </p>
-              <ul className="mt-6 flex-1 space-y-2.5">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2.5">
-                    <Check
-                      className={clsx(
-                        'mt-0.5 size-4 shrink-0',
-                        plan.featured ? 'text-indigo-400' : 'text-emerald-500',
-                      )}
-                    />
-                    <span className={clsx('text-sm', plan.featured ? 'text-slate-300' : 'text-slate-600')}>
-                      {feature}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/register"
-                className={clsx(
-                  'mt-7 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition-colors',
-                  plan.featured
-                    ? 'bg-indigo-600 text-white hover:bg-indigo-500'
-                    : 'bg-white text-indigo-600 ring-1 ring-indigo-200 hover:bg-indigo-50',
-                )}
+    <section id="alumni-network" className="bg-white">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
+        <div>
+          <SectionHeading
+            align="left"
+            eyebrow="Alumni Network"
+            title="Bangun Jejaring Alumni yang Bermakna"
+            description="Alumni dapat menemukan, terhubung, dan berjejaring satu sama lain — tanpa kompleksitas fitur chat."
+          />
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            {NETWORK_ITEMS.map((item, i) => (
+              <Reveal
+                key={item.label}
+                delay={i * 50}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-indigo-200"
               >
-                {plan.cta}
-              </Link>
-            </Reveal>
-          ))}
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <item.icon className="size-4.5" />
+                </div>
+                <p className="text-sm font-medium text-slate-700">{item.label}</p>
+              </Reveal>
+            ))}
+          </div>
         </div>
-        <Reveal delay={200}>
-          <p className="mt-8 text-center text-xs text-slate-400">
-            Harga final dapat disesuaikan dengan jumlah alumni dan kebutuhan khusus institusi Anda.
-          </p>
+
+        <Reveal delay={150}>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <p className="text-xs font-semibold text-slate-400 uppercase">Alumni Directory</p>
+            <div className="mt-4 space-y-3">
+              {[
+                { name: 'Siti Rahmawati', dept: 'Teknik Informatika', year: '2022', status: 'connected' },
+                { name: 'Budi Santoso', dept: 'Manajemen Bisnis', year: '2021', status: 'pending' },
+                { name: 'Dewi Anggraini', dept: 'Sistem Informasi', year: '2023', status: 'none' },
+              ].map((a) => (
+                <div key={a.name} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
+                    {a.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{a.name}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {a.dept} · Angkatan {a.year}
+                    </p>
+                  </div>
+                  <span
+                    className={clsx(
+                      'rounded-full px-2.5 py-0.5 text-[10px] font-semibold',
+                      a.status === 'connected' && 'bg-emerald-50 text-emerald-600',
+                      a.status === 'pending' && 'bg-amber-50 text-amber-600',
+                      a.status === 'none' && 'bg-slate-100 text-slate-500',
+                    )}
+                  >
+                    {a.status === 'connected' ? 'Terhubung' : a.status === 'pending' ? 'Menunggu' : 'Koneksi'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 p-4 text-center">
+              <p className="text-sm font-medium text-indigo-700">
+                Cari & hubungkan dengan alumni dari berbagai angkatan.
+              </p>
+            </div>
+          </div>
         </Reveal>
       </div>
     </section>
   )
 }
+
+
 
 /* ------------------------------------------------------------------ */
 /* FAQ                                                                 */
@@ -1034,9 +1005,9 @@ export function LandingSections() {
       <FeatureShowcase />
       <Workflow />
       <AnalyticsPreview />
-      <MobilePreview />
       <CareerCenter />
-      <Pricing />
+      <AlumniNetworking />
+      <MobilePreview />
       <Faq />
       <FinalCta />
     </>

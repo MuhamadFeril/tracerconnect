@@ -107,6 +107,25 @@ class AuthTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/auth/me')->assertStatus(401);
     }
 
+    /**
+     * Register a user, verify the OTP from the cache (what the user would
+     * receive by email), and return the session token — mirrors the
+     * register → verify-otp flow used by the frontend.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function registerAndVerify(array $payload): string
+    {
+        $this->postJson('/api/v1/auth/register', $payload)->assertStatus(201);
+        $otp = Cache::get('otp:register:'.$payload['email']);
+        $this->assertNotNull($otp);
+
+        return $this->postJson('/api/v1/auth/verify-otp', [
+            'email' => $payload['email'],
+            'otp' => $otp,
+        ])->assertOk()->json('data.token');
+    }
+
     public function test_forgot_password_does_not_leak_registered_emails(): void
     {
         $this->postJson('/api/v1/auth/forgot-password', [
@@ -118,14 +137,43 @@ class AuthTest extends TestCase
         ])->assertOk()->assertJsonPath('success', true);
     }
 
-    public function test_reset_password_with_invalid_token_returns_422(): void
+    public function test_reset_password_with_invalid_otp_returns_422(): void
     {
         $this->postJson('/api/v1/auth/reset-password', [
             'email' => 'superadmin@tracerconnect.test',
-            'token' => 'invalid-token',
+            'otp' => '000000',
             'password' => 'newpassword',
             'password_confirmation' => 'newpassword',
         ])->assertStatus(422)->assertJsonPath('success', false);
+    }
+
+    public function test_reset_password_requires_valid_otp(): void
+    {
+        // Request the reset OTP, then reset with it.
+        $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'superadmin@tracerconnect.test',
+        ])->assertOk();
+
+        $otp = \Illuminate\Support\Facades\Cache::get('otp:reset:superadmin@tracerconnect.test');
+        $this->assertNotNull($otp);
+
+        $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'superadmin@tracerconnect.test',
+            'otp' => $otp,
+            'password' => 'barupassword1',
+            'password_confirmation' => 'barupassword1',
+        ])->assertOk()->assertJsonPath('success', true);
+
+        // Old password no longer works.
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'superadmin@tracerconnect.test',
+            'password' => 'password',
+        ])->assertStatus(401);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'superadmin@tracerconnect.test',
+            'password' => 'barupassword1',
+        ])->assertOk();
     }
 
     public function test_user_can_update_own_profile(): void
@@ -147,7 +195,7 @@ class AuthTest extends TestCase
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
-        $response = $this->postJson('/api/v1/auth/register', [
+        $token = $this->registerAndVerify([
             'name' => 'Alumni Update',
             'email' => 'alumni.update@example.com',
             'password' => 'password123',
@@ -155,9 +203,7 @@ class AuthTest extends TestCase
             'institution_id' => $institution->id,
             'nis' => '1234567890',
             'nisn' => '0987654321',
-        ])->assertStatus(201);
-
-        $token = $response->json('data.token');
+        ]);
 
         $this->withToken($token)->putJson('/api/v1/auth/profile', [
             'name' => 'Alumni Update',
@@ -192,7 +238,7 @@ class AuthTest extends TestCase
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
-        $response = $this->postJson('/api/v1/auth/register', [
+        $token = $this->registerAndVerify([
             'name' => 'Alumni Kosong',
             'email' => 'alumni.kosong@example.com',
             'password' => 'password123',
@@ -201,9 +247,7 @@ class AuthTest extends TestCase
             'nis' => '1234567890',
             'socials' => [['platform' => 'facebook', 'url' => 'https://facebook.com/x']],
             'skills' => ['Java'],
-        ])->assertStatus(201);
-
-        $token = $response->json('data.token');
+        ]);
 
         $this->withToken($token)->putJson('/api/v1/auth/profile', [
             'name' => 'Alumni Kosong',
@@ -223,15 +267,13 @@ class AuthTest extends TestCase
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
-        $response = $this->postJson('/api/v1/auth/register', [
+        $token = $this->registerAndVerify([
             'name' => 'Alumni Biodata',
             'email' => 'alumni.biodata@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'institution_id' => $institution->id,
-        ])->assertStatus(201);
-
-        $token = $response->json('data.token');
+        ]);
 
         $this->withToken($token)->putJson('/api/v1/auth/profile', [
             'name' => 'Alumni Biodata',
@@ -269,7 +311,7 @@ class AuthTest extends TestCase
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
-        $response = $this->postJson('/api/v1/auth/register', [
+        $token = $this->registerAndVerify([
             'name' => 'Alumni Bersih',
             'email' => 'alumni.bersih@example.com',
             'password' => 'password123',
@@ -278,9 +320,7 @@ class AuthTest extends TestCase
             'phone' => '081234567890',
             'address' => 'Jl. Lama No. 1',
             'gender' => 'male',
-        ])->assertStatus(201);
-
-        $token = $response->json('data.token');
+        ]);
 
         $this->withToken($token)->putJson('/api/v1/auth/profile', [
             'name' => 'Alumni Bersih',
@@ -305,7 +345,7 @@ class AuthTest extends TestCase
     public function test_user_without_alumni_can_update_own_biodata(): void
     {
         // Super admin has no linked alumni record — biodata must be persisted
-        // on the users table so admin/operator accounts can edit profiles too.
+        // on the users table so admin accounts can edit profiles too.
         $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
         $token = $user->createToken('test-token')->plainTextToken;
 
@@ -424,6 +464,105 @@ class AuthTest extends TestCase
         $this->withToken($currentToken)->getJson('/api/v1/auth/me')->assertOk();
     }
 
+    public function test_user_can_change_password_via_otp_without_current_password(): void
+    {
+        $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        // Request the change-password OTP (no current password needed).
+        $this->withToken($token)->postJson('/api/v1/auth/password/otp')
+            ->assertOk()
+            ->assertJsonPath('data.sent', true);
+
+        $otp = Cache::get('otp:password_change:superadmin@tracerconnect.test');
+        $this->assertNotNull($otp);
+
+        $this->withToken($token)->putJson('/api/v1/auth/password/otp', [
+            'otp' => $otp,
+            'password' => 'otpnewpassword1',
+            'password_confirmation' => 'otpnewpassword1',
+        ])->assertOk()->assertJsonPath('success', true);
+
+        // Old password no longer works; the new one does.
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertStatus(401);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'otpnewpassword1',
+        ])->assertOk();
+    }
+
+    public function test_change_password_via_otp_rejects_invalid_otp(): void
+    {
+        $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $this->withToken($token)->putJson('/api/v1/auth/password/otp', [
+            'otp' => '000000',
+            'password' => 'otpnewpassword1',
+            'password_confirmation' => 'otpnewpassword1',
+        ])->assertStatus(422)->assertJsonPath('success', false);
+
+        // Password stays unchanged.
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertOk();
+    }
+
+    public function test_change_password_via_otp_keeps_current_session_revokes_others(): void
+    {
+        $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
+        $otherToken = $user->createToken('other-session')->plainTextToken;
+        $currentToken = $user->createToken('current-session')->plainTextToken;
+
+        $this->withToken($currentToken)->postJson('/api/v1/auth/password/otp')->assertOk();
+        $otp = Cache::get('otp:password_change:superadmin@tracerconnect.test');
+        $this->assertNotNull($otp);
+
+        $this->withToken($currentToken)->putJson('/api/v1/auth/password/otp', [
+            'otp' => $otp,
+            'password' => 'otpnewpassword1',
+            'password_confirmation' => 'otpnewpassword1',
+        ])->assertOk();
+
+        $this->withToken($otherToken)->getJson('/api/v1/auth/me')->assertStatus(401);
+        $this->withToken($currentToken)->getJson('/api/v1/auth/me')->assertOk();
+    }
+
+    public function test_change_password_via_otp_requires_authentication(): void
+    {
+        $this->postJson('/api/v1/auth/password/otp')->assertStatus(401);
+
+        $this->putJson('/api/v1/auth/password/otp', [
+            'otp' => '123456',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertStatus(401);
+    }
+
+    public function test_resend_otp_supports_password_change_purpose(): void
+    {
+        $user = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail();
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $this->withToken($token)->postJson('/api/v1/auth/password/otp')->assertOk();
+        $first = Cache::get('otp:password_change:superadmin@tracerconnect.test');
+        $this->assertNotNull($first);
+
+        $this->postJson('/api/v1/auth/resend-otp', [
+            'email' => $user->email,
+            'purpose' => 'password_change',
+        ])->assertOk()->assertJsonPath('data.sent', true);
+
+        $second = Cache::get('otp:password_change:superadmin@tracerconnect.test');
+        $this->assertNotNull($second);
+        $this->assertNotSame($first, $second);
+    }
+
     public function test_public_can_register_and_receives_alumni_role(): void
     {
         $response = $this->postJson('/api/v1/auth/register', [
@@ -435,19 +574,19 @@ class AuthTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
+            ->assertJsonPath('data.requires_verification', true)
+            ->assertJsonPath('data.email', 'alumni.baru@example.com')
             ->assertJsonStructure([
                 'success',
                 'message',
-                'data' => [
-                    'token',
-                    'token_type',
-                    'expires_in',
-                    'user' => ['id', 'name', 'email', 'roles'],
-                ],
+                'data' => ['requires_verification', 'email'],
             ]);
 
-        $this->assertContains('alumni', $response->json('data.user.roles'));
-        $this->assertNotContains('super_admin', $response->json('data.user.roles'));
+        // The account exists with the alumni role but must verify OTP first.
+        $user = User::where('email', 'alumni.baru@example.com')->firstOrFail();
+        $this->assertTrue($user->hasRole('alumni'));
+        $this->assertFalse($user->hasRole('super_admin'));
+        $this->assertNull($user->email_verified_at);
         $this->assertDatabaseHas('users', ['email' => 'alumni.baru@example.com']);
     }
 
@@ -489,19 +628,147 @@ class AuthTest extends TestCase
         $this->assertDatabaseHas('alumni', ['id' => $alumni->id, 'user_id' => $user->id]);
     }
 
-    public function test_registered_user_can_login_with_issued_token(): void
+    public function test_register_links_existing_alumni_record_by_nis(): void
+    {
+        // The imported record has a different email than the registrant, but
+        // the NIS is unique per institution — registration claims it.
+        $alumni = Alumni::factory()->create([
+            'email' => 'imported.email@example.com',
+            'user_id' => null,
+            'nis_nim' => '1234567890',
+        ]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Alumni NIS',
+            'email' => 'alumni.nis@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $alumni->institution_id,
+            'nis' => '1234567890',
+        ])->assertStatus(201);
+
+        $user = User::where('email', 'alumni.nis@example.com')->firstOrFail();
+        $this->assertDatabaseHas('alumni', ['id' => $alumni->id, 'user_id' => $user->id]);
+    }
+
+    public function test_register_with_nis_claimed_by_another_account_returns_422(): void
+    {
+        $institution = Institution::factory()->create();
+        $owner = User::factory()->create();
+
+        Alumni::factory()->create([
+            'institution_id' => $institution->id,
+            'user_id' => $owner->id,
+            'email' => 'owner@example.com',
+            'nis_nim' => '1234567890',
+        ]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Pendaftar Lain',
+            'email' => 'another@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'nis' => '1234567890',
+        ])->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonValidationErrors('nis');
+
+        // The user account must not have been created.
+        $this->assertDatabaseMissing('users', ['email' => 'another@example.com']);
+    }
+
+    public function test_register_with_study_entry_year_less_than_three_years_after_graduation_returns_422(): void
+    {
+        $base = [
+            'name' => 'Alumni Kuliah',
+            'email' => 'kuliah.too-early@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => Institution::firstOrFail()->id,
+            'entry_year' => 2018,
+            'graduation_year' => 2021,
+            'employment_status' => 'continuing_study',
+            'study_institution' => 'Universitas Indonesia',
+            'study_program' => 'Teknik Informatika',
+            'study_entry_year' => 2022, // hanya 1 tahun setelah lulus → ditolak
+        ];
+
+        $this->postJson('/api/v1/auth/register', $base)
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonValidationErrors('study_entry_year');
+
+        // Tepat 3 tahun setelah lulus (2021 + 3 = 2024) → diterima.
+        $base['email'] = 'kuliah.ok@example.com';
+        $base['study_entry_year'] = 2024;
+        $this->postJson('/api/v1/auth/register', $base)
+            ->assertStatus(201)
+            ->assertJsonPath('data.requires_verification', true);
+    }
+
+    public function test_register_requires_otp_verification_before_login(): void
     {
         $response = $this->postJson('/api/v1/auth/register', [
             'name' => 'Alumni Token',
             'email' => 'alumni.token@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertStatus(201);
+        ])->assertStatus(201)
+            ->assertJsonPath('data.requires_verification', true)
+            ->assertJsonPath('data.email', 'alumni.token@example.com');
 
-        $this->withToken($response->json('data.token'))
+        // No token is issued until the OTP is verified.
+        $this->assertNull($response->json('data.token'));
+
+        // Invalid OTP is rejected.
+        $this->postJson('/api/v1/auth/verify-otp', [
+            'email' => 'alumni.token@example.com',
+            'otp' => '000000',
+        ])->assertStatus(422)->assertJsonPath('success', false);
+
+        // The OTP (delivered by email, readable from the cache in tests)
+        // verifies the account — it is never exposed in the API response.
+        $this->assertNull($response->json('data.debug_otp'));
+        $otp = Cache::get('otp:register:alumni.token@example.com');
+        $this->assertNotNull($otp);
+
+        $verify = $this->postJson('/api/v1/auth/verify-otp', [
+            'email' => 'alumni.token@example.com',
+            'otp' => $otp,
+        ])->assertOk()->assertJsonPath('success', true);
+
+        $this->assertNotNull(User::where('email', 'alumni.token@example.com')->firstOrFail()->email_verified_at);
+
+        $this->withToken($verify->json('data.token'))
             ->getJson('/api/v1/auth/me')
             ->assertOk()
             ->assertJsonPath('data.email', 'alumni.token@example.com');
+    }
+
+    public function test_resend_otp_regenerates_code(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Resend Otp',
+            'email' => 'resend.otp@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertStatus(201);
+
+        $resend = $this->postJson('/api/v1/auth/resend-otp', [
+            'email' => 'resend.otp@example.com',
+        ])->assertOk()->assertJsonPath('data.sent', true);
+
+        // The regenerated code is only available in the cache (email delivery),
+        // never in the API response.
+        $this->assertNull($resend->json('data.debug_otp'));
+        $otp = Cache::get('otp:register:resend.otp@example.com');
+        $this->assertNotNull($otp);
+
+        $this->postJson('/api/v1/auth/verify-otp', [
+            'email' => 'resend.otp@example.com',
+            'otp' => $otp,
+        ])->assertOk()->assertJsonPath('success', true);
     }
 
     public function test_user_can_upload_and_delete_avatar(): void
@@ -595,45 +862,43 @@ class AuthTest extends TestCase
         return 'fake-google-id-token';
     }
 
-    public function test_google_login_creates_account_with_alumni_role_and_token(): void
+    public function test_google_login_auto_creates_new_user(): void
     {
         $token = $this->fakeGoogleToken();
 
-        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token]);
+        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token])
+            ->assertOk()
+            ->assertJsonPath('data.new_google_user', true);
 
-        $response->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonStructure([
-                'data' => [
-                    'token',
-                    'token_type',
-                    'expires_in',
-                    'user' => ['id', 'name', 'email', 'roles'],
-                ],
-            ]);
-
-        $this->assertNotEmpty($response->json('data.token'));
-        $this->assertSame('Alumni Google', $response->json('data.user.name'));
-        $this->assertSame('alumni.google@example.com', $response->json('data.user.email'));
-        $this->assertContains('alumni', $response->json('data.user.roles'));
-        $this->assertDatabaseHas('users', [
-            'email' => 'alumni.google@example.com',
-            'google_id' => 'google-subject-id',
-        ]);
+        // Account is created with alumni role.
+        $user = User::where('email', 'alumni.google@example.com')->firstOrFail();
+        $this->assertTrue($user->hasRole('alumni'));
+        $this->assertNotNull($user->google_id);
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertTrue($user->is_active);
     }
 
-    public function test_google_login_links_existing_alumni_record_by_email(): void
+    public function test_google_login_links_existing_account_and_alumni_by_email(): void
     {
         $alumni = Alumni::factory()->create([
             'email' => 'alumni.google@example.com',
             'user_id' => null,
         ]);
 
+        // The email must be registered first (no auto-creation on sign-in).
+        $user = User::factory()->create([
+            'email' => 'alumni.google@example.com',
+            'is_active' => true,
+        ]);
+        $user->assignRole('alumni');
+        $alumni->update(['user_id' => $user->id]);
+
         $token = $this->fakeGoogleToken();
 
-        $this->postJson('/api/v1/auth/google', ['id_token' => $token])->assertOk();
+        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token])->assertOk();
 
-        $user = User::where('email', 'alumni.google@example.com')->firstOrFail();
+        $this->assertSame('alumni.google@example.com', $response->json('data.user.email'));
+        $this->assertSame('google-subject-id', $user->fresh()->google_id);
         $this->assertDatabaseHas('alumni', ['id' => $alumni->id, 'user_id' => $user->id]);
     }
 
@@ -742,6 +1007,13 @@ class AuthTest extends TestCase
         $nonce = 'test-nonce-456';
         Cache::put('google_oauth_'.$state, ['verifier' => 'test-verifier', 'nonce' => $nonce], now()->addMinutes(10));
 
+        // The account must already be registered — Google sign-in never creates one.
+        $user = User::factory()->create([
+            'email' => 'alumni.redirect@example.com',
+            'is_active' => true,
+        ]);
+        $user->assignRole('alumni');
+
         $mock = \Mockery::mock(GoogleClient::class);
         $mock->shouldReceive('setClientId')->once();
         $mock->shouldReceive('setClientSecret')->once();
@@ -763,8 +1035,46 @@ class AuthTest extends TestCase
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');
-        $this->assertStringContainsString('http://localhost:5173/google/callback?token=', $location);
-        $this->assertDatabaseHas('users', ['email' => 'alumni.redirect@example.com']);
+        $this->assertStringContainsString('http://localhost:5173/google/callback?auth_code=', $location);
+    }
+
+    public function test_google_callback_auto_creates_and_redirects_with_auth_code(): void
+    {
+        config(['services.google.client_id' => 'test-client-id.apps.googleusercontent.com']);
+        config(['services.google.redirect' => 'http://localhost:8000/api/v1/auth/google/callback']);
+        config(['app.frontend_url' => 'http://localhost:5173']);
+
+        $state = 'test-state-unreg';
+        $nonce = 'test-nonce-unreg';
+        Cache::put('google_oauth_'.$state, ['verifier' => 'test-verifier', 'nonce' => $nonce], now()->addMinutes(10));
+
+        $mock = \Mockery::mock(GoogleClient::class);
+        $mock->shouldReceive('setClientId')->once();
+        $mock->shouldReceive('setClientSecret')->once();
+        $mock->shouldReceive('setRedirectUri')->once();
+        $mock->shouldReceive('fetchAccessTokenWithAuthCode')->once()->with('auth-code', 'test-verifier')->andReturn([
+            'id_token' => 'fake-id-token',
+        ]);
+        $mock->shouldReceive('verifyIdToken')->once()->andReturn([
+            'sub' => 'google-subject-id',
+            'email' => 'fresh.google@example.com',
+            'email_verified' => true,
+            'name' => 'Fresh Google',
+            'aud' => 'test-client-id.apps.googleusercontent.com',
+            'nonce' => $nonce,
+        ]);
+        $this->app->instance(GoogleClient::class, $mock);
+
+        $response = $this->get('/api/v1/auth/google/callback?code=auth-code&state='.$state);
+
+        $response->assertRedirect();
+        $location = $response->headers->get('Location');
+        $this->assertStringContainsString('http://localhost:5173/google/callback?auth_code=', $location);
+
+        // Account was auto-created.
+        $user = User::where('email', 'fresh.google@example.com')->firstOrFail();
+        $this->assertTrue($user->hasRole('alumni'));
+        $this->assertNotNull($user->google_id);
     }
 
     public function test_google_callback_rejects_unknown_state(): void
@@ -859,7 +1169,7 @@ class AuthTest extends TestCase
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
-        $response = $this->postJson('/api/v1/auth/register', [
+        $token = $this->registerAndVerify([
             'name' => 'Alumni Profil',
             'email' => 'alumni.profil@example.com',
             'password' => 'password123',
@@ -869,9 +1179,9 @@ class AuthTest extends TestCase
             'birthplace' => 'Cileunyi',
             'birthplace_regency' => 'Kabupaten Bandung',
             'birthplace_province' => 'Jawa Barat',
-        ])->assertStatus(201);
+        ]);
 
-        $this->withToken($response->json('data.token'))
+        $this->withToken($token)
             ->getJson('/api/v1/auth/me')
             ->assertOk()
             ->assertJsonPath('data.alumni.birthplace_label', 'Cileunyi, Kabupaten Bandung, Jawa Barat')
@@ -886,7 +1196,7 @@ class AuthTest extends TestCase
             ->assertJsonPath('data.alumni', null);
     }
 
-    public function test_register_with_graduation_year_less_than_two_years_after_entry_returns_422(): void
+    public function test_register_with_graduation_year_less_than_three_years_after_entry_returns_422(): void
     {
         $institution = Institution::factory()->create(['status' => 'active']);
 
@@ -912,10 +1222,10 @@ class AuthTest extends TestCase
             'graduation_year' => 2024,
         ])->assertStatus(422)->assertJsonPath('success', false);
 
-        // Only one year apart is now rejected (must be at least 2).
+        // One or two years apart are now rejected (must be at least 3).
         $this->postJson('/api/v1/auth/register', [
-            'name' => 'Tahun Satu Tahun',
-            'email' => 'tahun.satu.tahun@example.com',
+            'name' => 'Tahun Dua Tahun',
+            'email' => 'tahun.dua.tahun@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'institution_id' => $institution->id,
@@ -923,7 +1233,17 @@ class AuthTest extends TestCase
             'graduation_year' => 2025,
         ])->assertStatus(422)->assertJsonPath('success', false);
 
-        // A valid sequence (≥2 years apart) still registers.
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Tahun Dua Tahun Kedua',
+            'email' => 'tahun.dua.tahun2@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'institution_id' => $institution->id,
+            'entry_year' => 2024,
+            'graduation_year' => 2026,
+        ])->assertStatus(422)->assertJsonPath('success', false);
+
+        // A valid sequence (≥3 years apart) still registers.
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Tahun Benar',
             'email' => 'tahun.benar@example.com',

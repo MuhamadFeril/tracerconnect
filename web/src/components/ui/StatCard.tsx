@@ -14,15 +14,21 @@ export function StatCard({
   sub,
   icon: Icon,
   tone = 'indigo',
+  delay = 0,
 }: {
   label: string
   value: React.ReactNode
   sub?: React.ReactNode
   icon: LucideIcon
   tone?: keyof typeof TONES
+  /** Entrance animation delay in ms (used for staggered card entrances). */
+  delay?: number
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div
+      className="animate-fade-in-up rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>

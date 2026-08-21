@@ -12,28 +12,22 @@ import { LoadingState, ErrorState, EmptyState } from '../components/ui/StateView
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   institution_admin: 'Admin Institusi',
-  operator: 'Operator',
   alumni: 'Alumni',
   employer: 'Employer',
-  viewer: 'Viewer',
 }
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   super_admin: 'Mengelola seluruh platform dan institusi.',
   institution_admin: 'Mengelola satu institusi miliknya.',
-  operator: 'Mengelola data alumni, survey, dan laporan sesuai permission.',
   alumni: 'Mengelola profil dan mengisi tracer study.',
   employer: 'Mengisi employer survey atau mengelola lowongan jika fitur diaktifkan.',
-  viewer: 'Melihat data dan laporan sesuai permission.',
 }
 
 const ROLE_TONES: Record<string, BadgeTone> = {
   super_admin: 'violet',
   institution_admin: 'indigo',
-  operator: 'sky',
   alumni: 'green',
   employer: 'amber',
-  viewer: 'slate',
 }
 
 const MODULE_LABELS: Record<string, string> = {

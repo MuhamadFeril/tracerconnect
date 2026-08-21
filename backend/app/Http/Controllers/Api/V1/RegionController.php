@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Models\Province;
 use App\Models\Regency;
+use App\Models\Village;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -69,6 +70,27 @@ class RegionController extends Controller
                 'name' => $district->name,
             ])->values(),
             'Daftar kecamatan berhasil diambil'
+        );
+    }
+
+    /**
+     * Public list of villages (desa/kelurahan) for a district.
+     */
+    public function villages(District $district): JsonResponse
+    {
+        $villages = Village::query()
+            ->where('district_id', $district->id)
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'postal_code']);
+
+        return ApiResponse::success(
+            $villages->map(fn (Village $village) => [
+                'id' => $village->id,
+                'code' => $village->code,
+                'name' => $village->name,
+                'postal_code' => $village->postal_code,
+            ])->values(),
+            'Daftar desa/kelurahan berhasil diambil'
         );
     }
 }

@@ -45,7 +45,7 @@ class InstitutionController extends Controller
         $institutions = Institution::query()
             ->withCount('users')
             ->when($request->filled('search'), function ($query) use ($request) {
-                $search = trim((string) $request->search);
+                $search = addcslashes(trim((string) $request->search), '%_\\');
                 $query->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%"));
             })
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))

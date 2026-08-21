@@ -136,18 +136,18 @@ class SurveyTest extends TestCase
         $this->withToken($token)->putJson("/api/v1/surveys/{$survey['id']}", ['title' => 'Judul Baru'])->assertOk();
     }
 
-    public function test_viewer_cannot_create_survey(): void
+    public function test_alumni_cannot_create_survey(): void
     {
-        $viewer = User::create([
-            'name' => 'Viewer',
-            'email' => 'viewer-survey@test.test',
+        $alumni = User::create([
+            'name' => 'Alumni Survey',
+            'email' => 'alumni-survey@test.test',
             'password' => 'password',
             'institution_id' => $this->demoInstitution()->id,
             'is_active' => true,
         ]);
-        $viewer->assignRole('viewer');
+        $alumni->assignRole('alumni');
 
-        $this->withToken($viewer->createToken('test-token')->plainTextToken)
+        $this->withToken($alumni->createToken('test-token')->plainTextToken)
             ->postJson('/api/v1/surveys', ['title' => 'X'])
             ->assertStatus(403);
     }

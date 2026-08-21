@@ -7,6 +7,7 @@ use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -30,7 +31,7 @@ class UserController extends Controller
                 $query->where('institution_id', $request->institution_id);
             })
             ->when($request->filled('search'), function ($query) use ($request) {
-                $search = trim((string) $request->search);
+                $search = addcslashes(trim((string) $request->search), '%_\\');
                 $query->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
             })
             ->when($request->filled('role'), fn ($query) => $query->role($request->role))
@@ -50,15 +51,23 @@ class UserController extends Controller
 
         $data = $request->validated();
 
+        // Super-admin accounts are platform-level and must never belong to
+        // an institution — strip any accidental value.
+        $institutionId = $data['role'] === 'super_admin'
+            ? null
+            : ($data['institution_id'] ?? null);
+
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
-            'institution_id' => $data['institution_id'] ?? null,
+            'institution_id' => $institutionId,
             'is_active' => true,
         ]);
 
         $user->assignRole($data['role']);
+
+        AuditService::log('create', 'user', $user->id, null, ['name' => $user->name, 'email' => $user->email, 'role' => $data['role']], $request);
 
         return ApiResponse::success(
             new UserResource($user->load('institution:id,name', 'roles:id,name')),
@@ -103,15 +112,19 @@ class UserController extends Controller
             $user->tokens()->delete();
         }
 
+        AuditService::log('update', 'user', $user->id, null, ['name' => $user->name, 'email' => $user->email, 'is_active' => $user->is_active, 'role' => $data['role'] ?? null], $request);
+
         return ApiResponse::success(
             new UserResource($user->fresh(['institution:id,name', 'roles:id,name'])),
             'Pengguna berhasil diperbarui'
         );
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
         $this->authorize('delete', $user);
+
+        AuditService::log('delete', 'user', $user->id, null, ['name' => $user->name, 'email' => $user->email], $request);
 
         $user->delete();
 

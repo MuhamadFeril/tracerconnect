@@ -116,24 +116,24 @@ class AnnouncementTest extends TestCase
         $this->withToken($token)->deleteJson("/api/v1/announcements/{$announcement->id}")->assertOk();
     }
 
-    public function test_operator_without_announcement_permissions_is_rejected(): void
+    public function test_employer_without_announcement_permissions_is_rejected(): void
     {
-        $operator = User::create([
-            'name' => 'Operator',
-            'email' => 'operator-ann@test.test',
+        $employer = User::create([
+            'name' => 'HRD',
+            'email' => 'hrd-ann@test.test',
             'password' => 'password',
             'institution_id' => $this->demoInstitution()->id,
             'is_active' => true,
         ]);
-        $operator->assignRole('operator');
+        $employer->assignRole('employer');
 
-        $token = $operator->createToken('test-token')->plainTextToken;
+        $token = $employer->createToken('test-token')->plainTextToken;
 
-        // The operator role has no announcement.* permissions by design.
+        // The employer role has no announcement.* permissions by design.
         $this->withToken($token)->getJson('/api/v1/announcements')->assertStatus(403);
         $this->withToken($token)->postJson('/api/v1/announcements', [
             'title' => 'Tidak Boleh',
-            'body' => 'Operator tidak punya permission announcement.',
+            'body' => 'Employer tidak punya permission announcement.',
             'status' => 'draft',
         ])->assertStatus(403);
     }

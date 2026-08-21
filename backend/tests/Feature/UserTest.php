@@ -37,7 +37,7 @@ class UserTest extends TestCase
             'email' => 'operator@smkn1tracer.sch.id',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'operator',
+            'role' => 'employer',
             'institution_id' => $institution->id,
         ]);
 
@@ -45,7 +45,7 @@ class UserTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.email', 'operator@smkn1tracer.sch.id')
             ->assertJsonPath('data.institution_id', $institution->id)
-            ->assertJsonPath('data.roles.0', 'operator');
+            ->assertJsonPath('data.roles.0', 'employer');
 
         $this->assertDatabaseHas('users', ['email' => 'operator@smkn1tracer.sch.id']);
     }
@@ -60,7 +60,7 @@ class UserTest extends TestCase
             'email' => 'operator2@smkn1tracer.sch.id',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'operator',
+            'role' => 'employer',
         ]);
 
         $response->assertCreated()
@@ -91,7 +91,11 @@ class UserTest extends TestCase
             'password_confirmation' => 'password',
             'role' => 'super_admin',
             'institution_id' => $this->demoInstitution()->id,
-        ])->assertStatus(422);
+        ])->assertStatus(201);
+
+        // Verify the created user has no institution.
+        $created = \App\Models\User::where('email', 'sa-baru@example.com')->first();
+        $this->assertNull($created->institution_id, 'Super admin must not belong to an institution');
     }
 
     public function test_duplicate_email_returns_422(): void
@@ -103,7 +107,7 @@ class UserTest extends TestCase
             'email' => 'superadmin@tracerconnect.test',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'operator',
+            'role' => 'employer',
             'institution_id' => $this->demoInstitution()->id,
         ])->assertStatus(422);
     }
@@ -123,7 +127,7 @@ class UserTest extends TestCase
             'email' => 'userb@univ-lain.test',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'viewer',
+            'role' => 'employer',
             'institution_id' => $otherInstitution->id,
         ])->assertCreated();
 
@@ -152,7 +156,7 @@ class UserTest extends TestCase
             'email' => 'userb2@univ-lain.test',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'viewer',
+            'role' => 'employer',
             'institution_id' => $otherInstitution->id,
         ])->assertCreated();
 
@@ -174,7 +178,7 @@ class UserTest extends TestCase
             'institution_id' => $this->demoInstitution()->id,
             'is_active' => true,
         ]);
-        $target->assignRole('viewer');
+        $target->assignRole('employer');
 
         $targetToken = $target->createToken('test-token')->plainTextToken;
 
@@ -220,7 +224,7 @@ class UserTest extends TestCase
             'institution_id' => $this->demoInstitution()->id,
             'is_active' => true,
         ]);
-        $operator->assignRole('operator');
+        $operator->assignRole('employer');
         $token = $operator->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/v1/roles')->assertStatus(403);
@@ -237,7 +241,7 @@ class UserTest extends TestCase
             'email' => 'delete-me@test.test',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'viewer',
+            'role' => 'employer',
             'institution_id' => $institution->id,
         ])->assertCreated()->json('data');
 

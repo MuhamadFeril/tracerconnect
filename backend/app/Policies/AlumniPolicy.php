@@ -13,11 +13,11 @@ class AlumniPolicy
     }
 
     /**
-     * Super admins, institution admins, operators, and viewers may list alumni.
+     * Super admins and institution admins may list alumni.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator', 'viewer']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function view(User $user, Alumni $alumni): bool
@@ -27,13 +27,13 @@ class AlumniPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function update(User $user, Alumni $alumni): bool
     {
         return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $alumni) && $user->hasAnyRole(['institution_admin', 'operator']));
+            || ($this->inSameInstitution($user, $alumni) && $user->hasAnyRole(['institution_admin']));
     }
 
     public function delete(User $user, Alumni $alumni): bool
@@ -43,7 +43,7 @@ class AlumniPolicy
 
     public function import(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin', 'operator']);
+        return $user->hasAnyRole(['super_admin', 'institution_admin']);
     }
 
     public function export(User $user): bool

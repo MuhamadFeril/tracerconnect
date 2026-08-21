@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Concerns\ResolvesGoogleUser;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ChangePasswordWithOtpRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResendOtpRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Http\Requests\Auth\UpdateAvatarRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
@@ -16,14 +19,17 @@ use App\Models\Alumni;
 use App\Models\Department;
 use App\Models\GraduationYear;
 use App\Models\User;
+use App\Notifications\SendOtp;
+use App\Services\AuditService;
+use App\Services\OtpService;
 use App\Support\ApiResponse;
 use Google\Client as GoogleClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class AuthController extends Controller
@@ -38,11 +44,11 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         if (User::withTrashed()->where('email', $request->email)->exists()) {
-            return ApiResponse::error(
-                'Email sudah terdaftar',
-                ['email' => ['Email sudah digunakan']],
-                409
-            );
+            // Return generic success to prevent email enumeration.
+            return ApiResponse::success([
+                'requires_verification' => true,
+                'email' => $request->email,
+            ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
         }
 
         try {
@@ -50,10 +56,12 @@ class AuthController extends Controller
                 $user = User::create([
                     'name' => $request->name,
                     'email' => $request->email,
-                    'password' => $request->password,
                     'institution_id' => $request->institution_id,
-                    'is_active' => true,
                 ]);
+                $user->forceFill([
+                    'password' => $request->password,
+                    'is_active' => true,
+                ])->save();
 
                 $user->assignRole('alumni');
 
@@ -61,20 +69,75 @@ class AuthController extends Controller
 
                 return $user;
             });
+        } catch (ValidationException $e) {
+            // A field-level conflict (e.g. NIS already claimed by another
+            // account) must reach the client as a 422, not a generic 500.
+            throw $e;
         } catch (Throwable $e) {
             Log::error('Pendaftaran gagal', ['email' => $request->email, 'error' => $e->getMessage()]);
 
             return ApiResponse::error('Registrasi gagal, silakan coba lagi', [], 500);
         }
 
-        $token = $user->createToken('api-token', ['*'], now()->addDays(7));
+        // The account is created but NOT activated yet: an OTP is sent to the
+        // email and the user must verify it before the account can log in.
+        $code = OtpService::generate($user->email, 'register');
+        $user->notify(new SendOtp($code, 'register'));
+
+        return ApiResponse::success([
+            'requires_verification' => true,
+            'email' => $user->email,
+        ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
+    }
+
+    /**
+     * Verify the registration OTP and activate the account. On success the
+     * account can log in and a fresh Sanctum token is returned (the frontend
+     * treats this like a login response).
+     */
+    public function verifyOtp(VerifyOtpRequest $request)
+    {
+        $email = mb_strtolower($request->email);
+        $user = User::query()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->first();
+
+        if (! $user || ! OtpService::verify($email, 'register', $request->otp)) {
+            return ApiResponse::error('Kode OTP tidak valid atau sudah kedaluwarsa', [], 422);
+        }
+
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        $permissions = $user->getAllPermissions()->pluck('name')->all();
+        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
 
         return ApiResponse::success([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_in' => 60 * 60 * 24 * 7,
             'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
-        ], 'Registrasi berhasil', [], 201);
+        ], 'Akun berhasil diverifikasi');
+    }
+
+    /**
+     * Resend an OTP (register verification or password reset) without leaking
+     * which emails are registered.
+     */
+    public function resendOtp(ResendOtpRequest $request)
+    {
+        $email = mb_strtolower($request->email);
+        $purpose = $request->input('purpose', 'register');
+
+        $user = User::query()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->first();
+
+        if ($user) {
+            $code = OtpService::generate($email, $purpose);
+            $user->notify(new SendOtp($code, $purpose));
+        }
+
+        return ApiResponse::success(['sent' => true], 'Jika email terdaftar, kode OTP telah dikirim.');
     }
 
     /**
@@ -100,6 +163,30 @@ class AuthController extends Controller
 
         if (! $request->filled('institution_id')) {
             return;
+        }
+
+        // The imported record may carry an out-of-date email. NIS is unique
+        // per institution, so claim the record by (institution, NIS) instead
+        // of inserting a duplicate that would violate the unique constraint.
+        $nis = $validated['nis'] ?? null;
+
+        if ($nis !== null) {
+            $byNis = Alumni::query()
+                ->where('institution_id', $request->institution_id)
+                ->where('nis_nim', $nis)
+                ->first();
+
+            if ($byNis) {
+                if ($byNis->user_id !== null) {
+                    throw ValidationException::withMessages([
+                        'nis' => 'NIS sudah terdaftar pada akun lain.',
+                    ]);
+                }
+
+                $byNis->update(array_merge(['user_id' => $userId], $this->alumniProfileData($validated, $byNis->institution_id)));
+
+                return;
+            }
         }
 
         Alumni::create(array_merge([
@@ -167,6 +254,31 @@ class AuthController extends Controller
             default => null,
         };
 
+        // Career details follow the chosen status.
+        if ($status === 'working') {
+            $data['company_name'] = $validated['company_name'] ?? null;
+            $data['position'] = $validated['position'] ?? null;
+            $data['business_field'] = $validated['business_field'] ?? null;
+            $data['business_start_year'] = $validated['business_start_year'] ?? null;
+            $data['work_province'] = $validated['work_province'] ?? null;
+            $data['work_city'] = $validated['work_city'] ?? null;
+        }
+
+        if ($status === 'continuing_study') {
+            $data['study_institution'] = $validated['study_institution'] ?? null;
+            $data['study_program'] = $validated['study_program'] ?? null;
+            $data['study_entry_year'] = $validated['study_entry_year'] ?? null;
+        }
+
+        if ($status === 'entrepreneur') {
+            $data['business_name'] = $validated['business_name'] ?? null;
+            $data['business_field'] = $validated['business_field'] ?? null;
+            $data['business_start_year'] = $validated['business_start_year'] ?? null;
+            $data['business_address'] = $validated['business_address'] ?? null;
+            $data['business_province'] = $validated['business_province'] ?? null;
+            $data['business_city'] = $validated['business_city'] ?? null;
+        }
+
         return $data;
     }
 
@@ -194,7 +306,10 @@ class AuthController extends Controller
             return ApiResponse::error('Akun Anda telah dinonaktifkan', [], 403);
         }
 
-        $token = $user->createToken('api-token', ['*'], now()->addDays(7));
+        $permissions = $user->getAllPermissions()->pluck('name')->all();
+        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+
+        AuditService::log('login', 'user', $user->id, null, ['roles' => $user->getRoleNames()->all()], $request, $user->id, $user->institution_id);
 
         return ApiResponse::success([
             'token' => $token->plainTextToken,
@@ -244,13 +359,17 @@ class AuthController extends Controller
             return ApiResponse::error($result, [], 403);
         }
 
-        $token = $result->createToken('api-token', ['*'], now()->addDays(7));
+        [$user, $isNew] = $result;
+
+        $permissions = $user->getAllPermissions()->pluck('name')->all();
+        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
 
         return ApiResponse::success([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_in' => 60 * 60 * 24 * 7,
-            'user' => new UserResource($result->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
+            'new_google_user' => $isNew,
+            'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
         ], 'Login berhasil');
     }
 
@@ -259,7 +378,11 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        AuditService::log('logout', 'user', $user->id, null, null, $request);
+
+        $user->currentAccessToken()->delete();
 
         return ApiResponse::success([], 'Logout berhasil');
     }
@@ -306,6 +429,19 @@ class AuthController extends Controller
                 'birthplace_province' => 'birthplace_province',
                 'address' => 'address',
                 'employment_status' => 'employment_status',
+                'company_name' => 'company_name',
+                'position' => 'position',
+                'business_field' => 'business_field',
+                'business_start_year' => 'business_start_year',
+                'work_province' => 'work_province',
+                'work_city' => 'work_city',
+                'study_institution' => 'study_institution',
+                'study_program' => 'study_program',
+                'study_entry_year' => 'study_entry_year',
+                'business_name' => 'business_name',
+                'business_address' => 'business_address',
+                'business_province' => 'business_province',
+                'business_city' => 'business_city',
             ] as $column => $input) {
                 if (! $request->has($input)) {
                     continue;
@@ -397,7 +533,7 @@ class AuthController extends Controller
             );
         }
 
-        $user->update(['password' => $request->password]);
+        $user->forceFill(['password' => $request->password])->save();
 
         $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
 
@@ -405,36 +541,80 @@ class AuthController extends Controller
     }
 
     /**
-     * Send a password reset link (does not leak which emails are registered).
+     * Send a change-password OTP to the authenticated user's email. Unlike
+     * the public forgot-password flow, this never requires the current
+     * password, so users who forgot it (or signed up via Google) can still
+     * rotate their password from inside the profile.
      */
-    public function forgotPassword(ForgotPasswordRequest $request)
+    public function sendPasswordChangeOtp(Request $request)
     {
-        $status = Password::sendResetLink($request->only('email'));
+        $user = $request->user();
 
-        if (in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER], true)) {
-            return ApiResponse::success([], 'Jika email terdaftar, link reset password telah dikirim');
-        }
+        $code = OtpService::generate($user->email, 'password_change');
+        $user->notify(new SendOtp($code, 'password_change'));
 
-        return ApiResponse::error('Terlalu banyak permintaan reset password. Silakan coba lagi nanti.', [], 429);
+        return ApiResponse::success(['sent' => true], 'Kode OTP ganti password telah dikirim ke email Anda');
     }
 
     /**
-     * Reset the password using the token from the reset link.
+     * Change the authenticated user's password using the OTP sent by
+     * sendPasswordChangeOtp. The current session stays signed in; other
+     * active sessions are revoked.
+     */
+    public function changePasswordWithOtp(ChangePasswordWithOtpRequest $request)
+    {
+        $user = $request->user();
+
+        if (! OtpService::verify($user->email, 'password_change', $request->otp)) {
+            return ApiResponse::error(
+                'Kode OTP tidak valid atau sudah kedaluwarsa',
+                ['otp' => ['Kode OTP tidak valid atau sudah kedaluwarsa']],
+                422
+            );
+        }
+
+        $user->forceFill(['password' => $request->password])->save();
+
+        $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
+
+        return ApiResponse::success([], 'Password berhasil diubah');
+    }
+
+    /**
+     * Send a password reset OTP (does not leak which emails are registered).
+     */
+    public function forgotPassword(ForgotPasswordRequest $request)
+    {
+        $email = mb_strtolower($request->email);
+        $user = User::query()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->first();
+
+        if ($user && $user->is_active) {
+            $code = OtpService::generate($email, 'reset');
+            $user->notify(new SendOtp($code, 'reset'));
+        }
+
+        return ApiResponse::success(['sent' => true], 'Jika email terdaftar, kode OTP reset password telah dikirim');
+    }
+
+    /**
+     * Reset the password using the OTP sent by forgotPassword.
      */
     public function resetPassword(ResetPasswordRequest $request)
     {
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->forceFill(['password' => $password])->save();
-                $user->tokens()->delete();
-            }
-        );
+        $email = mb_strtolower($request->email);
+        $user = User::query()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->first();
 
-        if ($status === Password::PASSWORD_RESET) {
-            return ApiResponse::success([], 'Password berhasil direset. Silakan login kembali.');
+        if (! $user || ! OtpService::verify($email, 'reset', $request->otp)) {
+            return ApiResponse::error('Kode OTP tidak valid atau sudah kedaluwarsa', [], 422);
         }
 
-        return ApiResponse::error('Token reset password tidak valid atau sudah kedaluwarsa', [], 422);
+        $user->forceFill(['password' => $request->password])->save();
+        $user->tokens()->delete();
+
+        return ApiResponse::success([], 'Password berhasil direset. Silakan login kembali.');
     }
 }

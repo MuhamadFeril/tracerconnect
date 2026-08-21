@@ -75,6 +75,31 @@ class UpdateProfileRequest extends FormRequest
                     Rule::in(['working', 'unemployed', 'entrepreneur', 'continuing_study']),
                 ),
             ],
+            'company_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'position' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'business_field' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'business_start_year' => [
+                'sometimes', 'nullable', 'integer',
+                Rule::when(fn () => $this->filled('business_start_year'), 'min:1990'),
+            ],
+            'work_province' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'work_city' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'study_institution' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'study_program' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'study_entry_year' => [
+                'sometimes', 'nullable', 'integer',
+                Rule::when(fn () => $this->filled('study_entry_year'), 'min:1990'),
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    $graduationYear = $this->user()?->alumni?->graduationYear?->year;
+                    if ($graduationYear && $value && (int) $value < (int) $graduationYear + 3) {
+                        $fail('Tahun masuk kuliah minimal 3 tahun setelah tahun lulus.');
+                    }
+                },
+            ],
+            'business_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'business_address' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'business_province' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'business_city' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 }

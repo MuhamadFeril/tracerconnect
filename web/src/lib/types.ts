@@ -26,10 +26,20 @@ export interface User {
   institution_id: string | null
   institution?: { id: string; name: string } | null
   roles: string[]
+  has_password: boolean
   is_active: boolean
   avatar_url?: string | null
   /** Linked alumni profile summary (present for alumni accounts). */
   alumni?: AlumniProfileSummary | null
+  // User-level biodata (used when there is no linked alumni record, e.g.
+  // admin accounts). Alumni accounts read these from `alumni`.
+  gender?: 'male' | 'female' | null
+  phone?: string | null
+  birth_date?: string | null
+  birthplace?: string | null
+  birthplace_regency?: string | null
+  birthplace_province?: string | null
+  address?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -70,7 +80,17 @@ export interface LoginResponse {
   token: string
   token_type: string
   expires_in: number
+  new_google_user?: boolean
   user: User
+}
+
+export interface RegisterResponse {
+  requires_verification: boolean
+  email: string
+}
+
+export interface OtpSentResponse {
+  sent: boolean
 }
 
 export interface InstitutionOption {
@@ -99,14 +119,58 @@ export interface District {
   name: string
 }
 
+export interface University {
+  id: string
+  code: string
+  name: string
+  type: string | null
+  province: string | null
+  city: string | null
+}
+
+export interface StudyProgram {
+  id: string
+  university_id: string
+  name: string
+}
+
+export interface SocialLink {
+  platform: string
+  url: string
+}
+
 export interface AlumniProfileSummary {
   id: string
   name: string
   nis_nim: string | null
+  nisn: string | null
+  socials: SocialLink[] | null
+  skills: string[] | null
+  gender: 'male' | 'female' | null
+  phone: string | null
+  birth_date: string | null
+  birthplace: string | null
+  birthplace_regency: string | null
+  birthplace_province: string | null
+  address: string | null
   department: string | null
   graduation_year: number | null
   birthplace_label: string | null
   employment_status: string | null
+  company_name: string | null
+  position: string | null
+  business_field: string | null
+  business_start_year: number | null
+  location: string | null
+  work_province: string | null
+  work_city: string | null
+  study_institution: string | null
+  study_program: string | null
+  study_entry_year: number | null
+  business_name: string | null
+  business_address: string | null
+  business_province: string | null
+  business_city: string | null
 }
 
 export interface AlumniHome {
@@ -115,6 +179,7 @@ export interface AlumniHome {
   announcements: Announcement[]
   events: EventItem[]
   jobs: JobVacancy[]
+  stories: SuccessStory[]
 }
 
 export interface NotificationItem {
@@ -192,7 +257,18 @@ export interface Alumni {
   employment_status: EmploymentStatus | null
   company_name: string | null
   position: string | null
+  business_field: string | null
+  business_start_year: number | null
   location: string | null
+  work_province: string | null
+  work_city: string | null
+  study_institution: string | null
+  study_program: string | null
+  study_entry_year: number | null
+  business_name: string | null
+  business_address: string | null
+  business_province: string | null
+  business_city: string | null
   created_at?: string
   updated_at?: string
 }
@@ -370,6 +446,28 @@ export interface Announcement {
   updated_at?: string
 }
 
+export type StoryCategory = 'career' | 'study' | 'entrepreneur' | 'achievement' | 'other'
+
+export interface SuccessStory {
+  id: string
+  institution_id: string
+  title: string
+  category: StoryCategory
+  category_label: string
+  content: string
+  cover_image_url: string | null
+  alumni: {
+    id: string
+    name: string
+    department: string | null
+    graduation_year: number | null
+  } | null
+  status: ContentStatus
+  published_at: string | null
+  created_at?: string
+  updated_at?: string
+}
+
 export interface EventItem {
   id: string
   institution_id: string
@@ -379,6 +477,10 @@ export interface EventItem {
   starts_at: string | null
   ends_at: string | null
   status: ContentStatus
+  /** Alumni-facing registration state. */
+  registered?: boolean | null
+  attended?: boolean | null
+  participants_count?: number | null
   created_at?: string
   updated_at?: string
 }
@@ -397,40 +499,182 @@ export interface JobVacancy {
   application_link: string | null
   status: JobStatus
   posted_at: string | null
-  /** Career center flags — present on alumni-facing listings. */
-  is_saved?: boolean
-  has_applied?: boolean
-  /** Number of applicants — present on staff listings. */
-  applications_count?: number | null
+  /** Employer (job creator) user id — enables the chat entry point. */
+  created_by?: string | null
+  /** Alumni-facing flags (null for staff). */
+  bookmarked?: boolean | null
+  has_applied?: boolean | null
+  my_application?: string | null
   created_at?: string
   updated_at?: string
 }
 
-export type JobApplicationStatus = 'pending' | 'reviewed' | 'accepted' | 'rejected' | 'cancelled'
+export type JobApplicationStatus =
+  | 'submitted'
+  | 'reviewing'
+  | 'shortlisted'
+  | 'interview'
+  | 'accepted'
+  | 'rejected'
+  | 'withdrawn'
+
+export type AcceptanceContractType = 'permanent' | 'full_time' | 'part_time' | 'contract' | 'internship'
+
+/** Hiring result recorded by the employer when an application is accepted. */
+export interface JobAcceptance {
+  id: string
+  position_offered: string | null
+  contract_type: AcceptanceContractType | null
+  start_date: string | null
+  salary: string | null
+  notes: string | null
+  decided_by: string | null
+  decided_at: string | null
+}
 
 export interface JobApplication {
   id: string
   job_vacancy_id: string
-  job: {
+  user_id: string
+  status: JobApplicationStatus
+  cover_letter: string | null
+  cv_path: string | null
+  portfolio_path: string | null
+  applied_at: string | null
+  vacancy?: {
     id: string
     title: string
     company_name: string
     employment_type: EmploymentType | null
     location: string | null
-    status: JobStatus
   } | null
-  applicant?: { id: string; name: string; email: string } | null
-  message: string | null
-  status: JobApplicationStatus
+  alumni?: {
+    id: string
+    name: string
+    department: string | null
+    graduation_year: number | null
+    employment_status: string | null
+  } | null
+  acceptance?: JobAcceptance | null
   created_at?: string
   updated_at?: string
 }
 
-export interface SavedJob {
+export interface EventParticipant {
   id: string
-  job_vacancy_id: string
-  job: JobVacancy | null
-  created_at?: string
+  attended: boolean
+  registered_at: string | null
+  user: { id: string; name: string } | null
+  alumni: {
+    id: string
+    name: string
+    department: string | null
+    graduation_year: number | null
+  } | null
+}
+
+export type ConnectionStatus = 'none' | 'pending_outgoing' | 'pending_incoming' | 'connected'
+
+export type ConnectionDirection = 'incoming' | 'outgoing'
+
+export interface BlockedUserItem {
+  id: string
+  created_at: string | null
+  user: { id: string; name: string; avatar_url: string | null } | null
+}
+
+/** One entry in the alumni networking directory, with the viewer's connection status. */
+export interface NetworkingAlumni {
+  id: string
+  user_id: string
+  name: string
+  avatar_url: string | null
+  department: string | null
+  graduation_year: number | null
+  employment_status: EmploymentStatus | null
+  company_name: string | null
+  position: string | null
+  business_field: string | null
+  business_start_year: number | null
+  location: string | null
+  work_province: string | null
+  work_city: string | null
+  study_institution: string | null
+  study_program: string | null
+  study_entry_year: number | null
+  business_name: string | null
+  business_address: string | null
+  business_province: string | null
+  business_city: string | null
+  connection: {
+    status: ConnectionStatus
+    connection_id: string | null
+  }
+}
+
+/** A connection/request as seen by the current user (other party pre-resolved). */
+export interface ConnectionItem {
+  id: string
+  status: 'pending' | 'connected'
+  direction: ConnectionDirection
+  created_at: string | null
+  user: { id: string; name: string; avatar_url: string | null } | null
+  alumni: {
+    id: string
+    department: string | null
+    graduation_year: number | null
+    employment_status: EmploymentStatus | null
+    company_name: string | null
+    position: string | null
+    business_field: string | null
+    business_start_year: number | null
+    location: string | null
+    work_province: string | null
+    work_city: string | null
+    study_institution: string | null
+    study_program: string | null
+    study_entry_year: number | null
+    business_name: string | null
+    business_address: string | null
+    business_province: string | null
+    business_city: string | null
+  } | null
+}
+
+export type ChatMessageType = 'text' | 'image' | 'file' | 'system'
+
+export interface ChatAttachment {
+  name: string
+  mime: string
+  size: number
+  url: string
+}
+
+export interface ChatMessage {
+  id: string
+  conversation_id: string
+  sender_id: string | null
+  type: ChatMessageType
+  body: string | null
+  attachment: ChatAttachment | null
+  is_deleted: boolean
+  is_mine: boolean
+  created_at: string
+}
+
+export interface Conversation {
+  id: string
+  type: string
+  subject: string | null
+  job_vacancy_id: string | null
+  created_at: string
+  updated_at: string
+  last_message_at: string | null
+  other: { id: string; name: string; avatar_url: string | null } | null
+  job: { id: string; title: string; company_name: string } | null
+  last_message: ChatMessage | null
+  unread_count: number
+  muted: boolean
 }
 
 export interface TracerReport {

@@ -12,6 +12,8 @@ class EventResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $user = $request->user();
+
         return [
             'id' => $this->id,
             'institution_id' => $this->institution_id,
@@ -23,6 +25,10 @@ class EventResource extends JsonResource
             'status' => $this->status,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            // Alumni-facing registration state.
+            'registered' => $user ? $this->registrations()->where('user_id', $user->id)->exists() : null,
+            'attended' => $user ? (bool) $this->registrations()->where('user_id', $user->id)->value('attended') : null,
+            'participants_count' => $this->whenCounted('registrations'),
         ];
     }
 }

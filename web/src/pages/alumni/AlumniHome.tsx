@@ -10,6 +10,7 @@ import {
   ClipboardList,
   GraduationCap,
   Megaphone,
+  Sparkles,
 } from 'lucide-react'
 import { getUser } from '../../lib/auth'
 import {
@@ -21,11 +22,32 @@ import {
   useUnreadNotificationsCount,
 } from '../../hooks/queries'
 import { avatarUrl, EMPLOYMENT_TYPE_LABELS, formatDate, formatDateTime, initials } from '../../lib/format'
+import type { AlumniProfileSummary } from '../../lib/types'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { Badge, EmploymentBadge, StatusBadge } from '../../components/ui/Badge'
+import { StatCard } from '../../components/ui/StatCard'
 import { Button } from '../../components/ui/Button'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/StateViews'
 import { NotificationRow } from '../../components/alumni/NotificationRow'
+
+function careerDetail(a: AlumniProfileSummary): string {
+  if (a.employment_status === 'working') {
+    const bits = [a.company_name, a.position]
+    if (a.business_field) bits.push(a.business_field)
+    if (a.work_city) bits.push([a.work_city, a.work_province].filter(Boolean).join(', '))
+    return bits.filter(Boolean).join(' · ') || '—'
+  }
+  if (a.employment_status === 'continuing_study') {
+    return [a.study_institution, a.study_program].filter(Boolean).join(' · ') || '—'
+  }
+  if (a.employment_status === 'entrepreneur') {
+    const bits = [a.business_name]
+    if (a.business_field) bits.push(a.business_field)
+    if (a.business_city) bits.push([a.business_city, a.business_province].filter(Boolean).join(', '))
+    return bits.filter(Boolean).join(' · ') || '—'
+  }
+  return '—'
+}
 
 function HomeSectionHeader({
   icon: Icon,
@@ -64,7 +86,7 @@ export function AlumniHome() {
     return <ErrorState message="Gagal memuat beranda alumni" onRetry={() => refetch()} />
   }
 
-  const { institution, alumni, announcements, events, jobs } = data
+  const { institution, alumni, announcements, events, jobs, stories } = data
   const avatarSrc = avatarUrl(user?.avatar_url)
 
   return (
@@ -91,6 +113,14 @@ export function AlumniHome() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Quick overview stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Pengumuman" value={announcements.length} icon={Megaphone} tone="indigo" />
+        <StatCard label="Acara Mendatang" value={events.length} icon={CalendarDays} tone="sky" />
+        <StatCard label="Lowongan Tersedia" value={jobs.length} icon={Briefcase} tone="emerald" />
+        <StatCard label="Kisah Sukses" value={stories.length} icon={Sparkles} tone="amber" />
       </div>
 
       {/* No institution notice */}
@@ -125,6 +155,10 @@ export function AlumniHome() {
             <div className="mt-1">
               <EmploymentBadge status={alumni.employment_status} />
             </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-[11px] font-medium text-slate-400">Detail Karir</p>
+            <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">{careerDetail(alumni)}</p>
           </div>
         </div>
       )}
@@ -199,6 +233,29 @@ export function AlumniHome() {
           </div>
         </Card>
       </div>
+
+      {/* Success stories — inspirational alumni news */}
+      {stories.length > 0 && (
+        <Card>
+          <HomeSectionHeader icon={Sparkles} title="Kisah Sukses Alumni" to="/kisah-sukses" />
+          <div className="divide-y divide-slate-100">
+            {stories.map((story) => (
+              <Link key={story.id} to={`/kisah-sukses/${story.id}`} className="block px-5 py-3.5 transition-colors hover:bg-slate-50">
+                <div className="flex items-center gap-3.5">
+                  {story.cover_image_url && (
+                    <img src={avatarUrl(story.cover_image_url) ?? undefined} alt="" className="size-14 shrink-0 rounded-lg object-cover" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-sm font-semibold text-slate-900">{story.title}</p>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{story.category_label}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{formatDate(story.published_at)}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Notifications & tracer history */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

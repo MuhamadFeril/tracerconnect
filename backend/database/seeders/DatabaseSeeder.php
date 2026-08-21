@@ -18,7 +18,10 @@ class DatabaseSeeder extends Seeder
             SurveySeeder::class,
             ResponseSeeder::class,
             EngagementSeeder::class,
-             RegionSeeder::class,
+            EmployerSeeder::class,
+            RegionSeeder::class,
+            // UniversitySeeder dijalankan terpisah karena datasetnya besar
+            // (5.388 PT + 23.935 prodi): php artisan db:seed --class=UniversitySeeder
         ]);
     }
 }

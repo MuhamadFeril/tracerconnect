@@ -7,6 +7,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -21,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth' => Authenticate::class,
         ]);
+
+        // Force HTTPS in production and set HSTS header.
+        $middleware->append(\Illuminate\Http\Middleware\TrustProxies::class);
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -37,6 +42,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return ApiResponse::error('Validasi gagal', $e->errors(), 422);
+            }
+        });
+
+        // Rate limit (429) harus memakai envelope API standar, bukan body
+        // Laravel default (tanpa kunci `success`) — kalau tidak, klien
+        // mobile/web tidak bisa mem-parsing pesannya dan login tampak gagal
+        // tanpa penjelasan.
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return ApiResponse::error('Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.', [], 429);
             }
         });
     })->create();

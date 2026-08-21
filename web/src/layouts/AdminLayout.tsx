@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   BarChart3,
@@ -8,16 +8,18 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
+  ChevronUp,
   FileText,
-  Send,
   GraduationCap,
   Home,
   LayoutDashboard,
   LogOut,
   Megaphone,
   Menu,
+  MessageCircle,
   MessagesSquare,
   ShieldCheck,
+  Sparkles,
   UserCog,
   UserRound,
   Users,
@@ -27,10 +29,10 @@ import {
 import clsx from 'clsx'
 import { getUser } from '../lib/auth'
 import { avatarUrl, initials } from '../lib/format'
-import { useLogout, useUnreadNotificationsCount } from '../hooks/queries'
-import { Badge } from '../components/ui/Badge'
+import { useLogout, useUnreadConversationsCount, useUnreadNotificationsCount } from '../hooks/queries'
 import { Logo } from '../components/ui/Logo'
 import { Link } from 'react-router-dom'
+import { SetPasswordBanner } from '../components/auth/SetPasswordBanner'
 
 interface NavItem {
   to: string
@@ -46,31 +48,32 @@ interface NavItem {
 const ALUMNI_NAV: NavItem[] = [
   { to: '/home', label: 'Beranda', icon: Home, end: true },
   { to: '/pengumuman', label: 'Pengumuman', icon: Megaphone },
+  { to: '/kisah-sukses', label: 'Kisah Sukses', icon: Sparkles },
   { to: '/acara', label: 'Acara', icon: CalendarDays },
   { to: '/lowongan', label: 'Lowongan', icon: Briefcase },
-  { to: '/lamaran', label: 'Lamaran', icon: Send },
-  { to: '/notifikasi', label: 'Notifikasi', icon: Bell, badge: true },
+  { to: '/applications', label: 'Lamaran', icon: FileText },
+  { to: '/jejaring', label: 'Jejaring', icon: Users, end: false },
   { to: '/kuisioner', label: 'Kuisioner', icon: ClipboardList },
-  { to: '/profile', label: 'Profil', icon: UserRound },
 ]
 
 const NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false },
-  { to: '/alumni', label: 'Alumni', icon: Users, end: false },
-  { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['super_admin', 'institution_admin', 'operator'] },
-  { to: '/surveys', label: 'Surveys', icon: MessagesSquare, end: false },
-  { to: '/responses', label: 'Respons', icon: GraduationCap, end: false },
-  { to: '/reports', label: 'Laporan', icon: FileText, roles: ['super_admin', 'institution_admin', 'operator', 'viewer'] },
+  // Employer role is intentionally excluded from every data-management menu
+  // (alumni, surveys, analytics, …): employers only manage their own
+  // vacancies and applicants, never the school's alumni data.
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: ['super_admin', 'institution_admin'] },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false, roles: ['super_admin', 'institution_admin'] },
+  { to: '/alumni', label: 'Alumni', icon: Users, end: false, roles: ['super_admin', 'institution_admin'] },
+  { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['super_admin', 'institution_admin'] },
+  { to: '/surveys', label: 'Surveys', icon: MessagesSquare, end: false, roles: ['super_admin', 'institution_admin'] },
+  { to: '/responses', label: 'Respons', icon: GraduationCap, end: false, roles: ['super_admin', 'institution_admin'] },
+  { to: '/reports', label: 'Laporan', icon: FileText, roles: ['super_admin', 'institution_admin'] },
   { to: '/institutions', label: 'Institusi', icon: Building2, roles: ['super_admin'] },
   { to: '/users', label: 'Pengguna', icon: UserCog, roles: ['super_admin', 'institution_admin'] },
   { to: '/roles', label: 'Roles', icon: ShieldCheck, roles: ['super_admin', 'institution_admin'] },
   { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
+  { to: '/success-stories', label: 'Kisah Sukses', icon: Sparkles, roles: ['super_admin', 'institution_admin'] },
   { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
   { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin', 'employer'] },
-  { to: '/applications', label: 'Lamaran', icon: Send, roles: ['super_admin', 'institution_admin', 'employer'] },
-  { to: '/notifications', label: 'Notifikasi', icon: Bell, badge: true },
-  { to: '/profile', label: 'Profil', icon: UserRound },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -150,30 +153,106 @@ function Avatar({ user, size = 'size-8', text = 'text-xs' }: { user?: { name?: s
   )
 }
 
-function UserBox() {
+/**
+ * Avatar + name that opens a dropdown menu (Profil, Logout).
+ * Used at the bottom of the sidebar and in the mobile topbar.
+ */
+function UserDropdown({ align = 'left', variant = 'sidebar' }: { align?: 'left' | 'right'; variant?: 'sidebar' | 'topbar' }) {
   const user = getUser()
   const logout = useLogout()
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Close when clicking outside or pressing Escape.
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const itemClass =
+    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900'
 
   return (
-    <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-      <Link to="/profile" className="flex min-w-0 flex-1 items-center gap-3">
-        <Avatar user={user} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-white hover:text-indigo-300">{user?.name ?? '—'}</p>
-          <p className="truncate text-[11px] text-slate-400">
-            {user?.roles?.[0] ? <Badge tone="indigo" className="mt-0.5">{user.roles[0]}</Badge> : ''}
-          </p>
-        </div>
-      </Link>
+    <div ref={rootRef} className="relative">
       <button
-        onClick={() => logout.mutate()}
-        title="Keluar"
-        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Menu pengguna"
+        className={clsx(
+          'flex w-full items-center gap-3 rounded-lg transition-colors',
+          variant === 'sidebar' ? 'px-2 py-2 hover:bg-white/5' : 'p-1.5 hover:bg-slate-100',
+        )}
       >
-        <LogOut className="size-4" />
+        <Avatar user={user} size={variant === 'sidebar' ? 'size-8' : 'size-9'} />
+        <span className={clsx('min-w-0 flex-1 text-left', variant === 'topbar' && 'hidden sm:block')}>
+          <span className={clsx('block truncate font-medium', variant === 'sidebar' ? 'text-xs text-white' : 'text-[13px] text-slate-800')}>
+            {user?.name ?? '—'}
+          </span>
+          <span className={clsx('block truncate text-[11px]', variant === 'sidebar' ? 'text-slate-400' : 'text-slate-400')}>
+            {user?.roles?.[0] ?? ''}
+          </span>
+        </span>
+        <ChevronUp
+          className={clsx(
+            'size-4 shrink-0 transition-transform duration-200',
+            variant === 'sidebar' ? 'text-slate-400' : 'text-slate-400',
+            variant === 'topbar' && 'hidden sm:block',
+            open ? 'rotate-180' : '',
+          )}
+        />
       </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={clsx(
+            'absolute z-50 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl',
+            variant === 'sidebar' ? 'bottom-full left-0 mb-2' : 'top-full mt-1.5',
+            align === 'right' ? 'right-0' : 'left-0',
+          )}
+        >
+          <div className="border-b border-slate-100 px-3 py-2.5">
+            <p className="truncate text-sm font-semibold text-slate-900">{user?.name ?? '—'}</p>
+            <p className="truncate text-xs text-slate-400">{user?.email ?? ''}</p>
+          </div>
+          <div className="py-1">
+            <Link to="/profile" role="menuitem" className={itemClass} onClick={() => setOpen(false)}>
+              <UserRound className="size-4 text-slate-400" />
+              Profil
+            </Link>
+          </div>
+          <div className="border-t border-slate-100 pt-1">
+            <button
+              role="menuitem"
+              onClick={() => logout.mutate()}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+            >
+              <LogOut className="size-4" />
+              Keluar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function UserBox() {
+  return <UserDropdown variant="sidebar" />
 }
 
 export function AdminLayout() {
@@ -216,17 +295,39 @@ export function AdminLayout() {
           <div className="hidden text-[15px] text-slate-500 lg:block">
             Selamat datang di <span className="font-medium text-slate-700">TracerConnect</span>
           </div>
-          <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
+            <ChatBell />
             <NotificationBell />
             <MobileUser />
           </div>
         </header>
 
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <SetPasswordBanner />
           <Outlet />
         </main>
       </div>
     </div>
+  )
+}
+
+function ChatBell() {
+  const unreadCount = useUnreadConversationsCount().data?.count ?? 0
+
+  return (
+    <Link
+      to="/chat"
+      aria-label={unreadCount > 0 ? `Pesan, ${unreadCount} belum dibaca` : 'Pesan'}
+      title="Pesan"
+      className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+    >
+      <MessageCircle className="size-5" />
+      {unreadCount > 0 && (
+        <span className="absolute top-1 right-1 inline-flex min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 py-0.5 text-[10px] leading-none font-bold text-white ring-2 ring-white">
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      )}
+    </Link>
   )
 }
 
@@ -254,25 +355,5 @@ function NotificationBell() {
 }
 
 function MobileUser() {
-  const user = getUser()
-  const logout = useLogout()
-
-  return (
-    <div className="flex items-center gap-3">
-      <Link to="/profile" className="flex items-center gap-3">
-        <Avatar user={user} size="size-9" />
-        <div className="hidden text-right sm:block">
-          <p className="text-[13px] font-medium leading-tight text-slate-800">{user?.name}</p>
-          <p className="text-[11px] leading-tight text-slate-400">{user?.roles?.[0] ?? ''}</p>
-        </div>
-      </Link>
-      <button
-        onClick={() => logout.mutate()}
-        title="Keluar"
-        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-600"
-      >
-        <LogOut className="size-4" />
-      </button>
-    </div>
-  )
+  return <UserDropdown variant="topbar" align="right" />
 }

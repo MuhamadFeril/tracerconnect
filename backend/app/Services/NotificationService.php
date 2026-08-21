@@ -47,6 +47,43 @@ class NotificationService
             ->role('alumni')
             ->pluck('id');
 
+        self::insertRows($userIds, $title, $body, $url, $kind);
+    }
+
+    /**
+     * Notify every active alumni user across ALL schools (used when an
+     * employer publishes a cross-school vacancy announced to every
+     * institution).
+     */
+    public static function notifyAllAlumni(
+        string $title,
+        string $body,
+        ?string $url = null,
+        string $kind = 'info',
+    ): void {
+        $userIds = User::query()
+            ->whereNotNull('institution_id')
+            ->where('is_active', true)
+            ->role('alumni')
+            ->pluck('id');
+
+        self::insertRows($userIds, $title, $body, $url, $kind);
+    }
+
+    /**
+     * Bulk-insert an in-app notification row per user id.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<int, int>  $userIds
+     */
+    private static function insertRows(
+        iterable $userIds,
+        string $title,
+        string $body,
+        ?string $url,
+        string $kind,
+    ): void {
+        $userIds = collect($userIds);
+
         if ($userIds->isEmpty()) {
             return;
         }
@@ -59,7 +96,7 @@ class NotificationService
             'kind' => $kind,
         ], JSON_UNESCAPED_UNICODE);
 
-        $rows = $userIds->map(fn ($userId) => [
+        $rows = collect($userIds)->map(fn ($userId) => [
             'id' => (string) Str::uuid(),
             'type' => InAppNotification::class,
             'notifiable_type' => User::class,

@@ -36,7 +36,7 @@ class NetworkingController extends Controller
         $institutionId = $user->institution_id;
 
         $perPage = max(1, min($request->integer('per_page', 15), 100));
-        $search = trim((string) $request->search);
+        $search = addcslashes(trim((string) $request->search), '%_\\');
 
         if (! $institutionId) {
             return ApiResponse::success([], 'Direktori alumni berhasil diambil', ApiResponse::paginationMeta($this->emptyPage($perPage)));
@@ -103,17 +103,18 @@ class NetworkingController extends Controller
 
         /** @var User $user */
         $user = $request->user();
+        $perPage = max(1, min($request->integer('per_page', 20), 50));
 
         $connections = Connection::query()
             ->with('requester.alumni.department:id,name', 'requester.alumni.graduationYear:id,year', 'receiver.alumni.department:id,name', 'receiver.alumni.graduationYear:id,year')
             ->where('status', 'connected')
             ->where(fn ($query) => $query->where('requester_id', $user->id)->orWhere('receiver_id', $user->id))
             ->orderByDesc('updated_at')
-            ->get();
+            ->paginate($perPage);
 
-        $data = $connections->map(fn (Connection $connection) => new ConnectionResource($connection, $user->id));
+        $data = $connections->through(fn (Connection $connection) => new ConnectionResource($connection, $user->id));
 
-        return ApiResponse::success($data, 'Daftar koneksi berhasil diambil');
+        return ApiResponse::success($data, 'Daftar koneksi berhasil diambil', ApiResponse::paginationMeta($connections));
     }
 
     /**
@@ -125,17 +126,18 @@ class NetworkingController extends Controller
 
         /** @var User $user */
         $user = $request->user();
+        $perPage = max(1, min($request->integer('per_page', 20), 50));
 
         $requests = Connection::query()
             ->with('requester.alumni.department:id,name', 'requester.alumni.graduationYear:id,year')
             ->where('receiver_id', $user->id)
             ->where('status', 'pending')
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate($perPage);
 
-        $data = $requests->map(fn (Connection $connection) => new ConnectionResource($connection, $user->id));
+        $data = $requests->through(fn (Connection $connection) => new ConnectionResource($connection, $user->id));
 
-        return ApiResponse::success($data, 'Daftar permintaan koneksi berhasil diambil');
+        return ApiResponse::success($data, 'Daftar permintaan koneksi berhasil diambil', ApiResponse::paginationMeta($requests));
     }
 
     /**

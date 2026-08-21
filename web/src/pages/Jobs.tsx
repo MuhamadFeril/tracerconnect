@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
+import { Briefcase, Building2, Pencil, Plus, Search, Trash2, UsersRound } from 'lucide-react'
+import { getUser } from '../lib/auth'
 import { apiError } from '../lib/api'
 import { useJobVacancies, useJobVacancyMutations } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
@@ -42,6 +43,7 @@ function JobFormModal({
 }) {
   const mutations = useJobVacancyMutations()
   const toast = useToast()
+  const isEmployer = getUser()?.roles?.includes('employer')
   const [form, setForm] = useState(() => initialForm(job))
   const [error, setError] = useState<string | null>(null)
   const isEditing = Boolean(job)
@@ -101,6 +103,15 @@ function JobFormModal({
     >
       <form id="job-form" onSubmit={onSubmit} className="space-y-4">
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</div>}
+        {isEmployer && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-800">
+            <Building2 className="mt-0.5 size-4 shrink-0" />
+            <p>
+              Lowongan Anda akan <span className="font-semibold">tersebar ke seluruh sekolah</span> yang terdaftar —
+              pekerjaan maupun magang akan tampil di portal alumni semua sekolah dan mendapat notifikasi.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Posisi" required>
             <Input required name="title" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Contoh: Software Engineer" />
@@ -228,7 +239,6 @@ export function Jobs() {
                 <Th>Posisi</Th>
                 <Th>Tipe</Th>
                 <Th>Lokasi</Th>
-                <Th>Pelamar</Th>
                 <Th>Status</Th>
                 <Th>Diposting</Th>
                 <Th className="text-right">Aksi</Th>
@@ -257,20 +267,18 @@ export function Jobs() {
                       )}
                     </Td>
                     <Td>{j.location ?? '—'}</Td>
-                    <Td>
-                      <Link
-                        to={`/applications?job_vacancy_id=${j.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                        title="Lihat pelamar"
-                      >
-                        <Users className="size-3.5" />
-                        {j.applications_count ?? 0}
-                      </Link>
-                    </Td>
                     <Td><StatusBadge status={j.status} /></Td>
                     <Td className="text-slate-500">{formatDate(j.posted_at ?? j.created_at)}</Td>
                     <Td>
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          to={`/jobs/${j.id}/applicants`}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600"
+                          title="Lihat pelamar"
+                        >
+                          <UsersRound className="size-3.5" />
+                          Pelamar
+                        </Link>
                         <button
                           onClick={() => { setEditing(j); setFormOpen(true) }}
                           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600"

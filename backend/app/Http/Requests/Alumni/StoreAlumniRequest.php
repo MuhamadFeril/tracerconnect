@@ -52,7 +52,18 @@ class StoreAlumniRequest extends FormRequest
             'employment_status' => ['nullable', 'string', Rule::in(['working', 'unemployed', 'entrepreneur', 'continuing_study'])],
             'company_name' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
+            'business_field' => ['nullable', 'string', 'max:255'],
+            'business_start_year' => ['nullable', 'integer', 'min:1990'],
             'location' => ['nullable', 'string', 'max:255'],
+            'work_province' => ['nullable', 'string', 'max:255'],
+            'work_city' => ['nullable', 'string', 'max:255'],
+            'study_institution' => ['nullable', 'string', 'max:255'],
+            'study_program' => ['nullable', 'string', 'max:255'],
+            'study_entry_year' => ['nullable', 'integer', 'min:1990'],
+            'business_name' => ['nullable', 'string', 'max:255'],
+            'business_address' => ['nullable', 'string', 'max:255'],
+            'business_province' => ['nullable', 'string', 'max:255'],
+            'business_city' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

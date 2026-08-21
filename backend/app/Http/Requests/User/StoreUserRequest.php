@@ -32,8 +32,8 @@ class StoreUserRequest extends FormRequest
         $user = $this->user();
 
         $allowedRoles = $user->hasRole('super_admin')
-            ? ['super_admin', 'institution_admin', 'operator', 'alumni', 'employer', 'viewer']
-            : ['operator', 'alumni', 'employer', 'viewer'];
+            ? ['super_admin', 'institution_admin', 'alumni', 'employer']
+            : ['alumni', 'employer'];
 
         $institutionIdRules = ['nullable', 'uuid', Rule::exists('institutions', 'id')];
 
@@ -42,7 +42,7 @@ class StoreUserRequest extends FormRequest
             $institutionIdRules = ['required', 'uuid', Rule::in([$user->institution_id])];
         } elseif ($this->input('role') === 'super_admin') {
             // Platform-level accounts do not belong to an institution.
-            $institutionIdRules = ['prohibited'];
+            $institutionIdRules = ['nullable'];
         }
 
         return [

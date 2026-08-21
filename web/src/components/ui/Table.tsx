@@ -30,6 +30,10 @@ export function TBody({ children }: { children: React.ReactNode }) {
   return <tbody className="divide-y divide-slate-100 bg-white">{children}</tbody>
 }
 
-export function TRow({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <tr className={clsx('transition-colors hover:bg-slate-50/70', className)}>{children}</tr>
+export function TRow({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return (
+    <tr className={clsx('transition-colors hover:bg-slate-50/70', className)} style={style}>
+      {children}
+    </tr>
+  )
 }

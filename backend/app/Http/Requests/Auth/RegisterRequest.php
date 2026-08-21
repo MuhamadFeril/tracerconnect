@@ -38,8 +38,8 @@ class RegisterRequest extends FormRequest
             'graduation_year' => [
                 'sometimes', 'integer', 'min:1990', "max:{$maxYear}", 'gt:entry_year',
                 function (string $attribute, mixed $value, \Closure $fail) {
-                    if ($this->filled('entry_year') && (int) $value - (int) $this->input('entry_year') < 2) {
-                        $fail('Tahun lulus minimal 2 tahun setelah tahun masuk.');
+                    if ($this->filled('entry_year') && (int) $value - (int) $this->input('entry_year') < 3) {
+                        $fail('Tahun lulus minimal 3 tahun setelah tahun masuk.');
                     }
                 },
             ],
@@ -59,6 +59,26 @@ class RegisterRequest extends FormRequest
             'employment_status' => ['sometimes', 'string', Rule::in([
                 'working', 'unemployed', 'entrepreneur', 'continuing_study', 'active_student',
             ])],
+            'company_name' => ['sometimes', 'string', 'max:255'],
+            'position' => ['sometimes', 'string', 'max:255'],
+            'business_field' => ['sometimes', 'string', 'max:255'],
+            'business_start_year' => ['sometimes', 'integer', 'min:1990', "max:{$maxYear}"],
+            'work_province' => ['sometimes', 'string', 'max:255'],
+            'work_city' => ['sometimes', 'string', 'max:255'],
+            'study_institution' => ['sometimes', 'string', 'max:255'],
+            'study_program' => ['sometimes', 'string', 'max:255'],
+            'study_entry_year' => [
+                'sometimes', 'integer', 'min:1990', "max:{$maxYear}",
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($this->filled('graduation_year') && (int) $value < (int) $this->input('graduation_year') + 3) {
+                        $fail('Tahun masuk kuliah minimal 3 tahun setelah tahun lulus.');
+                    }
+                },
+            ],
+            'business_name' => ['sometimes', 'string', 'max:255'],
+            'business_address' => ['sometimes', 'string', 'max:255'],
+            'business_province' => ['sometimes', 'string', 'max:255'],
+            'business_city' => ['sometimes', 'string', 'max:255'],
         ];
     }
 }

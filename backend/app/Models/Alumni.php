@@ -32,7 +32,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'employment_status',
     'company_name',
     'position',
+    'business_field',
+    'business_start_year',
     'location',
+    'work_province',
+    'work_city',
+    'study_institution',
+    'study_program',
+    'study_entry_year',
+    'business_name',
+    'business_address',
+    'business_province',
+    'business_city',
     'socials',
     'skills',
 ])]
@@ -57,6 +68,7 @@ class Alumni extends Model
             'birth_date' => 'date',
             'socials' => 'array',
             'skills' => 'array',
+            'business_start_year' => 'integer',
         ];
     }
 
@@ -112,11 +124,12 @@ class Alumni extends Model
 
         return $query
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('nis_nim', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('company_name', 'like', "%{$search}%");
+                $escaped = addcslashes($search, '%_\\');
+                $query->where(function ($q) use ($escaped) {
+                    $q->where('name', 'like', "%{$escaped}%")
+                        ->orWhere('nis_nim', 'like', "%{$escaped}%")
+                        ->orWhere('email', 'like', "%{$escaped}%")
+                        ->orWhere('company_name', 'like', "%{$escaped}%");
                 });
             })
             ->when(! empty($filters['department_id']), fn ($query) => $query->where('department_id', $filters['department_id']))

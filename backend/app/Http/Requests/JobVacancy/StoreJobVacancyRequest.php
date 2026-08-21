@@ -17,7 +17,11 @@ class StoreJobVacancyRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->scopeToInstitution();
+        // Employers are platform-level: their vacancies are published across
+        // all schools, so they never get scoped into a single institution.
+        if (! $this->user()?->hasRole('employer')) {
+            $this->scopeToInstitution();
+        }
     }
 
     /**
@@ -25,8 +29,14 @@ class StoreJobVacancyRequest extends FormRequest
      */
     public function rules(): array
     {
+        $isEmployer = $this->user()?->hasRole('employer') ?? false;
+
         return [
-            'institution_id' => $this->institutionIdRules(),
+            // Employer vacancies have no institution: they are announced to
+            // every school. Everyone else stays tenant-scoped.
+            'institution_id' => $isEmployer
+                ? ['nullable', 'prohibited']
+                : $this->institutionIdRules(),
             'title' => ['required', 'string', 'max:255'],
             'company_name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
