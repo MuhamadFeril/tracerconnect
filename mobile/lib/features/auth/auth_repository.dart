@@ -14,6 +14,24 @@ class AuthSession {
   const AuthSession({required this.token, required this.user});
 }
 
+/// Hasil register: bisa langsung login atau butuh verifikasi OTP.
+class RegisterResult {
+  /// `true` jika registrasi berhasil tapi akun belum aktif (butuh OTP).
+  final bool requiresVerification;
+
+  /// Email yang harus diverifikasi (ada saat [requiresVerification] true).
+  final String? email;
+
+  /// Sesi login langsung (ada jika backend langsung mengaktifkan akun).
+  final AuthSession? session;
+
+  const RegisterResult({
+    required this.requiresVerification,
+    this.email,
+    this.session,
+  });
+}
+
 class AuthRepository {
   final ApiClient _api = ApiClient.instance;
   final TokenStorage _storage = TokenStorage.instance;
@@ -44,9 +62,43 @@ class AuthRepository {
     return map['token'] as String;
   }
 
-  Future<AuthSession> register(Map<String, dynamic> payload) async {
+  /// Register akun baru. Backend mengembalikan `requires_verification`
+  /// karena akun harus diverifikasi via OTP sebelum bisa login.
+  Future<RegisterResult> register(Map<String, dynamic> payload) async {
     final data = await _api.post('/auth/register', data: payload);
+    final map = data as Map<String, dynamic>;
+
+    // Backend selalu mengembalikan { requires_verification, email }.
+    final requiresVerification = map['requires_verification'] == true;
+    if (requiresVerification) {
+      return RegisterResult(
+        requiresVerification: true,
+        email: map['email'] as String?,
+      );
+    }
+
+    // Fallback: jika backend langsung login (kasus edge-case).
+    return RegisterResult(
+      requiresVerification: false,
+      session: await _sessionFromData(data),
+    );
+  }
+
+  /// Verifikasi OTP registrasi → mengembalikan sesi login.
+  Future<AuthSession> verifyOtp(String email, String otp) async {
+    final data = await _api.post(
+      '/auth/verify-otp',
+      data: {'email': email.trim(), 'otp': otp.trim()},
+    );
     return _sessionFromData(data);
+  }
+
+  /// Kirim ulang OTP registrasi.
+  Future<void> resendOtp(String email) async {
+    await _api.post(
+      '/auth/resend-otp',
+      data: {'email': email.trim(), 'purpose': 'register'},
+    );
   }
 
   Future<AuthSession> _sessionFromData(dynamic data) async {

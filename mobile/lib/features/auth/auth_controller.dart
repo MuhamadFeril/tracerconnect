@@ -86,9 +86,23 @@ class AuthController extends StateNotifier<AuthState> {
     state = AuthState.authenticated(session.user);
   }
 
-  Future<void> register(Map<String, dynamic> payload) async {
-    final session = await _repo.register(payload);
+  Future<RegisterResult> register(Map<String, dynamic> payload) async {
+    final result = await _repo.register(payload);
+    if (result.session != null) {
+      state = AuthState.authenticated(result.session!.user);
+    }
+    return result;
+  }
+
+  /// Verifikasi OTP registrasi, lalu masuk.
+  Future<void> verifyOtp(String email, String otp) async {
+    final session = await _repo.verifyOtp(email, otp);
     state = AuthState.authenticated(session.user);
+  }
+
+  /// Kirim ulang OTP registrasi.
+  Future<void> resendOtp(String email) async {
+    await _repo.resendOtp(email);
   }
 
   Future<void> logout() async {

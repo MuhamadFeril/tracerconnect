@@ -56,12 +56,10 @@ class AuthController extends Controller
                 $user = User::create([
                     'name' => $request->name,
                     'email' => $request->email,
-                    'institution_id' => $request->institution_id,
-                ]);
-                $user->forceFill([
                     'password' => $request->password,
+                    'institution_id' => $request->institution_id,
                     'is_active' => true,
-                ])->save();
+                ]);
 
                 $user->assignRole('alumni');
 

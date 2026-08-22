@@ -7,6 +7,7 @@ import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/university.dart';
 import 'auth_controller.dart';
+import 'otp_verification_page.dart';
 import 'register_options_providers.dart';
 
 /// Form registrasi 3 langkah: Akun → Biodata → Karir.
@@ -18,7 +19,7 @@ class RegisterPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
-  static const _stepTitles = ['Akun & Institusi', 'Biodata (Opsional)', 'Status Karir'];
+  static const _stepTitles = ['Akun & Institusi', 'Biodata', 'Status Karir'];
 
   final _formKey = GlobalKey<FormState>();
   int _step = 0;
@@ -39,14 +40,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _entryYearController = TextEditingController();
   final _gradYearController = TextEditingController();
   final _departmentController = TextEditingController();
-  final _birthplaceController = TextEditingController();
   final _addressController = TextEditingController();
   String? _gender;
   String? _birthDate;
   String? _provinceId;
   String? _regencyId;
+  String? _districtId;
   String? _provinceName;
   String? _regencyName;
+  String? _districtName;
 
   // Step 3 — karir
   String? _employmentStatus;
@@ -79,7 +81,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _entryYearController.dispose();
     _gradYearController.dispose();
     _departmentController.dispose();
-    _birthplaceController.dispose();
     _addressController.dispose();
     _companyController.dispose();
     _positionController.dispose();
@@ -103,7 +104,44 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       }
       return valid;
     }
+    if (_step == 1) {
+      final msg = _validateBiodata();
+      if (msg != null) {
+        setState(() => _error = msg);
+        return false;
+      }
+      return true;
+    }
     return true;
+  }
+
+  /// Validasi semua kolom biodata wajib diisi.
+  String? _validateBiodata() {
+    if (_gender == null) return 'Pilih jenis kelamin';
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) return 'No HP wajib diisi';
+    if (!RegExp(r'^(08|\+62)').hasMatch(phone)) return 'No HP harus diawali 08 atau +62';
+    if (phone.length < 10) return 'No HP minimal 10 karakter';
+    final nis = _nisController.text.trim();
+    if (nis.isEmpty) return 'NIS wajib diisi';
+    if (nis.length != 10) return 'NIS harus tepat 10 digit';
+    final nisn = _nisnController.text.trim();
+    if (nisn.isEmpty) return 'NISN wajib diisi';
+    if (nisn.length != 10) return 'NISN harus tepat 10 digit';
+    if (_entryYearController.text.trim().isEmpty) return 'Pilih tahun masuk';
+    if (_gradYearController.text.trim().isEmpty) return 'Pilih tahun lulus';
+    final entryYear = int.tryParse(_entryYearController.text.trim());
+    final gradYear = int.tryParse(_gradYearController.text.trim());
+    if (entryYear != null && gradYear != null && gradYear - entryYear < 3) {
+      return 'Tahun lulus minimal 3 tahun setelah tahun masuk';
+    }
+    if (_departmentController.text.trim().isEmpty) return 'Pilih jurusan / program studi';
+    if (_provinceId == null) return 'Pilih provinsi kelahiran';
+    if (_regencyId == null) return 'Pilih kabupaten/kota kelahiran';
+    if (_districtId == null) return 'Pilih kecamatan kelahiran';
+    if (_birthDate == null) return 'Pilih tanggal lahir';
+    if (_addressController.text.trim().isEmpty) return 'Alamat wajib diisi';
+    return null;
   }
 
   /// Validasi pertanyaan lanjutan di langkah karir (step 3).
@@ -158,10 +196,21 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       _error = null;
     });
     try {
-      await ref
+      final result = await ref
           .read(authControllerProvider.notifier)
           .register(_buildPayload());
-      // Auto-login; redirect ditangani router.
+
+      if (!mounted) return;
+
+      if (result.requiresVerification) {
+        // Navigasi ke halaman verifikasi OTP.
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationPage(email: result.email!),
+          ),
+        );
+      }
+      // Jika session langsung ada, redirect ditangani router (authenticated).
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = firstValidationMessage(e));
     } catch (_) {
@@ -201,7 +250,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     addInt('graduation_year', _gradYearController.text);
     add('department', _departmentController.text);
     add('birth_date', _birthDate);
-    add('birthplace', _birthplaceController.text);
+    add('birthplace', _districtName);
     add('birthplace_province', _provinceName);
     add('birthplace_regency', _regencyName);
     add('address', _addressController.text);
@@ -589,7 +638,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   // ------------------------------------------------------------------
-  // Step 2 — biodata opsional
+  // Step 2 — biodata
   // ------------------------------------------------------------------
   Widget _buildStep2() {
     return Column(
@@ -605,7 +654,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Semua kolom opsional — dapat diubah nanti di menu Profil.',
+          'Semua kolom wajib diisi.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 20),
@@ -696,15 +745,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         _buildBirthplaceRegion(),
         const SizedBox(height: 14),
         TextFormField(
-          controller: _birthplaceController,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Tempat Lahir',
-            prefixIcon: Icon(Icons.place_outlined, size: 20),
-          ),
-        ),
-        const SizedBox(height: 14),
-        TextFormField(
           controller: _addressController,
           maxLines: 2,
           decoration: const InputDecoration(
@@ -761,11 +801,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               setState(() {
                 _provinceId = v;
                 _regencyId = null;
+                _districtId = null;
                 _provinceName = list
                     .where((e) => e.id == v)
                     .map((e) => e.name)
                     .firstOrNull;
                 _regencyName = null;
+                _districtName = null;
               });
             },
           ),
@@ -795,8 +837,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               onChanged: (v) {
                 setState(() {
                   _regencyId = v;
+                  _districtId = null;
                   _regencyName =
                       list.where((e) => e.id == v).map((e) => e.name).firstOrNull;
+                  _districtName = null;
                 });
               },
             ),
@@ -810,6 +854,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               onRetry: () => ref.invalidate(regenciesProvider(_provinceId!)),
             ),
           ),
+        ],
+        if (_regencyId != null) ...[
+          const SizedBox(height: 14),
+          _buildDistrictDropdown(),
         ],
       ],
     );
@@ -1120,6 +1168,39 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDistrictDropdown() {
+    final districts = ref.watch(districtsProvider(_regencyId!));
+    return districts.when(
+      data: (list) => DropdownButtonFormField<String>(
+        initialValue: _districtId,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Kecamatan Kelahiran',
+          prefixIcon: Icon(Icons.location_on_outlined, size: 20),
+        ),
+        items: list
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        onChanged: (v) {
+          setState(() {
+            _districtId = v;
+            _districtName =
+                list.where((e) => e.id == v).map((e) => e.name).firstOrNull;
+          });
+        },
+      ),
+      loading: () => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(labelText: 'Kecamatan Kelahiran'),
+        items: const [],
+        onChanged: null,
+      ),
+      error: (e, _) => _RetryError(
+        message: 'Gagal memuat kecamatan',
+        onRetry: () => ref.invalidate(districtsProvider(_regencyId!)),
+      ),
     );
   }
 
