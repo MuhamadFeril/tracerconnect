@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResolvesGoogleUser;
 use App\Http\Controllers\Controller;
 use Google\Client as GoogleClient;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -63,72 +64,121 @@ class GoogleAuthController extends Controller
     {
         $frontendUrl = $this->frontendUrl();
 
-        $code = request()->query('code');
-        $state = request()->query('state');
-        $stored = $state ? Cache::pull('google_oauth_'.$state) : null;
-
-        if (! $code || ! $state || ! $stored) {
-            return redirect()->away($frontendUrl.'/login?google_error=invalid_state');
-        }
-
-        $clientId = config('services.google.client_id');
-        $clientSecret = config('services.google.client_secret');
-        $redirectUri = $this->googleRedirectUri();
-
-        if (! $clientId || ! $clientSecret || ! $redirectUri) {
-            return redirect()->away($frontendUrl.'/login?google_error=not_configured');
-        }
-
+        // Wrap the entire flow in a top-level try/catch so that ANY
+        // unhandled exception (DB error, missing config, etc.) results in
+        // a redirect back to the frontend — never a raw JSON error page.
         try {
+            $code = request()->query('code');
+            $state = request()->query('state');
+            $stored = $state ? Cache::pull('google_oauth_'.$state) : null;
+
+            if (! $code || ! $state || ! $stored) {
+                return redirect()->away($frontendUrl.'/login?google_error=invalid_state');
+            }
+
+            $clientId = config('services.google.client_id');
+            $clientSecret = config('services.google.client_secret');
+            $redirectUri = $this->googleRedirectUri();
+
+            if (! $clientId || ! $clientSecret || ! $redirectUri) {
+                return redirect()->away($frontendUrl.'/login?google_error=not_configured');
+            }
+
+            // Step 1: Exchange auth code for tokens with Google
+            Log::info('Google OAuth callback starting', [
+                'redirect_uri' => $redirectUri,
+                'has_code' => ! empty($code),
+                'has_verifier' => ! empty($stored['verifier']),
+            ]);
+
+            $tokenResponse = Http::timeout(15)->asForm()->post('https://oauth2.googleapis.com/token', [
+                'code' => $code,
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'redirect_uri' => $redirectUri,
+                'grant_type' => 'authorization_code',
+                'code_verifier' => $stored['verifier'],
+            ]);
+
+            $token = $tokenResponse->json();
+
+            Log::info('Google token response received', [
+                'status' => $tokenResponse->status(),
+                'has_id_token' => isset($token['id_token']),
+                'has_access_token' => isset($token['access_token']),
+                'error' => $token['error'] ?? null,
+                'error_description' => $token['error_description'] ?? null,
+                'token_keys' => array_keys($token ?? []),
+            ]);
+
+            if (isset($token['error'])) {
+                Log::warning('Google token endpoint error', ['response' => $token]);
+                return redirect()->away($frontendUrl.'/login?google_error=callback_failed');
+            }
+
+            $idToken = $token['id_token'] ?? null;
+            if (! $idToken) {
+                Log::warning('Google token response missing id_token', [
+                    'response_keys' => array_keys($token ?? []),
+                    'access_token_present' => isset($token['access_token']),
+                ]);
+                return redirect()->away($frontendUrl.'/login?google_error=callback_failed');
+            }
+
+            // Step 2: Verify the ID token
             /** @var GoogleClient $client */
             $client = app(GoogleClient::class);
             $client->setClientId($clientId);
-            $client->setClientSecret($clientSecret);
-            $client->setRedirectUri($redirectUri);
-            // fetchAccessTokenWithAuthCode($code, $redirectUri, $codeVerifier)
-            // Redirect URI is already set on the client; pass PKCE verifier as 3rd arg.
-            $token = $client->fetchAccessTokenWithAuthCode($code, null, $stored['verifier']);
-            $payload = $client->verifyIdToken($token['id_token'] ?? null, $clientId);
+            $payload = $client->verifyIdToken($idToken, $clientId);
+
+            Log::info('Google ID token verified', [
+                'email' => $payload['email'] ?? null,
+                'email_verified' => $payload['email_verified'] ?? false,
+            ]);
+
+            if (! $payload || empty($payload['email']) || ($payload['email_verified'] ?? false) !== true) {
+                return redirect()->away($frontendUrl.'/login?google_error=invalid_token');
+            }
+
+            $email = mb_strtolower((string) $payload['email']);
+
+            // Nonce replay protection: the ID token must carry the nonce this flow
+            // generated, proving the token was minted for this exact request.
+            if (empty($payload['nonce']) || ! hash_equals((string) $stored['nonce'], (string) $payload['nonce'])) {
+                return redirect()->away($frontendUrl.'/login?google_error=invalid_state');
+            }
+
+            $result = $this->resolveGoogleUser($payload);
+
+            if (is_string($result)) {
+                return redirect()->away($frontendUrl.'/login?google_error='.urlencode($result));
+            }
+
+            [$user, $isNew] = $result;
+
+            $permissions = $user->getAllPermissions()->pluck('name')->all();
+            $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+
+            // Store token + metadata in a short-lived cache keyed by a random code
+            // so the plaintext token never appears in the URL.
+            $authCode = Str::random(32);
+            Cache::put('google_auth_code_'.$authCode, [
+                'token' => $token->plainTextToken,
+                'new_user' => $isNew,
+            ], now()->addMinutes(5));
+
+            $redirectUrl = $frontendUrl.'/google/callback?auth_code='.$authCode;
+
+            return redirect()->away($redirectUrl);
         } catch (Throwable $e) {
-            Log::warning('Google OAuth callback gagal', ['error' => $e->getMessage()]);
+            Log::error('Google OAuth callback unhandled error', [
+                'error' => $e->getMessage(),
+                'class' => get_class($e),
+                'file' => $e->getFile().':'.$e->getLine(),
+            ]);
 
             return redirect()->away($frontendUrl.'/login?google_error=callback_failed');
         }
-
-        if (! $payload || empty($payload['email']) || ($payload['email_verified'] ?? false) !== true) {
-            return redirect()->away($frontendUrl.'/login?google_error=invalid_token');
-        }
-
-        $email = mb_strtolower((string) $payload['email']);
-
-        // Nonce replay protection: the ID token must carry the nonce this flow
-        // generated, proving the token was minted for this exact request.
-        if (empty($payload['nonce']) || ! hash_equals((string) $stored['nonce'], (string) $payload['nonce'])) {
-            return redirect()->away($frontendUrl.'/login?google_error=invalid_state');
-        }
-
-        $result = $this->resolveGoogleUser($payload);
-
-        if (is_string($result)) {
-            return redirect()->away($frontendUrl.'/login?google_error='.urlencode($result));
-        }
-
-        [$user, $isNew] = $result;
-
-        $permissions = $user->getAllPermissions()->pluck('name')->all();
-        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
-
-        // Store token + metadata in a short-lived cache keyed by a random code
-        // so the plaintext token never appears in the URL.
-        $authCode = Str::random(32);
-        Cache::put('google_auth_code_'.$authCode, [
-            'token' => $token->plainTextToken,
-            'new_user' => $isNew,
-        ], now()->addMinutes(5));
-
-        $redirectUrl = $frontendUrl.'/google/callback?auth_code='.$authCode;
-
-        return redirect()->away($redirectUrl);
     }
 
     /**
@@ -143,7 +193,14 @@ class GoogleAuthController extends Controller
         ]);
 
         $key = 'google_auth_code_'.$request->auth_code;
-        $cached = Cache::pull($key);
+        $resultKey = 'google_auth_code_result_'.$request->auth_code;
+
+        // Idempotent: if the code was already consumed (e.g. React
+        // StrictMode double-invoke), return the cached result.
+        $cached = Cache::get($resultKey);
+        if (! $cached) {
+            $cached = Cache::pull($key);
+        }
 
         if (! $cached) {
             return response()->json([
@@ -151,6 +208,9 @@ class GoogleAuthController extends Controller
                 'message' => 'Kode otorisasi tidak valid atau sudah kedaluwarsa',
             ], 422);
         }
+
+        // Persist the result so duplicate calls return the same token.
+        Cache::put($resultKey, $cached, now()->addMinutes(5));
 
         $isNewUser = is_array($cached) && ($cached['new_user'] ?? false);
         $token = is_array($cached) ? $cached['token'] : $cached;

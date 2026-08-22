@@ -42,3 +42,17 @@ final bookmarkJobProvider =
     }
   },
 );
+
+// ------------------------------------------------------------------
+// Employer providers
+// ------------------------------------------------------------------
+
+typedef ApplicantsQuery = ({String jobId, String status});
+
+/// Daftar pelamar untuk lowongan tertentu.
+final applicantsProvider =
+    FutureProvider.family<Paged<JobApplicant>, ApplicantsQuery>(
+  (ref, query) => ref
+      .watch(jobsRepositoryProvider)
+      .applicants(query.jobId, status: query.status),
+);

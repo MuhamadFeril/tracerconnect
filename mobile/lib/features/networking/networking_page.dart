@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/networking.dart';
+import '../chat/chat_providers.dart';
 import '../../shared/widgets/app_avatar.dart';
 import '../../shared/widgets/app_badge.dart';
 import '../../shared/widgets/empty_view.dart';
@@ -11,21 +12,51 @@ import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_view.dart';
 import 'networking_providers.dart';
 
-class NetworkingPage extends StatelessWidget {
+class NetworkingPage extends ConsumerWidget {
   const NetworkingPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatUnread = ref.watch(chatUnreadCountProvider).valueOrNull ?? 0;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Jejaring Alumni'),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.chat_bubble_outline_rounded),
-              tooltip: 'Pesan',
-              onPressed: () => context.push('/chat'),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chat_bubble_outline_rounded),
+                  tooltip: 'Pesan',
+                  onPressed: () => context.push('/chat'),
+                ),
+                if (chatUnread > 0)
+                  Positioned(
+                    top: 7,
+                    right: 7,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        chatUnread > 99 ? '99+' : '$chatUnread',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
           bottom: const TabBar(

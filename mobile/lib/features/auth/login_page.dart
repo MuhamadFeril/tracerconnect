@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,30 +64,46 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
+  static const int _cooldownSeconds = 2;
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscure = true;
   bool _submitting = false;
   String? _error;
-  DateTime? _lastSubmitTime;
+  int _cooldown = 0;
+  Timer? _cooldownTimer;
+
+  /// `GoogleSignIn.initialize()` hanya boleh dipanggil SEKALI per sesi
+  /// aplikasi (dokumentasi google_sign_in 7.x: pemanggilan lebih dari sekali
+  /// berakibat undefined behavior).
+  bool _googleInitialized = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _cooldownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Hitung mundur tombol masuk — paritas dengan rate limiter web
+  /// (`/auth/login` minimal berjarak 2 detik).
+  void _startCooldown() {
+    setState(() => _cooldown = _cooldownSeconds);
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _cooldown = (_cooldown - 1).clamp(0, _cooldownSeconds));
+      if (_cooldown <= 0) timer.cancel();
+    });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    // Client-side cooldown: min 3 seconds between attempts.
-    if (_lastSubmitTime != null && DateTime.now().difference(_lastSubmitTime!) < const Duration(seconds: 3)) {
-      setState(() => _error = 'Terlalu cepat. Silakan tunggu beberapa detik.');
-      return;
-    }
+    if (_cooldown > 0) return;
     FocusScope.of(context).unfocus();
-    _lastSubmitTime = DateTime.now();
     setState(() {
       _submitting = true;
       _error = null;
@@ -95,11 +115,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       // Redirect otomatis ditangani router setelah status berubah.
     } on ApiException catch (e) {
       setState(() => _error = firstValidationMessage(e));
+      _startCooldown();
     } catch (_) {
       setState(() => _error = 'Terjadi kesalahan. Silakan coba lagi.');
+      _startCooldown();
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Inisialisasi `google_sign_in` tepat satu kali.
+  ///
+  /// - Android: plugin TIDAK memakai `clientId` — aplikasi dikenali dari
+  ///   package name + SHA-1 signing key yang terdaftar di Google Cloud Console.
+  /// - iOS/macOS: butuh `clientId` sendiri (via --dart-define bila ada).
+  /// - `serverClientId` wajib = client OAuth **Web**, HARUS sama dengan
+  ///   `GOOGLE_CLIENT_ID` backend agar ID token lolos verifikasi audience.
+  Future<void> _ensureGoogleInitialized() async {
+    if (_googleInitialized) return;
+    String? clientId;
+    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+      const iosId = AppConstants.googleIosClientId;
+      clientId = iosId.isNotEmpty ? iosId : null;
+    }
+    await GoogleSignIn.instance.initialize(
+      clientId: clientId,
+      serverClientId: AppConstants.googleClientId,
+    );
+    _googleInitialized = true;
   }
 
   /// "Lanjut dengan Google" — alur yang sama dengan tombol Google di landing
@@ -112,16 +155,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
 
     try {
+      await _ensureGoogleInitialized();
       final googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        // `clientId` = client OAuth Android (bila dibuat di Google Cloud
-        // Console tanpa Firebase). `serverClientId` = client OAuth Web yang
-        // dipakai backend untuk memverifikasi ID token.
-        clientId: AppConstants.googleAndroidClientId.isNotEmpty
-            ? AppConstants.googleAndroidClientId
-            : null,
-        serverClientId: AppConstants.googleClientId,
-      );
 
       // Logout dulu agar selalu muncul pemilih akun Google.
       await googleSignIn.signOut();
@@ -149,13 +184,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           return;
 
         default:
-          if (AppConstants.googleAndroidClientId.isEmpty &&
-              (e.description?.contains(' clientId') == true ||
-               e.description?.contains('sign_in') == true)) {
-            message = 'Google Sign-In belum dikonfigurasi untuk Android. '
-                'Hubungi administrator atau jalankan dengan --dart-define=GOOGLE_ANDROID_CLIENT_ID=<client_id>.';
+          // Deteksi error konfigurasi Google Cloud Console:
+          // - 28444: Developer console is not set up correctly
+          // - deskripsi mengandung 'clientId', 'sign_in', atau 'Developer console'
+          final desc = e.description ?? '';
+          final isConfigError =
+              desc.contains('Developer console') ||
+              desc.contains('clientId') ||
+              desc.contains('sign_in') ||
+              desc.contains('28444');
+          if (isConfigError) {
+            message = 'Google Sign-In belum terkonfigurasi. Periksa: '
+                '(1) SHA-1 debug + package name com.tracerconnect.tracerconnect_mobile '
+                'terdaftar sebagai OAuth client type Android di Google Cloud Console, dan '
+                '(2) nilai GOOGLE_CLIENT_ID mobile sama persis dengan GOOGLE_CLIENT_ID backend.';
           } else {
-            message = 'Google Sign-In gagal: ${e.description ?? 'periksa konfigurasi client ID Google'}. '
+            message = 'Google Sign-In gagal: ${desc.isNotEmpty ? desc : 'periksa konfigurasi client ID Google'}. '
                 'Pastikan backend berjalan dan akun sudah terdaftar.';
           }
           break;
@@ -296,7 +340,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ],
                         const SizedBox(height: 20),
                         FilledButton(
-                          onPressed: _submitting ? null : _submit,
+                          onPressed:
+                              (_submitting || _cooldown > 0) ? null : _submit,
                           child: _submitting
                               ? const SizedBox(
                                   width: 20,
@@ -306,7 +351,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Masuk'),
+                              : Text(_cooldown > 0
+                                  ? 'Tunggu ${_cooldown}s'
+                                  : 'Masuk'),
                         ),
                         const SizedBox(height: 20),
                         const Row(

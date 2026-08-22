@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, unwrap } from '../lib/api'
 import { clearSession, hasAdminRole, setSession, setToken } from '../lib/auth'
@@ -15,14 +15,9 @@ export function GoogleCallback() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
-  const [processing, setProcessing] = useState(true)
-  const processed = useRef(false)
+  const [, setProcessing] = useState(true)
 
   useEffect(() => {
-    // Guard against double-invoke in Strict Mode or HMR.
-    if (processed.current) return
-    processed.current = true
-
     const authCode = searchParams.get('auth_code')
     if (!authCode) {
       setError('Login Google gagal — kode otorisasi tidak ditemukan. Silakan coba lagi.')
@@ -57,7 +52,8 @@ export function GoogleCallback() {
           if (isNewUser || !user.has_password) {
             navigate('/profile', { replace: true })
           } else {
-            navigate(hasAdminRole(user) ? '/dashboard' : '/home', { replace: true })
+            const target = user.roles?.includes('employer') ? '/employer' : hasAdminRole(user) ? '/dashboard' : '/home'
+            navigate(target, { replace: true })
           }
         })
       })

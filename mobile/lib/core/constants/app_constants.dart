@@ -26,7 +26,9 @@ class AppConstants {
     const defined = String.fromEnvironment('API_BASE_URL');
     if (defined.isNotEmpty) return defined;
     if (kIsWeb) return 'http://localhost:8000/api/v1';
-    if (platform.isAndroid) return 'http://10.0.2.2:8000/api/v1';
+    // Android: 127.0.0.1 via adb reverse (device fisik).
+    // Emulator tanpa adb reverse: gunakan --dart-define.
+    if (platform.isAndroid) return 'http://127.0.0.1:8000/api/v1';
     return 'http://127.0.0.1:8000/api/v1';
   }
 
@@ -116,22 +118,26 @@ class AppConstants {
 
   static String connectionStatusLabel(String? key) => connectionStatusLabels[key] ?? key ?? '-';
 
-  /// Client ID Google OAuth (Web).
+  /// Client ID Google OAuth **Web**.
   ///
-  /// Dipakai sebagai `serverClientId` oleh `google_sign_in` agar ID token
-  /// yang dihasilkan bisa diverifikasi backend lewat `POST /auth/google`.
+  /// Dipakai sebagai `serverClientId` oleh `google_sign_in`: ID token yang
+  /// dihasilkan ber-audience ke client ini, lalu diverifikasi backend dengan
+  /// nilai `GOOGLE_CLIENT_ID` di `.env`. **Wajib persis sama** dengan backend
+  /// dan web — kalau berbeda, login Google selalu gagal "Token Google tidak
+  /// valid atau kedaluwarsa" (audience mismatch).
   /// Nilai bisa diganti saat build:
   /// `flutter run --dart-define=GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com`
   static const String googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
-    defaultValue: '1004228940124-03rcok9ingf684rj7bhnrqjka46nqgut.apps.googleusercontent.com',
+    defaultValue: '1004228940124-v0fq4tgc8t3tj6r21jihgbep5in61jtj.apps.googleusercontent.com',
   );
 
-  /// Client ID OAuth **Android** (bila ada). Diperlukan agar `google_sign_in`
-  /// berjalan di Android tanpa Firebase. Dibuat di Google Cloud Console →
-  /// Credentials → Create OAuth client ID → Android (pakai SHA-1 aplikasi).
-  static const String googleAndroidClientId = String.fromEnvironment(
-    'GOOGLE_ANDROID_CLIENT_ID',
+  /// Client ID OAuth khusus iOS/macOS. TIDAK dipakai di Android —
+  /// google_sign_in 7.x mengabaikan `clientId` di sana; aplikasi Android
+  /// dikenali dari package name + SHA-1 signing key yang terdaftar sebagai
+  /// OAuth client type "Android" di Google Cloud Console. Kosong = tidak dikirim.
+  static const String googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
     defaultValue: '',
   );
 

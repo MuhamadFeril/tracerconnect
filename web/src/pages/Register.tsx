@@ -252,6 +252,30 @@ function FieldError({ message }: { message?: string }) {
   return <p className="mt-1.5 text-xs font-medium text-rose-600">{message}</p>
 }
 
+function RegionHint({
+  isLoading,
+  isError,
+  onRetry,
+}: {
+  isLoading: boolean
+  isError: boolean
+  onRetry?: () => void
+}) {
+  if (isLoading) return <Helper>Memuat data wilayah…</Helper>
+  if (isError) {
+    return (
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
+      >
+        Gagal memuat data wilayah — ketuk untuk coba lagi
+      </button>
+    )
+  }
+  return null
+}
+
 /* ------------------------------------------------------------------ */
 /* Step 1 — Informasi Akun                                             */
 /* ------------------------------------------------------------------ */
@@ -468,6 +492,8 @@ function InfoStep({
   districts,
   districtId,
   onDistrictChange,
+  regionStatus,
+  onRegionRetry,
 }: {
   form: {
     name: string
@@ -497,6 +523,12 @@ function InfoStep({
   districts: { id: string; name: string }[]
   districtId: string
   onDistrictChange: (id: string, name: string) => void
+  regionStatus: {
+    provinces: { isLoading: boolean; isError: boolean }
+    regencies: { isLoading: boolean; isError: boolean }
+    districts: { isLoading: boolean; isError: boolean }
+  }
+  onRegionRetry: (key: 'provinces' | 'regencies' | 'districts') => void
 }) {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -627,8 +659,9 @@ function InfoStep({
               id="reg-phone"
               name="phone"
               autoComplete="tel"
+              maxLength={16}
               value={form.phone}
-              onChange={(e) => update({ phone: e.target.value })}
+              onChange={(e) => update({ phone: e.target.value.slice(0, 16) })}
               placeholder="081..."
               className={clsx(
                 'w-full rounded-lg border bg-white py-2.5 pr-3 pl-10 text-sm text-slate-900 placeholder:text-slate-400',
@@ -647,9 +680,11 @@ function InfoStep({
             type="text"
             id="reg-nis"
             name="nis"
+            inputMode="numeric"
+            autoComplete="off"
             maxLength={10}
             value={form.nis}
-            onChange={(e) => update({ nis: e.target.value })}
+            onChange={(e) => update({ nis: e.target.value.slice(0, 10) })}
             placeholder="Masukkan NIS (10 karakter)"
             className={clsx(
               'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
@@ -667,9 +702,11 @@ function InfoStep({
             type="text"
             id="reg-nisn"
             name="nisn"
+            inputMode="numeric"
+            autoComplete="off"
             maxLength={10}
             value={form.nisn}
-            onChange={(e) => update({ nisn: e.target.value })}
+            onChange={(e) => update({ nisn: e.target.value.slice(0, 10) })}
             placeholder="Masukkan NISN (10 karakter)"
             className={clsx(
               'mt-2 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
@@ -753,6 +790,11 @@ function InfoStep({
             </select>
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
           </div>
+          <RegionHint
+            isLoading={regionStatus.provinces.isLoading}
+            isError={regionStatus.provinces.isError}
+            onRetry={() => onRegionRetry('provinces')}
+          />
           <FieldError message={errors.province} />
         </div>
 
@@ -781,6 +823,11 @@ function InfoStep({
             </select>
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
           </div>
+          <RegionHint
+            isLoading={regionStatus.regencies.isLoading}
+            isError={regionStatus.regencies.isError}
+            onRetry={() => onRegionRetry('regencies')}
+          />
           <FieldError message={errors.birthplace} />
         </div>
 
@@ -809,6 +856,11 @@ function InfoStep({
             </select>
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
           </div>
+          <RegionHint
+            isLoading={regionStatus.districts.isLoading}
+            isError={regionStatus.districts.isError}
+            onRetry={() => onRegionRetry('districts')}
+          />
           <FieldError message={errors.district} />
         </div>
 
@@ -1327,6 +1379,11 @@ function CareerStep({
                 </select>
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
               </div>
+              <RegionHint
+                isLoading={provincesQuery.isLoading}
+                isError={provincesQuery.isError}
+                onRetry={() => provincesQuery.refetch()}
+              />
               <FieldError message={errors.workProvince} />
             </div>
             <div>
@@ -1669,34 +1726,73 @@ function OtpStep({
 /* Page                                                                 */
 /* ------------------------------------------------------------------ */
 
+const REGISTER_DRAFT_KEY = 'tracerconnect-register-draft'
+
+interface RegisterDraft {
+  step: number
+  email: string
+  institutionId: string
+  provinceId: string
+  provinceName: string
+  regencyId: string
+  regencyName: string
+  districtId: string
+  form: {
+    name: string
+    department: string
+    gender: string
+    phone: string
+    nis: string
+    nisn: string
+    yearIn: string
+    yearOut: string
+    birthplace: string
+    birthDate: string
+    address: string
+    skills: string[]
+    socials: SocialRow[]
+  }
+  career: string | null
+  careerDetails: CareerDetails
+}
+
+function readRegisterDraft(): RegisterDraft | null {
+  try {
+    return JSON.parse(sessionStorage.getItem(REGISTER_DRAFT_KEY) ?? 'null') as RegisterDraft | null
+  } catch {
+    return null
+  }
+}
+
 export function Register() {
   const navigate = useNavigate()
   const toast = useToast()
   const register = useRegister()
   const uploadAvatar = useUploadAvatar()
   const institutionsQuery = useInstitutionOptions()
-  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [step, setStep] = useState(1)
+  const [draft] = useState<RegisterDraft | null>(readRegisterDraft)
+
+  const [step, setStep] = useState(draft?.step ?? 1)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [provinceId, setProvinceId] = useState('')
-  const [provinceName, setProvinceName] = useState('')
-  const [regencyId, setRegencyId] = useState('')
-  const [regencyName, setRegencyName] = useState('')
-  const [districtId, setDistrictId] = useState('')
+  const [provinceId, setProvinceId] = useState(draft?.provinceId ?? '')
+  const [provinceName, setProvinceName] = useState(draft?.provinceName ?? '')
+  const [regencyId, setRegencyId] = useState(draft?.regencyId ?? '')
+  const [regencyName, setRegencyName] = useState(draft?.regencyName ?? '')
+  const [districtId, setDistrictId] = useState(draft?.districtId ?? '')
 
   const provincesQuery = useProvinces()
   const regenciesQuery = useRegencies(provinceId || null)
   const districtsQuery = useDistricts(regencyId || null)
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(draft?.email ?? '')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
-  const [institutionId, setInstitutionId] = useState('')
+  const [institutionId, setInstitutionId] = useState(draft?.institutionId ?? '')
   const [pendingOtp, setPendingOtp] = useState<{ email: string } | null>(null)
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(draft?.form ?? {
     name: '',
     department: '',
     gender: '',
@@ -1713,8 +1809,8 @@ export function Register() {
   })
 
 
-  const [career, setCareer] = useState<string | null>(null)
-  const [careerDetails, setCareerDetails] = useState<CareerDetails>({
+  const [career, setCareer] = useState<string | null>(draft?.career ?? null)
+  const [careerDetails, setCareerDetails] = useState<CareerDetails>(draft?.careerDetails ?? {
     companyName: '',
     position: '',
     businessField: '',
@@ -1733,6 +1829,28 @@ export function Register() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    try {
+      const payload: RegisterDraft = {
+        step,
+        email,
+        institutionId,
+        provinceId,
+        provinceName,
+        regencyId,
+        regencyName,
+        districtId,
+        form,
+        career,
+        careerDetails,
+      }
+      sessionStorage.setItem(REGISTER_DRAFT_KEY, JSON.stringify(payload))
+    } catch {
+    }
+  }, [step, email, institutionId, provinceId, provinceName, regencyId, regencyName, districtId, form, career, careerDetails])
+
+  const clearDraft = () => sessionStorage.removeItem(REGISTER_DRAFT_KEY)
 
   const update = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -1855,6 +1973,13 @@ export function Register() {
     }
     if (!validateStep(3)) return
 
+    if (password.length < 8 || confirmation !== password) {
+      setStep(1)
+      setError('Password tidak tersimpan saat refresh — masukkan kembali password Anda.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     setSubmitting(true)
     try {
       const data = await register.mutateAsync({
@@ -1903,6 +2028,7 @@ export function Register() {
 
       // Registration now requires email verification via OTP — show the OTP
       // screen instead of logging straight in.
+      clearDraft()
       setPendingOtp({ email: data.email })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -1913,6 +2039,7 @@ export function Register() {
   }
 
   const handleOtpVerified = async (data: LoginResponse) => {
+    clearDraft()
     setSession(data.token, data.user)
 
     // Upload the chosen profile photo right after verification succeeds.
@@ -2001,6 +2128,16 @@ export function Register() {
               districts={districtsQuery.data ?? []}
               districtId={districtId}
               onDistrictChange={handleDistrictChange}
+              regionStatus={{
+                provinces: { isLoading: provincesQuery.isLoading, isError: provincesQuery.isError },
+                regencies: { isLoading: regenciesQuery.isLoading, isError: regenciesQuery.isError },
+                districts: { isLoading: districtsQuery.isLoading, isError: districtsQuery.isError },
+              }}
+              onRegionRetry={(key) => {
+                if (key === 'provinces') provincesQuery.refetch()
+                else if (key === 'regencies') regenciesQuery.refetch()
+                else districtsQuery.refetch()
+              }}
             />
           )}
 

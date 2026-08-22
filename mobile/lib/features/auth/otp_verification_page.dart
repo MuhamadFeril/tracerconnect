@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,10 +13,20 @@ import 'auth_controller.dart';
 ///
 /// Menerima [email] dari halaman registrasi dan memanggil
 /// `POST /auth/verify-otp` untuk mengaktifkan akun.
+///
+/// Jika [avatarFile] diberikan (dari langkah registrasi), foto akan
+/// diunggah otomatis setelah verifikasi berhasil — paritas alur web.
 class OtpVerificationPage extends ConsumerStatefulWidget {
-  const OtpVerificationPage({super.key, required this.email});
+  const OtpVerificationPage({
+    super.key,
+    required this.email,
+    this.avatarFile,
+  });
 
   final String email;
+
+  /// Foto profil opsional yang dipilih saat registrasi.
+  final File? avatarFile;
 
   @override
   ConsumerState<OtpVerificationPage> createState() =>
@@ -21,15 +34,32 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
 }
 
 class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
+  static const int _resendCooldownSeconds = 10;
+
   final _otpController = TextEditingController();
   bool _submitting = false;
   String? _error;
   bool _resending = false;
+  int _resendCooldown = 0;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
     _otpController.dispose();
+    _cooldownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Jeda kirim ulang 10 detik — paritas rate limiter web (`/auth/resend-otp`).
+  void _startResendCooldown() {
+    setState(() => _resendCooldown = _resendCooldownSeconds);
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() =>
+          _resendCooldown = (_resendCooldown - 1).clamp(0, _resendCooldownSeconds));
+      if (_resendCooldown <= 0) timer.cancel();
+    });
   }
 
   Future<void> _verify() async {
@@ -48,9 +78,23 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       await ref
           .read(authControllerProvider.notifier)
           .verifyOtp(widget.email, otp);
+
+      // Unggah foto profil bila ada (best-effort, tidak boleh gagalkan
+      // proses registrasi — paritas alur web).
+      if (widget.avatarFile != null) {
+        try {
+          final repo = ref.read(authRepositoryProvider);
+          final updatedUser = await repo.uploadAvatar(widget.avatarFile!);
+          ref.read(authControllerProvider.notifier).updateUser(updatedUser);
+        } catch (_) {
+          // Avatar upload gagal — tidak masalah, user bisa upload nanti.
+        }
+      }
+
       // Redirect ditangani oleh router (status auth berubah → authenticated).
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      // Paritas web `apiError()`: pesan validasi per-field diprioritaskan.
+      if (mounted) setState(() => _error = firstValidationMessage(e));
     } catch (_) {
       if (mounted) {
         setState(() => _error = 'Verifikasi gagal. Silakan coba lagi.');
@@ -61,6 +105,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   }
 
   Future<void> _resend() async {
+    if (_resendCooldown > 0) return;
     setState(() {
       _resending = true;
       _error = null;
@@ -77,9 +122,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             backgroundColor: AppColors.success,
           ),
         );
+        _startResendCooldown();
       }
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(() => _error = firstValidationMessage(e));
+        _startResendCooldown();
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _error = 'Gagal mengirim ulang OTP');
@@ -226,9 +275,14 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton(
-                    onPressed: _resending ? null : _resend,
+                    onPressed:
+                        (_resending || _resendCooldown > 0) ? null : _resend,
                     child: Text(
-                      _resending ? 'Mengirim…' : 'Kirim ulang kode',
+                      _resending
+                          ? 'Mengirim\u2026'
+                          : _resendCooldown > 0
+                              ? 'Kirim ulang dalam ${_resendCooldown}s'
+                              : 'Kirim ulang kode',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,

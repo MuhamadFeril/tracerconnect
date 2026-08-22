@@ -6,12 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AnnouncementResource;
 use App\Http\Resources\EventResource;
 use App\Http\Resources\JobVacancyResource;
-use App\Http\Resources\SuccessStoryResource;
 use App\Models\Alumni;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\JobVacancy;
-use App\Models\SuccessStory;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\User;
@@ -51,13 +49,6 @@ class AlumniPortalController extends Controller
             ->limit(3)
             ->get();
 
-        $stories = SuccessStory::query()
-            ->with('alumni.department:id,name', 'alumni.graduationYear:id,year')
-            ->visibleToAlumni($institutionId)
-            ->orderByDesc('published_at')
-            ->limit(3)
-            ->get();
-
         $alumni = Alumni::query()
             ->with('department:id,name', 'graduationYear:id,year')
             ->where('user_id', $user->id)
@@ -92,7 +83,6 @@ class AlumniPortalController extends Controller
             'announcements' => AnnouncementResource::collection($announcements),
             'events' => EventResource::collection($events),
             'jobs' => JobVacancyResource::collection($jobs),
-            'stories' => SuccessStoryResource::collection($stories),
         ], 'Beranda alumni berhasil dimuat');
     }
 

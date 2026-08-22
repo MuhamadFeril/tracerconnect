@@ -33,6 +33,13 @@ dependencies:
   firebase_messaging: ^15.2.1
   flutter_local_notifications: ^18.0.1
 
+  # E2E Encryption
+  encrypt: ^5.0.3
+  convert: ^3.1.1
+
+  # Typography
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

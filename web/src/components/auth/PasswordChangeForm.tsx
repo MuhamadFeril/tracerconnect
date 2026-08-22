@@ -117,7 +117,7 @@ export function PasswordChangeForm({ email }: { email?: string | null }) {
       <input type="text" name="username" value={email ?? ''} autoComplete="username" hidden readOnly />
 
       {mode === 'current' ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="space-y-4">
           <Field label="Password Saat Ini" required>
             <Input
               type="password"
@@ -129,40 +129,42 @@ export function PasswordChangeForm({ email }: { email?: string | null }) {
               autoComplete="current-password"
             />
           </Field>
-          <Field label="Password Baru" required hint="Minimal 8 karakter">
-            <Input
-              type="password"
-              required
-              minLength={8}
-              name="password"
-              value={pass.password}
-              onChange={(e) => setPassField('password', e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </Field>
-          <Field label="Konfirmasi Password Baru" required>
-            <Input
-              type="password"
-              required
-              name="password_confirmation"
-              value={pass.password_confirmation}
-              onChange={(e) => setPassField('password_confirmation', e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Password Baru" required hint="Minimal 8 karakter">
+              <Input
+                type="password"
+                required
+                minLength={8}
+                name="password"
+                value={pass.password}
+                onChange={(e) => setPassField('password', e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+            </Field>
+            <Field label="Konfirmasi Password Baru" required>
+              <Input
+                type="password"
+                required
+                name="password_confirmation"
+                value={pass.password_confirmation}
+                onChange={(e) => setPassField('password_confirmation', e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+            </Field>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3.5 py-2.5 text-xs text-slate-600">
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3.5 py-2.5 text-xs text-slate-600order-indigo-800/50g-indigo-950/40ext-slate-300">
             <Mail className="mr-1.5 inline size-3.5 text-indigo-500" />
             Kode OTP akan dikirim ke{' '}
-            <span className="font-semibold text-slate-800">{email || 'email Anda'}</span> — tanpa perlu
+            <span className="font-semibold text-slate-800ext-slate-200">{email || 'email Anda'}</span> — tanpa perlu
             password lama.
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Kode OTP" required hint={otpSent ? 'Periksa kotak masuk (dan spam) email Anda.' : 'Klik Kirim Kode untuk mengirim OTP.'}>
               <div className="flex gap-2">
                 <Input

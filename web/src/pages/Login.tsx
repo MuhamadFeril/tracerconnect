@@ -53,9 +53,9 @@ export function Login() {
     try {
       const data = await login.mutateAsync({ email, password })
       setSession(data.token, data.user)
-      // Employers only manage their own vacancies, so they land directly on
-      // the lowongan page instead of the school-admin dashboard.
-      const target = data.user?.roles?.includes('employer') ? '/jobs' : hasAdminRole(data.user) ? from : '/home'
+      // Employers only manage their own vacancies and applicants, so they
+      // land on their own portal instead of the school-admin dashboard.
+      const target = data.user?.roles?.includes('employer') ? '/employer' : hasAdminRole(data.user) ? from : '/home'
       navigate(target, { replace: true })
     } catch (err) {
       const msg = apiError(err)

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -93,26 +94,47 @@ class AuthRepository {
     return _sessionFromData(data);
   }
 
-  /// Kirim ulang OTP registrasi.
-  Future<void> resendOtp(String email) async {
+  /// Kirim ulang OTP (`purpose`: `register` | `reset`) — paritas web.
+  Future<void> resendOtp(String email, {String purpose = 'register'}) async {
     await _api.post(
       '/auth/resend-otp',
-      data: {'email': email.trim(), 'purpose': 'register'},
+      data: {'email': email.trim(), 'purpose': purpose},
     );
   }
 
   Future<AuthSession> _sessionFromData(dynamic data) async {
     final map = data as Map<String, dynamic>;
     final token = map['token'] as String;
-    final user = User.fromJson(map['user'] as Map<String, dynamic>);
+    final userJson = map['user'] as Map<String, dynamic>;
+    final user = User.fromJson(userJson);
     ApiClient.setToken(token);
     await _storage.saveToken(token);
+    await _storage.cacheUser(jsonEncode(userJson));
     return AuthSession(token: token, user: user);
+  }
+
+  /// Profil user terakhir yang tersimpan lokal (untuk pemulihan sesi
+  /// saat server tidak terjangkau).
+  Future<User?> readCachedUser() async {
+    try {
+      final json = await _storage.loadCachedUser();
+      if (json == null) return null;
+      return User.fromJson(json);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Parse respons berisi user + simpan snapshot untuk pemulihan offline.
+  Future<User> _userFromData(dynamic data) async {
+    final json = data as Map<String, dynamic>;
+    await _storage.cacheUser(jsonEncode(json));
+    return User.fromJson(json);
   }
 
   Future<User> me() async {
     final data = await _api.get('/auth/me');
-    return User.fromJson(data as Map<String, dynamic>);
+    return _userFromData(data);
   }
 
   Future<void> logout() async {
@@ -127,15 +149,17 @@ class AuthRepository {
     await _api.post('/auth/forgot-password', data: {'email': email.trim()});
   }
 
+  /// Reset password via OTP email — paritas dengan web (`ResetPassword.tsx`):
+  /// key yang dikirim adalah `otp` (bukan `token`), OTP harus 6 digit.
   Future<void> resetPassword({
     required String email,
-    required String token,
+    required String otp,
     required String password,
     required String passwordConfirmation,
   }) async {
     await _api.post('/auth/reset-password', data: {
       'email': email.trim(),
-      'token': token.trim(),
+      'otp': otp.trim(),
       'password': password,
       'password_confirmation': passwordConfirmation,
     });
@@ -144,7 +168,7 @@ class AuthRepository {
   /// Update profil; mengembalikan User terbaru.
   Future<User> updateProfile(Map<String, dynamic> payload) async {
     final data = await _api.put('/auth/profile', data: payload);
-    return User.fromJson(data as Map<String, dynamic>);
+    return _userFromData(data);
   }
 
   Future<void> updatePassword({
@@ -183,11 +207,11 @@ class AuthRepository {
       'avatar': await MultipartFile.fromFile(file.path, filename: file.uri.pathSegments.last),
     });
     final data = await _api.postForm('/auth/me/avatar', form);
-    return User.fromJson(data as Map<String, dynamic>);
+    return _userFromData(data);
   }
 
   Future<User> deleteAvatar() async {
     final data = await _api.delete('/auth/me/avatar');
-    return User.fromJson(data as Map<String, dynamic>);
+    return _userFromData(data);
   }
 }

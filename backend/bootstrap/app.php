@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // API-first app: auth failures never redirect to a web login route.
         $middleware->alias([
             'auth' => Authenticate::class,
+            // Override alias `throttle` bawaan: request mobile terautentikasi
+            // (X-Platform: mobile + bearer token) bebas rate limit.
+            'throttle' => \App\Http\Middleware\SkipThrottleForMobile::class,
         ]);
 
         // Force HTTPS in production and set HSTS header.

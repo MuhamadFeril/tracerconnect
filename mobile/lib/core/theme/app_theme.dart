@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Palet warna brand TracerConnect (navy, menyesuaikan web indigo-600).
 class AppColors {
@@ -33,7 +34,7 @@ class AppTheme {
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(seedColor: AppColors.primary);
 
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
@@ -136,6 +137,11 @@ class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
       ),
+    );
+
+    // Apply Inter font globally (matching web `--font-sans: "Inter"`).
+    return base.copyWith(
+      textTheme: GoogleFonts.interTextTheme(base.textTheme),
     );
   }
 }

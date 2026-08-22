@@ -1,13 +1,22 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:encrypt/encrypt.dart' as enc;
 
 import '../../core/network/api_client.dart';
+import '../../core/services/chat_encryption.dart';
 import '../../models/api_envelope.dart';
 import '../../models/chat.dart';
 
 class ChatRepository {
   final ApiClient _api = ApiClient.instance;
+
+  /// Total pesan belum dibaca lintas percakapan — paritas
+  /// `useUnreadConversationsCount()` web (badge ikon chat).
+  Future<int> unreadCount() async {
+    final data = await _api.get('/conversations/unread-count');
+    return ((data as Map<String, dynamic>)['count'] as num?)?.toInt() ?? 0;
+  }
 
   Future<List<ChatConversation>> conversations({String? search}) async {
     final env = await _api.getEnvelope('/conversations', query: {
@@ -71,6 +80,17 @@ class ChatRepository {
       return ChatMessage.fromJson(data as Map<String, dynamic>);
     }
 
+    // Encrypt body sebelum dikirim ke server (E2E).
+    if (payload['body'] != null && payload['type'] == 'text') {
+      final key = await _encryptionKey(conversationId);
+      if (key != null) {
+        payload['body'] = ChatEncryption.encryptBody(
+          payload['body'] as String,
+          key,
+        );
+      }
+    }
+
     final data = await _api.post('/conversations/$conversationId/messages', data: payload);
     return ChatMessage.fromJson(data as Map<String, dynamic>);
   }
@@ -92,5 +112,43 @@ class ChatRepository {
       'reason': reason,
       if (description != null && description.isNotEmpty) 'description': description,
     });
+  }
+
+  // ── E2E Encryption helpers ──────────────────────────────────────────
+
+  /// Derive encryption key untuk percakapan.
+  /// Menggunakan user IDs dari percakapan untuk membuat key yang sama
+  /// untuk kedua pihak.
+  Future<enc.Key?> _encryptionKey(String conversationId) async {
+    try {
+      final conv = await show(conversationId);
+      final myId = await _getMyId();
+      final otherId = conv.otherId;
+      if (myId == null || otherId == null) return null;
+      return ChatEncryption.deriveConversationKey(
+        conversationId: conversationId,
+        myId: myId,
+        otherId: otherId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Decrypt body pesan dari server.
+  Future<String?> decryptBody(String? body, String conversationId) async {
+    if (body == null || body.isEmpty) return body;
+    final key = await _encryptionKey(conversationId);
+    if (key == null) return body;
+    return ChatEncryption.decryptBody(body, key);
+  }
+
+  Future<String?> _getMyId() async {
+    try {
+      final data = await ApiClient.instance.get('/auth/me');
+      return (data as Map<String, dynamic>)['id'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 }

@@ -32,6 +32,8 @@ const SuccessStories = lazy(() => import('./pages/SuccessStories').then((m) => (
 const Events = lazy(() => import('./pages/Events').then((m) => ({ default: m.Events })))
 const Jobs = lazy(() => import('./pages/Jobs').then((m) => ({ default: m.Jobs })))
 const JobApplicants = lazy(() => import('./pages/JobApplicants').then((m) => ({ default: m.JobApplicants })))
+const EmployerDashboard = lazy(() => import('./pages/employer/EmployerDashboard').then((m) => ({ default: m.EmployerDashboard })))
+const EmployerApplications = lazy(() => import('./pages/EmployerApplications').then((m) => ({ default: m.EmployerApplications })))
 const AlumniHome = lazy(() => import('./pages/alumni/AlumniHome').then((m) => ({ default: m.AlumniHome })))
 const AlumniAnnouncements = lazy(() => import('./pages/alumni/AlumniAnnouncements').then((m) => ({ default: m.AlumniAnnouncements })))
 const AlumniSuccessStories = lazy(() => import('./pages/alumni/AlumniSuccessStories').then((m) => ({ default: m.AlumniSuccessStories })))
@@ -94,6 +96,10 @@ export default function App() {
         <Route path="/events" element={<Page><Events /></Page>} />
         <Route path="/jobs" element={<Page><Jobs /></Page>} />
         <Route path="/jobs/:id/applicants" element={<Page><JobApplicants /></Page>} />
+        {/* Employer portal */}
+        <Route path="/employer" element={<Page><EmployerDashboard /></Page>} />
+        <Route path="/employer/lowongan" element={<Page><Jobs /></Page>} />
+        <Route path="/employer/lamaran" element={<Page><EmployerApplications /></Page>} />
         <Route path="/notifications" element={<Page><Notifications /></Page>} />
         {/* Alumni portal */}
         <Route path="/home" element={<Page><AlumniHome /></Page>} />

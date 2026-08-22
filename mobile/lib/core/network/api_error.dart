@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../models/api_envelope.dart';
+import 'rate_limiter.dart';
 
 /// Exception aplikasi hasil parsing kesalahan API (envelope `success: false`).
 class ApiException implements Exception {
@@ -18,10 +19,23 @@ class ApiException implements Exception {
     final data = error.response?.data;
     if (data is Map<String, dynamic>) {
       final env = ApiEnvelope.fromJson(data);
+      var message = env.message.isNotEmpty ? env.message : 'Terjadi kesalahan';
+      // 429 tanpa body terstruktur: pakai header Retry-After (paritas web).
+      if ((error.response?.statusCode ?? 0) == 429 && env.message.isEmpty) {
+        final raw = error.response?.headers.value('retry-after');
+        message = RateLimiter.retryAfterMessage(int.tryParse(raw ?? ''));
+      }
       return ApiException(
         statusCode: error.response?.statusCode,
-        message: env.message.isNotEmpty ? env.message : 'Terjadi kesalahan',
+        message: message,
         errors: env.errors,
+      );
+    }
+    if (error.response?.statusCode == 429) {
+      final raw = error.response?.headers.value('retry-after');
+      return ApiException(
+        statusCode: 429,
+        message: RateLimiter.retryAfterMessage(int.tryParse(raw ?? '')),
       );
     }
     switch (error.type) {

@@ -1,14 +1,63 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/region.dart';
 import '../../models/university.dart';
 import 'auth_controller.dart';
 import 'otp_verification_page.dart';
 import 'register_options_providers.dart';
+
+/// Daftar jurusan tetap — paritas dengan `Register.tsx` (DEPARTMENTS).
+const List<String> _departments = [
+  'Rekayasa Perangkat Lunak',
+  'Teknik Komputer dan Jaringan',
+  'Multimedia',
+  'Akuntansi',
+  'Pemasaran',
+  'Desain Komunikasi Visual',
+  'Teknik Elektronika Industri',
+  'Perhotelan',
+];
+
+/// Daftar skill tetap — paritas dengan `Register.tsx` (SKILLS).
+const List<String> _skillOptions = [
+  'JavaScript',
+  'PHP',
+  'Python',
+  'UI/UX Design',
+  'Public Speaking',
+  'Desain Grafis',
+  'Networking',
+  'Digital Marketing',
+  'Data Analysis',
+  'Mobile Development',
+];
+
+/// Platform sosial yang diizinkan — paritas dengan `Register.tsx`.
+const List<({String value, String label})> _socialPlatforms = [
+  (value: 'facebook', label: 'Facebook'),
+  (value: 'instagram', label: 'Instagram'),
+  (value: 'linkedin', label: 'LinkedIn'),
+];
+
+/// Skor kekuatan password 0–4 — paritas `passwordStrength()` di Register.tsx:
+/// panjang >= 8, huruf besar, angka, simbol.
+({int score, String label}) _passwordStrength(String pw) {
+  if (pw.isEmpty) return (score: 0, label: '');
+  var score = 0;
+  if (pw.length >= 8) score++;
+  if (RegExp(r'[A-Z]').hasMatch(pw)) score++;
+  if (RegExp(r'\d').hasMatch(pw)) score++;
+  if (RegExp(r'[^A-Za-z0-9]').hasMatch(pw)) score++;
+  const levels = ['Lemah', 'Cukup', 'Kuat', 'Sangat kuat'];
+  return (score: score, label: levels[score - 1]);
+}
 
 /// Form registrasi 3 langkah: Akun → Biodata → Karir.
 class RegisterPage extends ConsumerStatefulWidget {
@@ -19,14 +68,14 @@ class RegisterPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
-  static const _stepTitles = ['Akun & Institusi', 'Biodata', 'Status Karir'];
+  static const _stepTitles = ['Informasi Akun', 'Informasi Lanjut', 'Status Karir'];
 
   final _formKey = GlobalKey<FormState>();
   int _step = 0;
   bool _submitting = false;
   String? _error;
 
-  // Step 1 — akun
+  // Step 1 — akun (nama dikumpulkan di langkah 2, seperti web)
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -37,9 +86,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _phoneController = TextEditingController();
   final _nisController = TextEditingController();
   final _nisnController = TextEditingController();
-  final _entryYearController = TextEditingController();
-  final _gradYearController = TextEditingController();
-  final _departmentController = TextEditingController();
+  String? _entryYear;
+  String? _gradYear;
+  String? _department;
   final _addressController = TextEditingController();
   String? _gender;
   String? _birthDate;
@@ -49,15 +98,23 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   String? _provinceName;
   String? _regencyName;
   String? _districtName;
+  File? _photoFile;
+  String? _photoError;
+  List<String> _skills = [];
+  final Map<String, TextEditingController> _socialUrlControllers = {
+    for (final p in _socialPlatforms) p.value: TextEditingController(),
+  };
 
-  // Step 3 — karir
+  // Step 3 — karir (provinsi & kota kerja/usaha memakai dropdown wilayah —
+  // paritas web yang menyimpan NAMA dari /regions, bukan teks bebas)
   String? _employmentStatus;
   final _companyController = TextEditingController();
   final _positionController = TextEditingController();
   final _workFieldController = TextEditingController();
   String? _workStartYear;
-  final _workProvinceController = TextEditingController();
-  final _workCityController = TextEditingController();
+  String? _workProvinceId;
+  String? _workProvinceName;
+  String? _workCityName;
   String? _studyUniversityId;
   String? _studyUniversityName;
   String? _studyProgramName;
@@ -65,8 +122,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _businessNameController = TextEditingController();
   final _businessFieldController = TextEditingController();
   String? _businessStartYear;
-  final _businessProvinceController = TextEditingController();
-  final _businessCityController = TextEditingController();
+  String? _businessProvinceId;
+  String? _businessProvinceName;
+  String? _businessCityName;
   final _businessAddressController = TextEditingController();
 
   @override
@@ -78,19 +136,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _phoneController.dispose();
     _nisController.dispose();
     _nisnController.dispose();
-    _entryYearController.dispose();
-    _gradYearController.dispose();
-    _departmentController.dispose();
     _addressController.dispose();
+    for (final c in _socialUrlControllers.values) {
+      c.dispose();
+    }
     _companyController.dispose();
     _positionController.dispose();
     _workFieldController.dispose();
-    _workProvinceController.dispose();
-    _workCityController.dispose();
     _businessNameController.dispose();
     _businessFieldController.dispose();
-    _businessProvinceController.dispose();
-    _businessCityController.dispose();
     _businessAddressController.dispose();
     super.dispose();
   }
@@ -115,8 +169,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     return true;
   }
 
-  /// Validasi semua kolom biodata wajib diisi.
+  /// Validasi semua kolom biodata wajib diisi — urutan & pesan sama dengan
+  /// `validateStep(2)` di web.
   String? _validateBiodata() {
+    if (_nameController.text.trim().isEmpty) return 'Nama lengkap wajib diisi';
+    if (_department == null) return 'Pilih jurusan';
     if (_gender == null) return 'Pilih jenis kelamin';
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) return 'No HP wajib diisi';
@@ -124,65 +181,106 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     if (phone.length < 10) return 'No HP minimal 10 karakter';
     final nis = _nisController.text.trim();
     if (nis.isEmpty) return 'NIS wajib diisi';
-    if (nis.length != 10) return 'NIS harus tepat 10 digit';
+    if (nis.length != 10) return 'NIS harus tepat 10 karakter';
     final nisn = _nisnController.text.trim();
     if (nisn.isEmpty) return 'NISN wajib diisi';
-    if (nisn.length != 10) return 'NISN harus tepat 10 digit';
-    if (_entryYearController.text.trim().isEmpty) return 'Pilih tahun masuk';
-    if (_gradYearController.text.trim().isEmpty) return 'Pilih tahun lulus';
-    final entryYear = int.tryParse(_entryYearController.text.trim());
-    final gradYear = int.tryParse(_gradYearController.text.trim());
+    if (nisn.length != 10) return 'NISN harus tepat 10 karakter';
+    if (_entryYear == null) return 'Pilih tahun masuk';
+    if (_gradYear == null) return 'Pilih tahun lulus';
+    final entryYear = int.tryParse(_entryYear!);
+    final gradYear = int.tryParse(_gradYear!);
     if (entryYear != null && gradYear != null && gradYear - entryYear < 3) {
       return 'Tahun lulus minimal 3 tahun setelah tahun masuk';
     }
-    if (_departmentController.text.trim().isEmpty) return 'Pilih jurusan / program studi';
-    if (_provinceId == null) return 'Pilih provinsi kelahiran';
-    if (_regencyId == null) return 'Pilih kabupaten/kota kelahiran';
-    if (_districtId == null) return 'Pilih kecamatan kelahiran';
+    if (_provinceId == null) return 'Pilih provinsi';
+    if (_regencyId == null) return 'Pilih kabupaten/kota';
+    if (_districtId == null) return 'Pilih kecamatan';
     if (_birthDate == null) return 'Pilih tanggal lahir';
     if (_addressController.text.trim().isEmpty) return 'Alamat wajib diisi';
     return null;
   }
 
-  /// Validasi pertanyaan lanjutan di langkah karir (step 3).
+  /// Validasi pertanyaan lanjutan di langkah karir (step 3) — pesan & urutan
+  /// sama dengan `validateStep(3)` di web (pesan per-field).
   bool _validateCareerStep() {
+    void fail(String message) {
+      setState(() => _error = message);
+    }
+
     if (_employmentStatus == null) {
-      setState(() => _error = 'Pilih salah satu status karir');
+      fail('Pilih salah satu status karir');
       return false;
     }
     if (_employmentStatus == 'working') {
-      if (_companyController.text.trim().isEmpty ||
-          _positionController.text.trim().isEmpty ||
-          _workFieldController.text.trim().isEmpty ||
-          _workStartYear == null ||
-          _workProvinceController.text.trim().isEmpty ||
-          _workCityController.text.trim().isEmpty) {
-        setState(() => _error = 'Lengkapi detail pekerjaan (perusahaan, posisi, bidang usaha, tahun mulai, provinsi & kota kerja)');
+      if (_companyController.text.trim().isEmpty) {
+        fail('Nama perusahaan wajib diisi');
+        return false;
+      }
+      if (_positionController.text.trim().isEmpty) {
+        fail('Posisi wajib diisi');
+        return false;
+      }
+      if (_workFieldController.text.trim().isEmpty) {
+        fail('Bidang usaha wajib diisi');
+        return false;
+      }
+      if (_workStartYear == null) {
+        fail('Pilih tahun mulai');
+        return false;
+      }
+      if (_workProvinceName == null || _workProvinceName!.isEmpty) {
+        fail('Pilih provinsi kerja');
+        return false;
+      }
+      if (_workCityName == null || _workCityName!.isEmpty) {
+        fail('Pilih kota kerja');
         return false;
       }
     }
     if (_employmentStatus == 'continuing_study') {
       if (_studyUniversityId == null) {
-        setState(() => _error = 'Pilih universitas');
+        fail('Pilih tempat kuliah');
         return false;
       }
       if (_studyProgramName == null || _studyProgramName!.isEmpty) {
-        setState(() => _error = 'Pilih program studi');
+        fail('Pilih program studi');
         return false;
       }
       if (_studyEntryYear == null || _studyEntryYear!.isEmpty) {
-        setState(() => _error = 'Pilih tahun masuk kuliah');
+        fail('Pilih tahun masuk kuliah');
+        return false;
+      }
+      // Paritas web: tahun masuk kuliah minimal lulus + 3.
+      final gradYear = int.tryParse(_gradYear ?? '');
+      final studyEntry = int.tryParse(_studyEntryYear!);
+      if (gradYear != null && studyEntry != null && studyEntry < gradYear + 3) {
+        fail('Tahun masuk kuliah minimal 3 tahun setelah tahun lulus');
         return false;
       }
     }
     if (_employmentStatus == 'entrepreneur') {
-      if (_businessNameController.text.trim().isEmpty ||
-          _businessFieldController.text.trim().isEmpty ||
-          _businessStartYear == null ||
-          _businessProvinceController.text.trim().isEmpty ||
-          _businessCityController.text.trim().isEmpty ||
-          _businessAddressController.text.trim().isEmpty) {
-        setState(() => _error = 'Lengkapi detail usaha (nama, bidang usaha, tahun mulai, provinsi, kota & alamat)');
+      if (_businessNameController.text.trim().isEmpty) {
+        fail('Nama usaha wajib diisi');
+        return false;
+      }
+      if (_businessFieldController.text.trim().isEmpty) {
+        fail('Bidang usaha wajib diisi');
+        return false;
+      }
+      if (_businessStartYear == null) {
+        fail('Pilih tahun mulai');
+        return false;
+      }
+      if (_businessAddressController.text.trim().isEmpty) {
+        fail('Alamat usaha wajib diisi');
+        return false;
+      }
+      if (_businessProvinceName == null || _businessProvinceName!.isEmpty) {
+        fail('Pilih provinsi usaha');
+        return false;
+      }
+      if (_businessCityName == null || _businessCityName!.isEmpty) {
+        fail('Pilih kota usaha');
         return false;
       }
     }
@@ -203,10 +301,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       if (!mounted) return;
 
       if (result.requiresVerification) {
-        // Navigasi ke halaman verifikasi OTP.
+        // Navigasi ke halaman verifikasi OTP; foto opsional diunggah
+        // setelah verifikasi sukses — paritas alur web.
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => OtpVerificationPage(email: result.email!),
+            builder: (_) => OtpVerificationPage(
+              email: result.email!,
+              avatarFile: _photoFile,
+            ),
           ),
         );
       }
@@ -226,7 +328,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       'email': _emailController.text.trim(),
       'password': _passwordController.text,
       'password_confirmation': _confirmController.text,
-      'institution_id': _institutionId,
+      // Paritas web: institusi tidak dikirim bila belum dipilih (undefined).
+      if (_institutionId != null) 'institution_id': _institutionId,
     };
 
     void add(String key, String? value) {
@@ -246,9 +349,21 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     add('phone', _phoneController.text);
     add('nis', _nisController.text);
     add('nisn', _nisnController.text);
-    addInt('entry_year', _entryYearController.text);
-    addInt('graduation_year', _gradYearController.text);
-    add('department', _departmentController.text);
+    addInt('entry_year', _entryYear);
+    addInt('graduation_year', _gradYear);
+    add('department', _department);
+
+    // Sosial + skill — paritas web: baris dengan URL kosong dibuang.
+    final socials = _socialPlatforms
+        .map((p) => {
+              'platform': p.value,
+              'url': (_socialUrlControllers[p.value]?.text ?? '').trim(),
+            })
+        .where((s) => (s['url'] as String).isNotEmpty)
+        .toList();
+    if (socials.isNotEmpty) payload['socials'] = socials;
+    if (_skills.isNotEmpty) payload['skills'] = _skills;
+
     add('birth_date', _birthDate);
     add('birthplace', _districtName);
     add('birthplace_province', _provinceName);
@@ -261,8 +376,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       add('position', _positionController.text);
       add('business_field', _workFieldController.text);
       addInt('business_start_year', _workStartYear);
-      add('work_province', _workProvinceController.text);
-      add('work_city', _workCityController.text);
+      add('work_province', _workProvinceName);
+      add('work_city', _workCityName);
     } else if (_employmentStatus == 'continuing_study') {
       add('study_institution', _studyUniversityName);
       add('study_program', _studyProgramName);
@@ -271,8 +386,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       add('business_name', _businessNameController.text);
       add('business_field', _businessFieldController.text);
       addInt('business_start_year', _businessStartYear);
-      add('business_province', _businessProvinceController.text);
-      add('business_city', _businessCityController.text);
+      add('business_province', _businessProvinceName);
+      add('business_city', _businessCityName);
       add('business_address', _businessAddressController.text);
     }
 
@@ -293,6 +408,33 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       });
     }
+  }
+
+  /// Pilih foto profil opsional — validasi sama seperti web:
+  /// harus gambar (PNG/JPG/WebP), maksimal 2 MB.
+  Future<void> _pickPhoto() async {
+    setState(() => _photoError = null);
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final ext = picked.name.split('.').last.toLowerCase();
+    const allowed = ['jpg', 'jpeg', 'png', 'webp'];
+    if (!allowed.contains(ext)) {
+      setState(() => _photoError = 'Format file harus berupa foto (PNG/JPG/WebP)');
+      return;
+    }
+    if (await picked.length() > 2 * 1024 * 1024) {
+      setState(() => _photoError = 'Ukuran foto maksimal 2MB');
+      return;
+    }
+    setState(() => _photoFile = File(picked.path));
+  }
+
+  void _toggleSkill(String skill) {
+    setState(() {
+      _skills = _skills.contains(skill)
+          ? (_skills.where((s) => s != skill).toList())
+          : [..._skills, skill];
+    });
   }
 
   @override
@@ -497,17 +639,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         ),
         const SizedBox(height: 20),
         TextFormField(
-          controller: _nameController,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Nama Lengkap',
-            prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
-          ),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Nama wajib diisi' : null,
-        ),
-        const SizedBox(height: 14),
-        TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
@@ -517,9 +648,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           ),
           validator: (v) {
             final value = v?.trim() ?? '';
-            if (value.isEmpty) return 'Email wajib diisi';
-            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-              return 'Format email tidak valid';
+            if (!RegExp(r'^\S+@\S+\.\S+$').hasMatch(value)) {
+              return 'Masukkan email yang valid';
             }
             return null;
           },
@@ -530,12 +660,60 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           obscureText: true,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Password (min. 8 karakter)',
+            labelText: 'Password',
+            helperText: 'minimal 8 karakter',
             prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
           ),
           validator: (v) {
-            if (v == null || v.length < 8) return 'Minimal 8 karakter';
+            if (v == null || v.length < 8) return 'Password minimal 8 karakter';
             return null;
+          },
+        ),
+        // Meter kekuatan password — paritas Register.tsx langkah 1.
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _passwordController,
+          builder: (context, value, _) {
+            if (value.text.isEmpty) return const SizedBox.shrink();
+            final strength = _passwordStrength(value.text);
+            const barColors = [
+              Color(0xFFF43F5E), // Lemah
+              AppColors.warning, // Cukup
+              Color(0xFF34D399), // Kuat
+              AppColors.success, // Sangat kuat
+            ];
+            final color = barColors[strength.score - 1];
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: List.generate(4, (i) {
+                      return Expanded(
+                        child: Container(
+                          height: 4,
+                          margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
+                          decoration: BoxDecoration(
+                            color:
+                                i < strength.score ? color : AppColors.border,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    strength.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            );
           },
         ),
         const SizedBox(height: 14),
@@ -547,8 +725,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             labelText: 'Konfirmasi Password',
             prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
           ),
-          validator: (v) => (v != _passwordController.text)
-              ? 'Password tidak sama'
+          validator: (v) => (v != _passwordController.text || v!.isEmpty)
+              ? 'Konfirmasi password tidak cocok'
               : null,
         ),
         const SizedBox(height: 14),
@@ -609,17 +787,17 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 18),
-                    SizedBox(width: 8),
+                    Icon(Icons.error_outline_rounded, color: Theme.of(context).colorScheme.error, size: 18),
+                    const SizedBox(width: 8),
                     Text('Gagal memuat institusi',
-                        style: TextStyle(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600)),
+                        style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text('Periksa koneksi internet Anda, lalu coba lagi.',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                Text('Periksa koneksi internet Anda, lalu coba lagi.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -641,6 +819,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   // Step 2 — biodata
   // ------------------------------------------------------------------
   Widget _buildStep2() {
+    final currentYear = DateTime.now().year;
+    // Tahun masuk: 1990..tahun berjalan — sama seperti web.
+    final entryYears = List.generate(currentYear - 1989, (i) => (1990 + i).toString());
+    // Tahun lulus mengikuti tahun masuk: min masuk+3, maks masuk+6 atau
+    // tahun berjalan (mana yang lebih besar) — paritas web.
+    final entry = int.tryParse(_entryYear ?? '') ?? 0;
+    final gradStart = entry > 0 ? (1990 > entry + 3 ? 1990 : entry + 3) : 1990;
+    final gradEnd = currentYear > entry + 6 ? currentYear : (entry > 0 ? entry + 6 : currentYear);
+    final gradYears = gradStart <= gradEnd
+        ? List.generate(gradEnd - gradStart + 1, (i) => (gradStart + i).toString())
+        : <String>[];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -658,6 +848,29 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 20),
+        TextFormField(
+          controller: _nameController,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'Nama Lengkap *',
+            prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
+          ),
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          initialValue: _department,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Jurusan *',
+            prefixIcon: Icon(Icons.menu_book_outlined, size: 20),
+          ),
+          hint: const Text('Pilih jurusan'),
+          items: _departments
+              .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+              .toList(),
+          onChanged: (v) => setState(() => _department = v),
+        ),
+        const SizedBox(height: 14),
         DropdownButtonFormField<String>(
           initialValue: _gender,
           decoration: const InputDecoration(
@@ -674,10 +887,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         TextFormField(
           controller: _phoneController,
           keyboardType: TextInputType.phone,
+          maxLength: 16,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
             labelText: 'No. HP (contoh: 0812xxxx atau +62...)',
             prefixIcon: Icon(Icons.phone_outlined, size: 20),
+            counterText: '',
           ),
         ),
         const SizedBox(height: 14),
@@ -687,10 +902,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               child: TextFormField(
                 controller: _nisController,
                 keyboardType: TextInputType.number,
+                maxLength: 10,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'NIS (10 digit)',
                   prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                  counterText: '',
                 ),
               ),
             ),
@@ -699,10 +916,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               child: TextFormField(
                 controller: _nisnController,
                 keyboardType: TextInputType.number,
+                maxLength: 10,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'NISN (10 digit)',
                   prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                  counterText: '',
                 ),
               ),
             ),
@@ -712,32 +931,43 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         Row(
           children: [
             Expanded(
-              child: TextFormField(
-                controller: _entryYearController,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.next,
+              child: DropdownButtonFormField<String>(
+                initialValue: _entryYear,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Tahun Masuk'),
+                hint: const Text('Pilih'),
+                items: entryYears
+                    .map((y) => DropdownMenuItem(value: y, child: Text(y)))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _entryYear = v;
+                  // Paritas web: tahun lulus direset bila tidak lagi valid
+                  // (tahun masuk dikosongkan, atau lulus < masuk + 3).
+                  final grad = int.tryParse(_gradYear ?? '');
+                  final entryNew = int.tryParse(v ?? '');
+                  if (_gradYear != null &&
+                      (entryNew == null || (grad != null && grad < entryNew + 3))) {
+                    _gradYear = null;
+                  }
+                }),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
-                controller: _gradYearController,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.next,
+              child: DropdownButtonFormField<String>(
+                initialValue: _gradYear,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Tahun Lulus'),
+                hint: Text(entry == 0 ? 'Pilih tahun masuk dulu' : 'Minimal ${entry + 3}'),
+                items: gradYears
+                    .map((y) => DropdownMenuItem(value: y, child: Text(y)))
+                    .toList(),
+                onChanged: entry == 0
+                    ? null
+                    : (v) => setState(() => _gradYear = v),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 14),
-        TextFormField(
-          controller: _departmentController,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Jurusan / Program Studi',
-            prefixIcon: Icon(Icons.menu_book_outlined, size: 20),
-          ),
         ),
         const SizedBox(height: 14),
         _buildBirthDateField(),
@@ -753,6 +983,153 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             prefixIcon: Icon(Icons.home_outlined, size: 20),
           ),
         ),
+        const SizedBox(height: 20),
+
+        // Foto profil opsional (maks 2 MB).
+        _buildPhotoField(),
+        const SizedBox(height: 20),
+
+        // Skill — pilihan tetap seperti web.
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Keahlian (pilih yang dimiliki)',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _skillOptions.map((skill) {
+            final selected = _skills.contains(skill);
+            return FilterChip(
+              label: Text(skill),
+              selected: selected,
+              onSelected: (_) => _toggleSkill(skill),
+              labelStyle: TextStyle(
+                fontSize: 12,
+                color: selected ? Colors.white : AppColors.textSecondary,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              ),
+              selectedColor: AppColors.primary,
+              checkmarkColor: Colors.white,
+              backgroundColor: AppColors.surface,
+              side: BorderSide(
+                color: selected ? AppColors.primary : AppColors.border,
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+
+        // Sosial media — platform tetap, URL opsional.
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Media Sosial (opsional)',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        ..._socialPlatforms.map((p) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextFormField(
+                controller: _socialUrlControllers[p.value],
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: '${p.label} (URL)',
+                  prefixIcon: const Icon(Icons.link_rounded, size: 20),
+                ),
+              ),
+            )),
+      ],
+    );
+  }
+
+  Widget _buildPhotoField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+                image: _photoFile != null
+                    ? DecorationImage(
+                        image: FileImage(_photoFile!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: _photoFile == null
+                  ? const Icon(Icons.person_outline_rounded,
+                      color: AppColors.primary, size: 30)
+                  : null,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _photoFile == null
+                        ? 'Foto Profil (opsional)'
+                        : 'Foto siap diunggah',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'PNG/JPG/WebP, maksimal 2MB',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: _pickPhoto,
+                        icon: const Icon(Icons.upload_rounded, size: 16),
+                        label: const Text('Pilih Foto',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                      if (_photoFile != null)
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _photoFile = null),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              size: 16),
+                          label: const Text('Hapus',
+                              style: TextStyle(fontSize: 12)),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (_photoError != null) ...[
+          const SizedBox(height: 6),
+          Text(_photoError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+        ],
       ],
     );
   }
@@ -867,12 +1244,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   // Step 3 — status karir
   // ------------------------------------------------------------------
   Widget _buildStep3() {
+    // Urutan & label sama dengan CAREERS di Register.tsx.
     const options = [
       ('working', 'Bekerja', Icons.work_outline_rounded),
+      ('continuing_study', 'Kuliah', Icons.school_outlined),
       ('entrepreneur', 'Wirausaha', Icons.storefront_outlined),
-      ('continuing_study', 'Melanjutkan Studi', Icons.school_outlined),
-      ('unemployed', 'Belum Bekerja', Icons.hourglass_empty_rounded),
-      ('active_student', 'Aktif Kuliah', Icons.menu_book_outlined),
+      ('unemployed', 'Mencari Kerja', Icons.hourglass_empty_rounded),
+      ('active_student', 'Siswa Aktif', Icons.menu_book_outlined),
     ];
 
     return Column(
@@ -999,22 +1377,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           onChanged: (v) => setState(() => _workStartYear = v),
         ),
         const SizedBox(height: 14),
-        TextFormField(
-          controller: _workProvinceController,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Provinsi Kerja *',
-            prefixIcon: Icon(Icons.map_outlined, size: 20),
-          ),
+        _buildProvinceSelect(
+          label: 'Provinsi Kerja *',
+          selectedId: _workProvinceId,
+          onChanged: (item) => setState(() {
+            // Paritas web: ganti provinsi mengosongkan kota.
+            _workProvinceId = item?.id;
+            _workProvinceName = item?.name;
+            _workCityName = null;
+          }),
         ),
         const SizedBox(height: 14),
-        TextFormField(
-          controller: _workCityController,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: 'Kota Kerja *',
-            prefixIcon: Icon(Icons.location_city_outlined, size: 20),
-          ),
+        _buildRegencySelect(
+          label: 'Kota Kerja *',
+          provinceId: _workProvinceId,
+          selectedName: _workCityName,
+          onChanged: (item) => setState(() => _workCityName = item?.name),
         ),
       ],
     );
@@ -1028,12 +1406,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         ? null
         : ref.watch(studyProgramsProvider(_studyUniversityId!));
 
-    final graduationYear = int.tryParse(_gradYearController.text.trim());
+    final graduationYear = int.tryParse(_gradYear ?? '');
     final currentYear = DateTime.now().year;
-    final startYear = graduationYear != null ? graduationYear + 3 : currentYear - 10;
-    // Mulai dari lulus + 3 sampai lulus + 6 (atau tahun berjalan jika lebih besar).
-    final endYear = currentYear < startYear + 3 ? startYear + 3 : currentYear;
-    final studyYears = List.generate(endYear - startYear + 1, (i) => (startYear + i).toString());
+    // Paritas web: mulai max(1990, lulus + 3), fallback tahun berjalan - 10
+    // bila tahun lulus belum dipilih; akhir max(tahun berjalan, lulus + 6).
+    final startYear = graduationYear != null
+        ? (1990 > graduationYear + 3 ? 1990 : graduationYear + 3)
+        : currentYear - 10;
+    final rawEnd = graduationYear != null ? graduationYear + 6 : startYear;
+    final endYear = currentYear > rawEnd ? currentYear : rawEnd;
+    final studyYears = endYear >= startYear
+        ? List.generate(endYear - startYear + 1, (i) => (startYear + i).toString())
+        : <String>[];
 
     return _CareerCard(
       title: 'Detail Pendidikan Lanjutan',
@@ -1141,22 +1525,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           onChanged: (v) => setState(() => _businessStartYear = v),
         ),
         const SizedBox(height: 14),
-        TextFormField(
-          controller: _businessProvinceController,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Provinsi Usaha *',
-            prefixIcon: Icon(Icons.map_outlined, size: 20),
-          ),
+        _buildProvinceSelect(
+          label: 'Provinsi Usaha *',
+          selectedId: _businessProvinceId,
+          onChanged: (item) => setState(() {
+            // Paritas web: ganti provinsi mengosongkan kota.
+            _businessProvinceId = item?.id;
+            _businessProvinceName = item?.name;
+            _businessCityName = null;
+          }),
         ),
         const SizedBox(height: 14),
-        TextFormField(
-          controller: _businessCityController,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Kota Usaha *',
-            prefixIcon: Icon(Icons.location_city_outlined, size: 20),
-          ),
+        _buildRegencySelect(
+          label: 'Kota Usaha *',
+          provinceId: _businessProvinceId,
+          selectedName: _businessCityName,
+          onChanged: (item) => setState(() => _businessCityName = item?.name),
         ),
         const SizedBox(height: 14),
         TextFormField(
@@ -1168,6 +1552,95 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Dropdown provinsi — paritas select "Provinsi Kerja/Usaha" di
+  /// Register.tsx (data dari /regions/provinces).
+  Widget _buildProvinceSelect({
+    required String label,
+    required String? selectedId,
+    required ValueChanged<RegionItem?> onChanged,
+  }) {
+    final provinces = ref.watch(provincesProvider);
+    return provinces.when(
+      data: (list) => DropdownButtonFormField<String>(
+        initialValue: selectedId,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.map_outlined, size: 20),
+        ),
+        hint: const Text('Pilih provinsi'),
+        items: list
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        onChanged: (v) =>
+            onChanged(list.where((e) => e.id == v).toList().firstOrNull),
+      ),
+      loading: () => DropdownButtonFormField<String>(
+        decoration: InputDecoration(labelText: label),
+        items: const [],
+        onChanged: null,
+      ),
+      error: (e, _) => _RetryError(
+        message: 'Gagal memuat provinsi',
+        onRetry: () => ref.invalidate(provincesProvider),
+      ),
+    );
+  }
+
+  /// Dropdown kota/kabupaten tergantung provinsi — paritas web: payload
+  /// menyimpan NAMA kota; id diturunkan kembali dari nama (disabled bila
+  /// provinsi belum dipilih, dan ikut kosong saat provinsi berganti).
+  Widget _buildRegencySelect({
+    required String label,
+    required String? provinceId,
+    required String? selectedName,
+    required ValueChanged<RegionItem?> onChanged,
+  }) {
+    final decoration = InputDecoration(
+      labelText: label,
+      prefixIcon: const Icon(Icons.location_city_outlined, size: 20),
+    );
+    if (provinceId == null) {
+      return DropdownButtonFormField<String>(
+        decoration: decoration,
+        hint: const Text('Pilih provinsi dahulu'),
+        items: const [],
+        onChanged: null,
+      );
+    }
+    final regencies = ref.watch(regenciesProvider(provinceId));
+    return regencies.when(
+      data: (list) {
+        // Paritas web `workCityId`: id dicari dari nama yang tersimpan.
+        final currentId = list
+            .where((e) => e.name == selectedName)
+            .map((e) => e.id)
+            .toList()
+            .firstOrNull;
+        return DropdownButtonFormField<String>(
+          initialValue: currentId,
+          isExpanded: true,
+          decoration: decoration,
+          hint: const Text('Pilih kota'),
+          items: list
+              .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+              .toList(),
+          onChanged: (v) =>
+              onChanged(list.where((e) => e.id == v).toList().firstOrNull),
+        );
+      },
+      loading: () => DropdownButtonFormField<String>(
+        decoration: decoration,
+        items: const [],
+        onChanged: null,
+      ),
+      error: (e, _) => _RetryError(
+        message: 'Gagal memuat kota/kabupaten',
+        onRetry: () => ref.invalidate(regenciesProvider(provinceId)),
+      ),
     );
   }
 
@@ -1386,7 +1859,7 @@ class _RetryError extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(message, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
+        Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(

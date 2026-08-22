@@ -8,24 +8,24 @@ import { Info } from 'lucide-react'
  */
 const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   access_denied:
-    'Login Google dibatalkan atau ditolak. Jika aplikasi belum terverifikasi, pastikan akun Google Anda terdaftar sebagai Test user di Google Cloud Console (OAuth consent screen), lalu coba lagi.',
-  invalid_state: 'Sesi login Google kedaluwarsa. Silakan coba lagi.',
-  callback_failed: 'Terjadi kesalahan saat menghubungkan ke Google. Silakan coba lagi.',
-  invalid_token: 'Token Google tidak valid atau kedaluwarsa. Silakan coba lagi.',
-  not_configured: 'Login Google belum dikonfigurasi di server. Hubungi administrator.',
+    'Login Google dibatalkan atau ditolak. Silakan coba lagi, atau gunakan email & password.',
+  invalid_state: 'Sesi login Google kedaluwarsa. Silakan coba login lagi.',
+  callback_failed: 'Gagal menghubungkan ke Google. Periksa koneksi internet Anda lalu coba lagi.',
+  invalid_token: 'Token Google tidak valid. Silakan coba login lagi.',
+  not_configured: 'Login Google belum tersedia. Gunakan email & password untuk masuk.',
   redirect_uri_mismatch:
-    'Konfigurasi Google tidak cocok. Pastikan redirect URI terdaftar di Google Cloud Console, lalu coba lagi.',
+    'Konfigurasi login Google belum sesuai. Gunakan email & password untuk masuk, atau hubungi admin.',
   disabled_uri:
-    'Redirect URI Google belum diizinkan. Daftarkan redirect URI di Google Cloud Console, lalu coba lagi.',
+    'Login Google belum diizinkan. Gunakan email & password untuk masuk.',
   inactive_scope:
-    'Beberapa izin Google belum disetujui. Periksa OAuth consent screen di Google Cloud Console.',
+    'Izin Google belum lengkap. Gunakan email & password untuk masuk.',
   invalid_client:
-    'Klien Google tidak valid. Periksa GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET di backend/.env.',
+    'Login Google sedang tidak tersedia. Gunakan email & password untuk masuk.',
 }
 
 /** Friendly label for the "Akun ini telah dihapus/dinonaktifkan" backend errors. */
 const GENERIC_FALLBACK =
-  'Login Google ditolak. Periksa bahwa aplikasi sudah diverifikasi / dalam mode Production di Google Cloud Console, lalu coba lagi.'
+  'Login Google gagal. Gunakan email & password untuk masuk, atau hubungi admin.'
 
 /**
  * Shows the `?google_error=` reason (if any) on the auth pages. Google bounces
@@ -58,7 +58,7 @@ export function GoogleErrorNotice() {
     <div className="flex animate-fade-in-up items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
       <Info className="mt-0.5 size-4 shrink-0" />
       <div>
-        <p className="font-semibold">Google menolak login</p>
+        <p className="font-semibold">Login Google gagal</p>
         <p className="mt-0.5 text-[13px] leading-relaxed">{error}</p>
       </div>
     </div>

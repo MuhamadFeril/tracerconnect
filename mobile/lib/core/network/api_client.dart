@@ -7,6 +7,7 @@ import 'package:dio/io.dart';
 import '../constants/app_constants.dart';
 import '../../models/api_envelope.dart';
 import 'api_error.dart';
+import 'rate_limiter.dart';
 
 /// Klien HTTP tunggal berbasis Dio.
 ///
@@ -39,7 +40,12 @@ class ApiClient {
       baseUrl: AppConstants.apiBaseUrl,
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 25),
-      headers: {'Accept': 'application/json'},
+      headers: {
+        'Accept': 'application/json',
+        // Penanda platform agar backend bisa memberi perlakuan khusus
+        // (mis. pengecualian rate limit untuk pengguna mobile terautentikasi).
+        'X-Platform': 'mobile',
+      },
     ),
   )..httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
@@ -178,6 +184,12 @@ class ApiClient {
             'Waktu koneksi habis. Periksa koneksi internet Anda dan pastikan server TracerConnect berjalan.',
       );
 
+  /// Pesan 429 dari header `Retry-After` — paritas dengan web.
+  String _rateLimitMessage(Response<dynamic> res) {
+    final raw = res.headers.value('retry-after');
+    return RateLimiter.retryAfterMessage(int.tryParse(raw ?? ''));
+  }
+
   dynamic _unwrap(Response<dynamic> res) {
     final body = res.data;
     if (body is Map<String, dynamic>) {
@@ -191,7 +203,9 @@ class ApiClient {
       if (statusCode >= 400 || !env.success) {
         final message = env.message.isNotEmpty
             ? env.message
-            : (statusCode == 429 ? 'Terlalu banyak percobaan. Silakan coba lagi nanti.' : 'Terjadi kesalahan');
+            : (statusCode == 429
+                ? _rateLimitMessage(res)
+                : 'Terjadi kesalahan');
         throw ApiException(
           statusCode: statusCode,
           message: message,
@@ -211,7 +225,9 @@ class ApiClient {
       if (statusCode >= 400 || !env.success) {
         final message = env.message.isNotEmpty
             ? env.message
-            : (statusCode == 429 ? 'Terlalu banyak percobaan. Silakan coba lagi nanti.' : 'Terjadi kesalahan');
+            : (statusCode == 429
+                ? _rateLimitMessage(res)
+                : 'Terjadi kesalahan');
         throw ApiException(
           statusCode: statusCode,
           message: message,

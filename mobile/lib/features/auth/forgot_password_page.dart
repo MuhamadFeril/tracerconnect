@@ -1,9 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import 'auth_repository.dart';
 
+/// Lupa password — paritas dengan `web/src/pages/ForgotPassword.tsx`.
+///
+/// Backend mengirim **kode OTP** (bukan link). Setelah terkirim, pengguna
+/// diarahkan ke `/reset-password?email=...` dengan email terbawa. Tombol
+/// kirim memiliki hitung mundur 5 detik seperti rate limiter web.
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -12,28 +20,36 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
+  static const int _cooldownSeconds = 5;
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _repo = AuthRepository();
   bool _submitting = false;
   String? _error;
   bool _sent = false;
-  DateTime? _lastSubmitTime;
+  int _cooldown = 0;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _cooldownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCooldown() {
+    setState(() => _cooldown = _cooldownSeconds);
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _cooldown = (_cooldown - 1).clamp(0, _cooldownSeconds));
+      if (_cooldown <= 0) timer.cancel();
+    });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    // Client-side cooldown: min 30 seconds between attempts.
-    if (_lastSubmitTime != null && DateTime.now().difference(_lastSubmitTime!) < const Duration(seconds: 30)) {
-      if (mounted) setState(() => _error = 'Terlalu cepat. Silakan tunggu 30 detik.');
-      return;
-    }
-    _lastSubmitTime = DateTime.now();
     setState(() {
       _submitting = true;
       _error = null;
@@ -42,7 +58,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       await _repo.forgotPassword(_emailController.text);
       if (mounted) setState(() => _sent = true);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = firstValidationMessage(e));
+      if (mounted) {
+        setState(() => _error = firstValidationMessage(e));
+        _startCooldown();
+      }
     } catch (_) {
       if (mounted) setState(() => _error = 'Terjadi kesalahan. Silakan coba lagi.');
     } finally {
@@ -84,25 +103,32 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 18),
         const Text(
-          'Cek Email Anda',
+          'Kode OTP Terkirim',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 19,
+            fontSize: 20,
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 8),
         const Text(
-          'Jika email terdaftar, link reset password telah dikirim. '
-          'Gunakan link tersebut untuk mengatur ulang password Anda.',
+          'Jika email terdaftar, kode OTP reset password telah dikirim. '
+          'Silakan periksa kotak masuk (dan folder spam) Anda, lalu masukkan '
+          'kode beserta password baru.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 24),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Kembali ke Login'),
+          onPressed: () =>
+              context.push('/reset-password?email=${Uri.encodeComponent(_emailController.text.trim())}'),
+          child: const Text('Masukkan Kode OTP'),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => context.go('/login'),
+          child: const Text('Kembali ke login'),
         ),
       ],
     );
@@ -113,7 +139,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Atur Ulang Password',
+          'Reset Password',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textPrimary,
@@ -123,7 +149,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Masukkan email terdaftar Anda. Kami akan mengirimkan link untuk mengatur ulang password.',
+          'Masukkan email akun Anda — kami akan mengirimkan link untuk mengatur ulang password.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5),
         ),
@@ -144,8 +170,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 validator: (v) {
                   final value = v?.trim() ?? '';
                   if (value.isEmpty) return 'Email wajib diisi';
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-                    return 'Format email tidak valid';
+                  if (!RegExp(r'^\S+@\S+\.\S+$').hasMatch(value)) {
+                    return 'Masukkan email yang valid';
                   }
                   return null;
                 },
@@ -155,18 +181,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
+                    color: Theme.of(context).colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: AppColors.danger, fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer, fontSize: 13),
                   ),
                 ),
               ],
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: _submitting ? null : _submit,
+                onPressed:
+                    (_submitting || _cooldown > 0) ? null : _submit,
                 child: _submitting
                     ? const SizedBox(
                         width: 20,
@@ -176,7 +203,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Kirim Link Reset'),
+                    : Text(_cooldown > 0
+                        ? 'Tunggu ${_cooldown}s'
+                        : 'Kirim Link Reset'),
               ),
             ],
           ),

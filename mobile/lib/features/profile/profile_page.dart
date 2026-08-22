@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/role_utils.dart';
 import '../../models/user.dart';
 import '../../shared/widgets/app_avatar.dart';
 import '../../shared/widgets/app_badge.dart';
@@ -308,9 +309,9 @@ class ProfilePage extends ConsumerWidget {
             const SizedBox(height: 16),
           ],
 
-          // Menu pengaturan
+          // Menu — role-aware.
           _ProfileCard(
-            title: 'Pengaturan',
+            title: 'Menu',
             children: [
               _MenuTile(
                 icon: Icons.edit_outlined,
@@ -322,21 +323,51 @@ class ProfilePage extends ConsumerWidget {
                 title: 'Ubah Password',
                 onTap: () => context.push('/change-password'),
               ),
-              _MenuTile(
-                icon: Icons.assignment_outlined,
-                title: 'Lamaran Saya',
-                onTap: () => context.push('/my-applications'),
-              ),
-              _MenuTile(
-                icon: Icons.bookmark_outline_rounded,
-                title: 'Lowongan Tersimpan',
-                onTap: () => context.push('/my-bookmarks'),
-              ),
-              _MenuTile(
-                icon: Icons.auto_awesome_outlined,
-                title: 'Kisah Sukses Alumni',
-                onTap: () => context.push('/success-stories'),
-              ),
+              // Alumni-only items.
+              if (RoleUtils.isAlumni(user)) ...[
+                _MenuTile(
+                  icon: Icons.assignment_outlined,
+                  title: 'Lamaran Saya',
+                  onTap: () => context.push('/my-applications'),
+                ),
+                _MenuTile(
+                  icon: Icons.bookmark_outline_rounded,
+                  title: 'Lowongan Tersimpan',
+                  onTap: () => context.push('/my-bookmarks'),
+                ),
+                _MenuTile(
+                  icon: Icons.auto_awesome_outlined,
+                  title: 'Kisah Sukses Alumni',
+                  onTap: () => context.push('/success-stories'),
+                ),
+              ],
+              // Employer-only items.
+              if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) ...[
+                _MenuTile(
+                  icon: Icons.work_outline_rounded,
+                  title: 'Kelola Lowongan',
+                  onTap: () => context.push('/employer-jobs'),
+                ),
+              ],
+              // Admin-only items.
+              if (RoleUtils.isAdmin(user)) ...[
+                _MenuTile(
+                  icon: Icons.analytics_outlined,
+                  title: 'Analitik & Dashboard',
+                  onTap: () => context.go('/home'),
+                ),
+                _MenuTile(
+                  icon: Icons.campaign_outlined,
+                  title: 'Kelola Pengumuman',
+                  onTap: () => context.push('/announcements'),
+                ),
+
+                _MenuTile(
+                  icon: Icons.event_outlined,
+                  title: 'Kelola Acara',
+                  onTap: () => context.push('/events'),
+                ),
+              ],
               _MenuTile(
                 icon: Icons.block_rounded,
                 title: 'Pengguna Diblokir',

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
-
 class EmptyView extends StatelessWidget {
   final String title;
   final String? description;
@@ -16,6 +14,8 @@ class EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -25,18 +25,18 @@ class EmptyView extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryLight,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: AppColors.primary, size: 28),
+              child: Icon(icon, color: cs.onPrimaryContainer, size: 28),
             ),
             const SizedBox(height: 14),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: cs.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -46,8 +46,10 @@ class EmptyView extends StatelessWidget {
               Text(
                 description!,
                 textAlign: TextAlign.center,
-                style:
-                    const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 13,
+                ),
               ),
             ],
           ],

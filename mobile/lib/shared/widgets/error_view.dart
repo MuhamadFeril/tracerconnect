@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
-
 /// Reusable error view with icon, message, and optional retry button.
 ///
 /// Used across all list/detail pages when API calls fail. The design
 /// matches the web `ErrorState` component for visual consistency.
+///
+/// All colors are derived from [Theme.of(context).colorScheme] so the
+/// widget automatically adapts to light / dark / custom themes.
 class ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
@@ -14,6 +15,8 @@ class ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -24,18 +27,18 @@ class ErrorView extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
-                color: AppColors.dangerBg,
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.cloud_off_rounded,
-                  color: AppColors.danger, size: 30),
+              child: Icon(Icons.cloud_off_rounded,
+                  color: cs.onErrorContainer, size: 30),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Terjadi kesalahan',
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: cs.onSurface,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -44,7 +47,10 @@ class ErrorView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
+                fontSize: 13,
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 18),

@@ -25,6 +25,7 @@ import type {
   GraduationYear,
   Institution,
   InstitutionOption,
+  EmployerDashboard,
   JobApplication,
   JobVacancy,
   LoginResponse,
@@ -638,7 +639,7 @@ export function useEventMutations() {
   return useEntityMutations<EventItem>('events', '/events')
 }
 
-export function useJobVacancies(params: { search?: string; status?: string; employment_type?: string; page?: number }) {
+export function useJobVacancies(params: { search?: string; status?: string; employment_type?: string; per_page?: number; page?: number }) {
   return useCollection<JobVacancy>(qk.jobVacancies(params), '/job-vacancies', params)
 }
 
@@ -740,6 +741,29 @@ export function useSaveAcceptance(applicationId: string) {
   })
 }
 
+// --- Employer portal ----------------------------------------------------------
+
+export function useEmployerDashboard() {
+  return useQuery({
+    queryKey: ['employer', 'dashboard'],
+    queryFn: () => unwrap<EmployerDashboard>(api.get('/employer/dashboard')),
+  })
+}
+
+/**
+ * Unified applicant inbox across every vacancy the employer posted.
+ * Filters: search (applicant/vacancy), hiring status, per-vacancy.
+ */
+export function useEmployerApplications(
+  params: { search?: string; status?: string; job_vacancy_id?: string; page?: number } = {},
+) {
+  return useQuery({
+    queryKey: ['employer', 'applications', params],
+    queryFn: () => unwrapPage<JobApplication>(api.get('/employer/applications', { params })),
+    placeholderData: keepPreviousData,
+  })
+}
+
 // --- Event registration (phase 10) -------------------------------------------
 
 export function useEventRegister(eventId: string) {
@@ -801,14 +825,20 @@ export function useNetworkingAlumnus(id: string) {
 export function useNetworkingConnections() {
   return useQuery({
     queryKey: ['networking', 'connections'],
-    queryFn: () => unwrap<ConnectionItem[]>(api.get('/networking/connections')),
+    queryFn: async () => {
+      const page = await unwrapPage<ConnectionItem>(api.get('/networking/connections'))
+      return page.data
+    },
   })
 }
 
 export function useNetworkingRequests() {
   return useQuery({
     queryKey: ['networking', 'requests'],
-    queryFn: () => unwrap<ConnectionItem[]>(api.get('/networking/requests')),
+    queryFn: async () => {
+      const page = await unwrapPage<ConnectionItem>(api.get('/networking/requests'))
+      return page.data
+    },
   })
 }
 
@@ -855,7 +885,10 @@ export function useRemoveConnection() {
 export function useNetworkingBlocked() {
   return useQuery({
     queryKey: ['networking', 'blocked'],
-    queryFn: () => unwrap<BlockedUserItem[]>(api.get('/networking/blocked')),
+    queryFn: async () => {
+      const page = await unwrapPage<BlockedUserItem>(api.get('/networking/blocked'))
+      return page.data
+    },
   })
 }
 
@@ -892,7 +925,10 @@ export function useReportUser() {
 export function useConversations(search?: string) {
   return useQuery({
     queryKey: ['chat', 'conversations', search ?? ''],
-    queryFn: () => unwrap<Conversation[]>(api.get('/conversations', { params: search ? { search } : {} })),
+    queryFn: async () => {
+      const page = await unwrapPage<Conversation>(api.get('/conversations', { params: search ? { search } : {} }))
+      return page.data
+    },
     // REST polling transport per the blueprint (shared-hosting friendly).
     refetchInterval: 5_000,
   })

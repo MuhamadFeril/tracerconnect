@@ -79,10 +79,22 @@ export async function unwrap<T>(promise: Promise<{ data: ApiEnvelope<T> }>): Pro
 /**
  * Unwrap a paginated list: the envelope carries the items in `data` and the
  * pagination metadata in `meta`, so compose them into a { data, meta } shape.
+ *
+ * Laravel's LengthAwarePaginator serializes as { data: { data: [...], ... }, meta }
+ * when placed inside an ApiResponse envelope. This helper handles both:
+ *  - Flat array:  { success, data: [...items], meta }
+ *  - Paginated:   { success, data: { data: [...items], ... }, meta }
  */
 export async function unwrapPage<T>(promise: Promise<{ data: ApiEnvelope<T[]> }>): Promise<Paginated<T>> {
   const { data } = await promise
-  return { data: data.data, meta: data.meta as Paginated<T>['meta'] }
+  // If data.data is an array, items are already flat. If it's an object
+  // (Laravel paginator), the actual items live inside data.data.data.
+  const raw = data.data as unknown
+  const items: T[] = Array.isArray(raw)
+    ? raw
+    : (raw as Record<string, unknown>)?.data as T[] ?? []
+  const meta = (data.meta ?? (raw as Record<string, unknown>)?.meta) as Paginated<T>['meta']
+  return { data: items, meta }
 }
 
 /**

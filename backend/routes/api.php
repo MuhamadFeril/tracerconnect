@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\DepartmentController;
+use App\Http\Controllers\Api\V1\EmployerController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Http\Controllers\Api\V1\GraduationYearController;
@@ -19,7 +20,6 @@ use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\QuestionController;
 use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\ReportController;
-use App\Http\Controllers\Api\V1\SuccessStoryController;
 use App\Http\Controllers\Api\V1\ResponseController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SurveyController;
@@ -40,14 +40,14 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Public endpoints
     Route::prefix('auth')->group(function () {
-        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:15,1');
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
         Route::post('google', [AuthController::class, 'googleLogin'])->middleware('throttle:10,1');
-        Route::get('google', [GoogleAuthController::class, 'redirect'])->middleware('throttle:5,1');
+        Route::get('google', [GoogleAuthController::class, 'redirect']);
         Route::get('google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:10,1');
         Route::post('google/exchange', [GoogleAuthController::class, 'exchange'])->middleware('throttle:10,1');
-        Route::post('verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:5,1');
-        Route::post('resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:3,1');
+        Route::post('verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
+        Route::post('resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:5,1');
         Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
         Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
     });
@@ -130,7 +130,6 @@ Route::prefix('v1')->group(function () {
 
         // Engagement (phase 10)
         Route::apiResource('announcements', AnnouncementController::class);
-        Route::apiResource('success-stories', SuccessStoryController::class);
         Route::apiResource('events', EventController::class);
         Route::post('events/{event}/register', [EventController::class, 'register']);
         Route::delete('events/{event}/register', [EventController::class, 'unregister']);
@@ -148,6 +147,12 @@ Route::prefix('v1')->group(function () {
         Route::post('applications/{application}/withdraw', [JobApplicationController::class, 'withdraw']);
         Route::put('applications/{application}/status', [JobApplicationController::class, 'updateStatus']);
         Route::put('applications/{application}/acceptance', [JobApplicationController::class, 'saveAcceptance']);
+
+        // Employer self-service portal (dashboard + unified applicant inbox).
+        Route::prefix('employer')->group(function () {
+            Route::get('dashboard', [EmployerController::class, 'dashboard'])->middleware('throttle:30,1');
+            Route::get('applications', [EmployerController::class, 'applications']);
+        });
 
         // Notifications (phase 10)
         Route::prefix('notifications')->group(function () {

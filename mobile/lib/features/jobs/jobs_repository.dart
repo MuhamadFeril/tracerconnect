@@ -3,6 +3,50 @@ import '../../models/api_envelope.dart';
 import '../../models/job_application.dart';
 import '../../models/job_vacancy.dart';
 
+/// Model ringkas untuk applicant yang dilihat employer.
+class JobApplicant {
+  final String id;
+  final String userId;
+  final String status;
+  final String? coverLetter;
+  final String? appliedAt;
+  final String? alumniName;
+  final String? alumniDepartment;
+  final int? alumniGraduationYear;
+  final String? alumniEmploymentStatus;
+  final String? positionOffered;
+
+  const JobApplicant({
+    required this.id,
+    required this.userId,
+    required this.status,
+    this.coverLetter,
+    this.appliedAt,
+    this.alumniName,
+    this.alumniDepartment,
+    this.alumniGraduationYear,
+    this.alumniEmploymentStatus,
+    this.positionOffered,
+  });
+
+  factory JobApplicant.fromJson(Map<String, dynamic> json) {
+    final alumni = json['alumni'] as Map<String, dynamic>?;
+    final acceptance = json['acceptance'] as Map<String, dynamic>?;
+    return JobApplicant(
+      id: json['id'] as String? ?? '',
+      userId: json['user_id'] as String? ?? '',
+      status: json['status'] as String? ?? 'submitted',
+      coverLetter: json['cover_letter'] as String?,
+      appliedAt: json['applied_at'] as String?,
+      alumniName: alumni?['name'] as String?,
+      alumniDepartment: alumni?['department'] as String?,
+      alumniGraduationYear: (alumni?['graduation_year'] as num?)?.toInt(),
+      alumniEmploymentStatus: alumni?['employment_status'] as String?,
+      positionOffered: acceptance?['position_offered'] as String?,
+    );
+  }
+}
+
 class JobsRepository {
   final ApiClient _api = ApiClient.instance;
 
@@ -68,5 +112,61 @@ class JobsRepository {
   /// Hapus bookmark lowongan.
   Future<void> unbookmark(String jobId) async {
     await _api.delete('/job-vacancies/$jobId/bookmark');
+  }
+
+  // ------------------------------------------------------------------
+  // Employer CRUD
+  // ------------------------------------------------------------------
+
+  /// Buat lowongan baru (employer / admin).
+  Future<JobVacancy> createJob(Map<String, dynamic> payload) async {
+    final data = await _api.post('/job-vacancies', data: payload);
+    return JobVacancy.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Update lowongan yang sudah ada.
+  Future<JobVacancy> updateJob(
+      String id, Map<String, dynamic> payload) async {
+    final data = await _api.put('/job-vacancies/$id', data: payload);
+    return JobVacancy.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Hapus lowongan.
+  Future<void> deleteJob(String id) async {
+    await _api.delete('/job-vacancies/$id');
+  }
+
+  /// Daftar pelamar untuk lowongan tertentu (employer / admin).
+  Future<Paged<JobApplicant>> applicants(
+    String jobId, {
+    int page = 1,
+    int perPage = 15,
+    String? status,
+  }) async {
+    final env = await _api.getEnvelope(
+      '/job-vacancies/$jobId/applications',
+      query: {
+        'page': page,
+        'per_page': perPage,
+        if (status != null && status.isNotEmpty) 'status': status,
+      },
+    );
+    final items = (env.data as List)
+        .whereType<Map<String, dynamic>>()
+        .map(JobApplicant.fromJson)
+        .toList();
+    return Paged(
+      items: items,
+      meta: env.meta ??
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+    );
+  }
+
+  /// Ubah status lamaran (employer / admin).
+  Future<void> updateApplicationStatus(
+      String applicationId, String status) async {
+    await _api.put('/applications/$applicationId/status', data: {
+      'status': status,
+    });
   }
 }

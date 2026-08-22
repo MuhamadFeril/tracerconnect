@@ -8,8 +8,8 @@ class RegionItem {
 
   factory RegionItem.fromJson(Map<String, dynamic> json) {
     return RegionItem(
-      id: json['id'] as String? ?? '',
-      code: json['code'] as String? ?? '',
+      id: '${json['id']}',
+      code: '${json['code']}',
       name: json['name'] as String? ?? '',
     );
   }

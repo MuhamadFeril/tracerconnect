@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_error.dart';
+import '../../core/services/push_notification_service.dart';
+import '../../core/storage/token_storage.dart';
 import '../../models/user.dart';
 import 'auth_repository.dart';
 
@@ -54,6 +56,15 @@ class AuthController extends StateNotifier<AuthState> {
       return;
     }
 
+    // Sesi bertahan 30 hari (TokenStorage.sessionTtl) — selama masih
+    // dalam masa berlaku, buka ulang aplikasi TIDAK meminta login lagi.
+    final valid = await TokenStorage.instance.isSessionValid();
+    if (!valid) {
+      await _clearLocalSession();
+      state = AuthState.unauthenticated;
+      return;
+    }
+
     ApiClient.setToken(token);
     try {
       final user = await _repo.me().timeout(const Duration(seconds: 15));
@@ -61,17 +72,23 @@ class AuthController extends StateNotifier<AuthState> {
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
         // Token basi: bersihkan agar tidak dipakai lagi.
-        try {
-          await _repo.clearSession();
-        } catch (_) {}
-        ApiClient.setToken(null);
+        await _clearLocalSession();
+        state = AuthState.unauthenticated;
+        return;
       }
-      state = AuthState.unauthenticated;
+      // Error server lain: pakai profil cache bila ada, jangan usir user.
+      final cached = await _repo.readCachedUser();
+      state = cached != null
+          ? AuthState.authenticated(cached)
+          : AuthState.unauthenticated;
     } catch (_) {
-      // Timeout / koneksi gagal / parse error: jangan biarkan splash
-      // menggantung — arahkan ke login. Token tetap tersimpan sehingga
-      // sesi bisa dipulihkan saat server sudah terjangkau.
-      state = AuthState.unauthenticated;
+      // Timeout / koneksi gagal / parse error: tetap masuk aplikasi dengan
+      // profil terakhir yang tersimpan sehingga user tidak diminta login
+      // lagi hanya karena server sesaat tidak terjangkau.
+      final cached = await _repo.readCachedUser();
+      state = cached != null
+          ? AuthState.authenticated(cached)
+          : AuthState.unauthenticated;
     }
   }
 
@@ -106,20 +123,30 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Buang token push agar perangkat berhenti menerima notifikasi
+    // setelah keluar (sebelum ApiClient kehilangan Authorization).
+    await PushNotificationService.instance.removeToken();
     await _repo.logout();
-    await _repo.clearSession();
-    ApiClient.setToken(null);
+    await _clearLocalSession();
     state = AuthState.unauthenticated;
   }
 
   /// Dipanggil saat API menjawab 401 (token kedaluwarsa/dicabut).
   Future<void> forceLogout() async {
-    await _repo.clearSession();
-    ApiClient.setToken(null);
+    await PushNotificationService.instance.removeToken();
+    await _clearLocalSession();
     state = AuthState.unauthenticated;
   }
 
+  Future<void> _clearLocalSession() async {
+    try {
+      await _repo.clearSession();
+    } catch (_) {}
+    ApiClient.setToken(null);
+  }
+
   /// Perbarui user di state setelah update profil/avatar.
+  /// Snapshot cache diperbarui otomatis oleh repository.
   void updateUser(User user) {
     state = AuthState.authenticated(user);
   }

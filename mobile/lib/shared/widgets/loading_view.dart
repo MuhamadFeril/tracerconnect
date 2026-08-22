@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
-
 /// Branded loading view with animated logo tile and pulsing dots.
+///
+/// All colors are derived from [Theme.of(context).colorScheme] so the
+/// widget automatically adapts to light / dark / custom themes.
 class LoadingView extends StatelessWidget {
   final String? label;
 
@@ -10,6 +11,8 @@ class LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -25,25 +28,25 @@ class LoadingView extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [AppColors.primary, AppColors.primaryDark],
+                      colors: [cs.primary, cs.primary],
                     ),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
+                        color: cs.primary.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       'TC',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: cs.onPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
@@ -51,12 +54,12 @@ class LoadingView extends StatelessWidget {
                   ),
                 ),
                 // Spinning ring
-                const SizedBox(
+                SizedBox(
                   width: 56,
                   height: 56,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: AppColors.primary,
+                    color: cs.primary,
                   ),
                 ),
               ],
@@ -65,12 +68,12 @@ class LoadingView extends StatelessWidget {
           if (label != null) ...[
             const SizedBox(height: 18),
             // Pulsing dots
-            const _PulsingDots(),
+            _PulsingDots(color: cs.primary),
             const SizedBox(height: 10),
             Text(
               label!,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -88,7 +91,9 @@ class LoadingView extends StatelessWidget {
 /// [AnimationController]. Converted to [StatefulWidget] so the controller
 /// can be properly disposed.
 class _PulsingDots extends StatefulWidget {
-  const _PulsingDots();
+  final Color color;
+
+  const _PulsingDots({required this.color});
 
   @override
   State<_PulsingDots> createState() => _PulsingDotsState();
@@ -131,7 +136,7 @@ class _PulsingDotsState extends State<_PulsingDots>
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.3 + opacity * 0.7),
+                color: widget.color.withValues(alpha: 0.3 + opacity * 0.7),
                 shape: BoxShape.circle,
               ),
             );

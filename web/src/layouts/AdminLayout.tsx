@@ -73,7 +73,13 @@ const NAV: NavItem[] = [
   { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
   { to: '/success-stories', label: 'Kisah Sukses', icon: Sparkles, roles: ['super_admin', 'institution_admin'] },
   { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
-  { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin', 'employer'] },
+  { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin'] },
+]
+
+const EMPLOYER_NAV: NavItem[] = [
+  { to: '/employer', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/employer/lowongan', label: 'Lowongan Saya', icon: Briefcase, end: false },
+  { to: '/employer/lamaran', label: 'Lamaran', icon: FileText, badge: true },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -81,9 +87,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   // Alumni see the alumni portal (home, news, events, jobs, profile) instead
   // of the admin navigation.
   const alumniOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'alumni')
+  const employerOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'employer')
   const items = alumniOnly
     ? ALUMNI_NAV
-    : NAV.filter((item) => !item.roles || user?.roles?.some((role) => item.roles!.includes(role)))
+    : employerOnly
+      ? EMPLOYER_NAV
+      : NAV.filter((item) => !item.roles || user?.roles?.some((role) => item.roles!.includes(role)))
 
   const unreadCount = useUnreadNotificationsCount().data?.count ?? 0
 
@@ -93,7 +102,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Logo className="size-10" />
         <div>
           <p className="text-[15px] font-bold tracking-tight text-white">TracerConnect</p>
-          <p className="text-[11px] text-slate-400">Admin Panel</p>
+          <p className="text-[11px] text-slate-400">{employerOnly ? 'Portal Employer' : 'Admin Panel'}</p>
         </div>
       </div>
       <nav className="mt-2 flex-1 space-y-1 px-3">

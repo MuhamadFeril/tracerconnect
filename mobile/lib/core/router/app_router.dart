@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/announcements/announcement_detail_page.dart';
 import '../../features/announcements/announcements_page.dart';
+import '../../core/utils/role_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/forgot_password_page.dart';
 import '../../features/auth/login_page.dart';
@@ -15,6 +16,9 @@ import '../../features/chat/new_conversation_page.dart';
 import '../../features/events/event_detail_page.dart';
 import '../../features/events/events_page.dart';
 import '../../features/home/home_page.dart';
+import '../../features/jobs/employer_applicants_page.dart';
+import '../../features/jobs/employer_job_form_page.dart';
+import '../../features/jobs/employer_jobs_page.dart';
 import '../../features/jobs/job_detail_page.dart';
 import '../../features/jobs/jobs_page.dart';
 import '../../features/jobs/my_applications_page.dart';
@@ -30,8 +34,7 @@ import '../../features/profile/bantuan_page.dart';
 import '../../features/profile/pengaturan_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/shell/main_shell.dart';
-import '../../features/success_stories/success_stories_page.dart';
-import '../../features/success_stories/success_story_detail_page.dart';
+
 import '../../features/surveys/survey_fill_page.dart';
 import '../../features/surveys/survey_result_page.dart';
 import '../../features/surveys/surveys_page.dart';
@@ -64,14 +67,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Sudah login: jangan biarkan mengakses layar auth.
+      // Employer diarahkan ke /jobs (paritas web), admin & alumni ke /home.
       if (location == '/splash' ||
           location == '/landing' ||
           location == '/login' ||
           location == '/register' ||
           location == '/forgot-password' ||
           location == '/reset-password') {
-        return '/home';
+        return RoleUtils.isEmployer(auth.user) && !RoleUtils.isAdmin(auth.user)
+            ? '/jobs'
+            : '/home';
       }
+
+      // Role-based route guards: employer tidak bisa akses fitur alumni/admin.
+      final user = auth.user;
+      final isEmployerOnly = RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user);
+      if (isEmployerOnly) {
+        // Employer: larang akses kuisioner, jejaring, tracer history, lamaran.
+        const blockedEmployer = ['/surveys', '/network', '/my-applications', '/my-bookmarks'];
+        if (blockedEmployer.any(location.startsWith)) return '/home';
+      }
+
+      final isAlumniOnly = RoleUtils.isAlumniOnly(user);
+      if (isAlumniOnly) {
+        // Alumni: larang akses employer job management.
+        if (location.startsWith('/employer-jobs')) return '/home';
+      }
+
       return null;
     },
     routes: [
@@ -103,7 +125,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/reset-password',
         builder: (context, state) => ResetPasswordPage(
           email: state.uri.queryParameters['email'],
-          token: state.uri.queryParameters['token'],
         ),
       ),
       StatefulShellRoute.indexedStack(
@@ -227,21 +248,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/blocked-users',
         builder: (context, state) => const BlockedUsersPage(),
       ),
-      // Success stories
-      GoRoute(
-        path: '/success-stories',
-        builder: (context, state) => const SuccessStoriesPage(),
-      ),
-      GoRoute(
-        path: '/success-stories/:id',
-        builder: (context, state) =>
-            SuccessStoryDetailPage(id: state.pathParameters['id']!),
-      ),
+
       // Survey result
       GoRoute(
         path: '/survey-result/:responseId',
         builder: (context, state) =>
             SurveyResultPage(responseId: state.pathParameters['responseId']!),
+      ),
+      // Employer job management
+      GoRoute(
+        path: '/employer-jobs',
+        builder: (context, state) => const EmployerJobsPage(),
+      ),
+      GoRoute(
+        path: '/employer-jobs/new',
+        builder: (context, state) => const EmployerJobFormPage(),
+      ),
+      GoRoute(
+        path: '/employer-jobs/:id/edit',
+        builder: (context, state) => EmployerJobFormPage(
+          jobId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
+        path: '/employer-jobs/:id/applicants',
+        builder: (context, state) => EmployerApplicantsPage(
+          jobId: state.pathParameters['id']!,
+          jobTitle: state.uri.queryParameters['title'],
+        ),
       ),
       // Help
       GoRoute(

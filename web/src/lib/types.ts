@@ -573,6 +573,27 @@ export interface EventParticipant {
   } | null
 }
 
+/** Employer portal dashboard summary (own vacancies + applicant funnel). */
+export interface EmployerDashboard {
+  vacancies: {
+    total: number
+    published: number
+    draft: number
+    closed: number
+  }
+  applications: {
+    total: number
+    new: number
+    reviewing: number
+    shortlisted: number
+    interview: number
+    accepted: number
+    rejected: number
+  }
+  recent_applications: JobApplication[]
+  my_vacancies: (JobVacancy & { applicants_count?: number })[]
+}
+
 export type ConnectionStatus = 'none' | 'pending_outgoing' | 'pending_incoming' | 'connected'
 
 export type ConnectionDirection = 'incoming' | 'outgoing'

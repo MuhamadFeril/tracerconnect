@@ -13,5 +13,17 @@ final notificationsProvider =
   return ref.watch(notificationsRepositoryProvider).list(page: 1, perPage: 15);
 });
 
-final unreadCountProvider =
-    FutureProvider<int>((ref) => ref.watch(notificationsRepositoryProvider).unreadCount());
+/// Jumlah notifikasi belum dibaca — polling tiap 10 detik, paritas
+/// `useUnreadNotificationsCount()` di web (refetchInterval 10 dtk), sehingga
+/// badge di beranda/notifikasi tetap segar selama aplikasi terbuka.
+final unreadCountProvider = StreamProvider<int>((ref) async* {
+  final repo = ref.watch(notificationsRepositoryProvider);
+  yield await repo.unreadCount();
+  await for (final _ in Stream<void>.periodic(const Duration(seconds: 10))) {
+    try {
+      yield await repo.unreadCount();
+    } catch (_) {
+      // Gagal satu siklus — pertahankan nilai terakhir.
+    }
+  }
+});
