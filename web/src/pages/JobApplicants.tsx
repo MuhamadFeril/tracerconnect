@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ArrowLeft, Briefcase, Building2, ClipboardCheck } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, Briefcase, Building2, ClipboardCheck, FileText, User, Mail, Phone, MapPin, GraduationCap, BriefcaseBusiness, Heart, Wrench, Eye } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useJobApplicants, useJobVacancy, useSaveAcceptance, useUpdateApplicationStatus } from '../hooks/queries'
 import type { JobApplication, JobApplicationStatus } from '../lib/types'
 import { EMPLOYMENT_LABELS, formatDate } from '../lib/format'
@@ -92,12 +92,131 @@ function StatusSelect({ app }: { app: JobApplication }) {
   )
 }
 
+/** CV Data detail modal */
+function CvDataModal({ app, onClose }: { app: JobApplication | null; onClose: () => void }) {
+  const navigate = useNavigate()
+  if (!app) return null
+  const cv = app.cv_data
+  const info = [
+    cv?.full_name && { icon: User, label: 'Nama Lengkap', value: cv.full_name },
+    cv?.email && { icon: Mail, label: 'Email', value: cv.email },
+    cv?.phone && { icon: Phone, label: 'No. HP', value: cv.phone },
+    cv?.gender && { icon: User, label: 'Jenis Kelamin', value: cv.gender === 'male' ? 'Laki-laki' : 'Perempuan' },
+    cv?.birthplace && { icon: MapPin, label: 'Tempat Lahir', value: cv.birthplace },
+    cv?.birth_date && { icon: MapPin, label: 'Tanggal Lahir', value: cv.birth_date },
+    cv?.address && { icon: MapPin, label: 'Alamat', value: cv.address },
+    cv?.department && { icon: GraduationCap, label: 'Jurusan', value: cv.department },
+    cv?.graduation_year && { icon: GraduationCap, label: 'Tahun Lulus', value: cv.graduation_year },
+    cv?.education && { icon: GraduationCap, label: 'Pendidikan', value: cv.education },
+    cv?.experience && { icon: BriefcaseBusiness, label: 'Pengalaman Kerja', value: cv.experience },
+    cv?.interests && { icon: Heart, label: 'Minat', value: cv.interests },
+  ].filter(Boolean) as { icon: typeof User; label: string; value: string }[]
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`CV — ${cv?.full_name ?? app.alumni?.name ?? 'Pelamar'}`}
+      description="Data CV yang dikirim pelamar"
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Tutup</Button>
+          <Button onClick={() => {
+            navigate('/cv-preview', { state: { cvData: app.cv_data, coverLetter: app.cover_letter, alumniName: app.alumni?.name } })
+          }}>
+            <Eye className="size-4" /> Preview CV
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {/* Profile Info */}
+        {info.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="flex items-center gap-2 text-xs font-bold tracking-wide text-slate-500 uppercase">Data Pribadi</h4>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {info.map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-start gap-2.5">
+                  <Icon className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium text-slate-400">{label}</p>
+                    <p className="text-sm text-slate-800">{value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Skills */}
+        {cv?.skills && cv.skills.length > 0 && (
+          <div>
+            <h4 className="flex items-center gap-2 text-xs font-bold tracking-wide text-slate-500 uppercase">
+              <Wrench className="size-3.5" /> Keahlian
+            </h4>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {cv.skills.map((s) => (
+                <span key={s} className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">{s}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cover Letter */}
+        {app.cover_letter && (
+          <div>
+            <h4 className="text-xs font-bold tracking-wide text-slate-500 uppercase">Surat Lamaran</h4>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{app.cover_letter}</p>
+          </div>
+        )}
+
+        {/* Files */}
+        {(app.cv_path || app.portfolio_path) && (
+          <div className="rounded-xl border border-slate-200 p-4">
+            <h4 className="flex items-center gap-2 text-xs font-bold tracking-wide text-slate-500 uppercase">
+              <FileText className="size-3.5" /> File Lampiran
+            </h4>
+            <div className="mt-2 space-y-1.5">
+              {app.cv_path && (
+                <a
+                  href={`/storage/${app.cv_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-indigo-600 hover:underline"
+                >
+                  <FileText className="size-4" /> CV — {app.cv_path.split('/').pop()}
+                </a>
+              )}
+              {app.portfolio_path && (
+                <a
+                  href={`/storage/${app.portfolio_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-indigo-600 hover:underline"
+                >
+                  <FileText className="size-4" /> Portofolio — {app.portfolio_path.split('/').pop()}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!cv && !app.cover_letter && !app.cv_path && !app.portfolio_path && (
+          <p className="text-sm text-slate-400 italic">Tidak ada data CV yang dikirim.</p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
 export function JobApplicants() {
   const { id } = useParams<{ id: string }>()
   const toast = useToast()
 
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [detailApp, setDetailApp] = useState<JobApplication | null>(null)
 
   const { data: job, isPending: jobPending, isError: jobError, refetch: refetchJob } = useJobVacancy(id)
   const { data, isPending, isError, refetch } = useJobApplicants(id ?? '', {
@@ -233,8 +352,10 @@ export function JobApplicants() {
                     <Td>
                       <Badge tone={STATUS_TONES[app.status]}>{STATUS_LABELS[app.status]}</Badge>
                     </Td>
-                    <Td>
-                      <div className="flex items-center justify-end gap-1.5">
+                    <Td>                        <div className="flex items-center justify-end gap-1.5">
+                        <Button variant="secondary" size="sm" onClick={() => setDetailApp(app)}>
+                          <FileText className="size-4" /> Detail CV
+                        </Button>
                         <StatusSelect app={app} />
                         {app.status === 'accepted' && (
                           <Button variant="secondary" size="sm" onClick={() => openAcceptance(app)}>
@@ -252,6 +373,8 @@ export function JobApplicants() {
           </>
         )}
       </Card>
+
+      <CvDataModal app={detailApp} onClose={() => setDetailApp(null)} />
 
       <Modal
         open={Boolean(accepting && form)}

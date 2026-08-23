@@ -8,6 +8,8 @@ class EventItem {
   final String? endsAt;
   final String status;
   final bool? registered;
+  final bool? attended;
+  final int? participantsCount;
   final String? createdAt;
 
   const EventItem({
@@ -20,6 +22,8 @@ class EventItem {
     this.endsAt,
     required this.status,
     this.registered,
+    this.attended,
+    this.participantsCount,
     this.createdAt,
   });
 
@@ -34,6 +38,8 @@ class EventItem {
       endsAt: json['ends_at'] as String?,
       status: json['status'] as String? ?? 'published',
       registered: json['registered'] as bool?,
+      attended: json['attended'] as bool?,
+      participantsCount: (json['participants_count'] as num?)?.toInt(),
       createdAt: json['created_at'] as String?,
     );
   }

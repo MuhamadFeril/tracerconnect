@@ -1,3 +1,54 @@
+/// Admin survey item from `/surveys` (paginated, with status).
+class AdminSurveyItem {
+  final String id;
+  final String title;
+  final String? description;
+  final String status; // draft | published
+  final int version;
+  final String? startsAt;
+  final String? expiresAt;
+  final String? publishedAt;
+  final int sectionsCount;
+  final int questionsCount;
+  final String? createdAt;
+  final String? updatedAt;
+
+  const AdminSurveyItem({
+    required this.id,
+    required this.title,
+    this.description,
+    required this.status,
+    required this.version,
+    this.startsAt,
+    this.expiresAt,
+    this.publishedAt,
+    this.sectionsCount = 0,
+    this.questionsCount = 0,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  bool get isPublished => status == 'published';
+  bool get isDraft => status == 'draft';
+
+  factory AdminSurveyItem.fromJson(Map<String, dynamic> json) {
+    return AdminSurveyItem(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String?,
+      status: json['status'] as String? ?? 'draft',
+      version: json['version'] as int? ?? 1,
+      startsAt: json['starts_at'] as String?,
+      expiresAt: json['expires_at'] as String?,
+      publishedAt: json['published_at'] as String?,
+      sectionsCount: json['sections_count'] as int? ?? 0,
+      questionsCount: json['questions_count'] as int? ?? 0,
+      createdAt: json['created_at'] as String?,
+      updatedAt: json['updated_at'] as String?,
+    );
+  }
+}
+
 /// Survey yang tersedia untuk alumni (`/alumni/surveys`).
 class SurveyItem {
   final String id;

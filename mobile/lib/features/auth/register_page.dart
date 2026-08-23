@@ -13,18 +13,6 @@ import 'auth_controller.dart';
 import 'otp_verification_page.dart';
 import 'register_options_providers.dart';
 
-/// Daftar jurusan tetap — paritas dengan `Register.tsx` (DEPARTMENTS).
-const List<String> _departments = [
-  'Rekayasa Perangkat Lunak',
-  'Teknik Komputer dan Jaringan',
-  'Multimedia',
-  'Akuntansi',
-  'Pemasaran',
-  'Desain Komunikasi Visual',
-  'Teknik Elektronika Industri',
-  'Perhotelan',
-];
-
 /// Daftar skill tetap — paritas dengan `Register.tsx` (SKILLS).
 const List<String> _skillOptions = [
   'JavaScript',
@@ -753,6 +741,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 : (v) {
                     setState(() {
                       _institutionId = v;
+                      _department = null; // Reset department when institution changes
                       _error = null;
                     });
                   },
@@ -857,18 +846,56 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           ),
         ),
         const SizedBox(height: 14),
-        DropdownButtonFormField<String>(
-          initialValue: _department,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Jurusan *',
-            prefixIcon: Icon(Icons.menu_book_outlined, size: 20),
-          ),
-          hint: const Text('Pilih jurusan'),
-          items: _departments
-              .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-              .toList(),
-          onChanged: (v) => setState(() => _department = v),
+        Consumer(
+          builder: (context, ref, _) {
+            final departmentsAsync = ref.watch(departmentOptionsProvider(_institutionId ?? ''));
+            return departmentsAsync.when(
+              data: (departments) {
+                // Clear selection if current department is not in the list
+                if (_department != null && !departments.any((d) => d.name == _department)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _department = null);
+                  });
+                }
+                return DropdownButtonFormField<String>(
+                  initialValue: _department,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Jurusan *',
+                    prefixIcon: Icon(Icons.menu_book_outlined, size: 20),
+                  ),
+                  hint: const Text('Pilih jurusan'),
+                  items: departments
+                      .map((d) => DropdownMenuItem(value: d.name, child: Text(d.name)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _department = v),
+                );
+              },
+              loading: () => InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Jurusan *',
+                  prefixIcon: Icon(Icons.menu_book_outlined, size: 20),
+                  suffixIcon: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Padding(
+                      padding: EdgeInsets.all(4),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                child: const Text('Memuat jurusan…'),
+              ),
+              error: (e, _) => InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Jurusan *',
+                  prefixIcon: Icon(Icons.menu_book_outlined, size: 20),
+                  errorText: 'Gagal memuat jurusan',
+                ),
+                child: const Text('Gagal memuat data'),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 14),
         DropdownButtonFormField<String>(

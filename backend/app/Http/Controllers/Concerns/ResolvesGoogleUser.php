@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Concerns;
 use App\Models\Alumni;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 trait ResolvesGoogleUser
@@ -62,9 +63,10 @@ trait ResolvesGoogleUser
                     'google_id' => $googleId,
                     'email_verified_at' => now(),
                     'is_active' => true,
+                    // No password for Google users — use a random hash that
+                    // can never match any real password input.
+                    'password' => bcrypt(Str::random(32)),
                 ]);
-                // No password — the user signed up via Google.
-                $user->update(['password' => null]);
                 $user->assignRole('alumni');
 
                 // Try to link an existing imported alumni record by email.

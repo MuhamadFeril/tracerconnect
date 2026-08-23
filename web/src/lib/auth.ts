@@ -89,3 +89,25 @@ export function isAuthenticated(): boolean {
 
   return true
 }
+
+/**
+ * Security: Validate that the current origin matches expected origins
+ * to prevent token leakage on unexpected domains.
+ * Call this on app initialization.
+ */
+export function validateOrigin(expectedOrigins: string[]): boolean {
+  const currentOrigin = window.location.origin
+  return expectedOrigins.includes(currentOrigin)
+}
+
+/**
+ * Security: Secure token accessor that validates origin before returning token.
+ * Use this for sensitive API calls instead of getToken() directly.
+ */
+export function getSecureToken(expectedOrigins: string[]): string | null {
+  if (!validateOrigin(expectedOrigins)) {
+    clearSession()
+    return null
+  }
+  return getToken()
+}

@@ -10,7 +10,6 @@ import {
   ClipboardList,
   GraduationCap,
   Megaphone,
-  Sparkles,
 } from 'lucide-react'
 import { getUser } from '../../lib/auth'
 import {
@@ -86,7 +85,7 @@ export function AlumniHome() {
     return <ErrorState message="Gagal memuat beranda alumni" onRetry={() => refetch()} />
   }
 
-  const { institution, alumni, announcements, events, jobs, stories } = data
+  const { institution, alumni, announcements, events, jobs } = data
   const avatarSrc = avatarUrl(user?.avatar_url)
 
   return (
@@ -120,7 +119,6 @@ export function AlumniHome() {
         <StatCard label="Pengumuman" value={announcements.length} icon={Megaphone} tone="indigo" />
         <StatCard label="Acara Mendatang" value={events.length} icon={CalendarDays} tone="sky" />
         <StatCard label="Lowongan Tersedia" value={jobs.length} icon={Briefcase} tone="emerald" />
-        <StatCard label="Kisah Sukses" value={stories.length} icon={Sparkles} tone="amber" />
       </div>
 
       {/* No institution notice */}
@@ -233,29 +231,6 @@ export function AlumniHome() {
           </div>
         </Card>
       </div>
-
-      {/* Success stories — inspirational alumni news */}
-      {stories.length > 0 && (
-        <Card>
-          <HomeSectionHeader icon={Sparkles} title="Kisah Sukses Alumni" to="/kisah-sukses" />
-          <div className="divide-y divide-slate-100">
-            {stories.map((story) => (
-              <Link key={story.id} to={`/kisah-sukses/${story.id}`} className="block px-5 py-3.5 transition-colors hover:bg-slate-50">
-                <div className="flex items-center gap-3.5">
-                  {story.cover_image_url && (
-                    <img src={avatarUrl(story.cover_image_url) ?? undefined} alt="" className="size-14 shrink-0 rounded-lg object-cover" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-1 text-sm font-semibold text-slate-900">{story.title}</p>
-                    <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{story.category_label}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">{formatDate(story.published_at)}</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </Card>
-      )}
 
       {/* Notifications & tracer history */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

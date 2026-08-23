@@ -335,11 +335,7 @@ class ProfilePage extends ConsumerWidget {
                   title: 'Lowongan Tersimpan',
                   onTap: () => context.push('/my-bookmarks'),
                 ),
-                _MenuTile(
-                  icon: Icons.auto_awesome_outlined,
-                  title: 'Kisah Sukses Alumni',
-                  onTap: () => context.push('/success-stories'),
-                ),
+
               ],
               // Employer-only items.
               if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) ...[

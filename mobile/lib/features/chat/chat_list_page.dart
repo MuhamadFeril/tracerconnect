@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/chat_encryption.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/chat.dart';
 import '../../shared/widgets/app_avatar.dart';
@@ -275,14 +276,15 @@ class _ConversationTile extends StatelessWidget {
     if (message.type == 'file') return '📎 ${message.attachment?.name ?? 'File'}';
     final body = message.body ?? '';
     if (body.isEmpty) return 'Pesan kosong';
-    // Show sender prefix for group chats
+    // Detect old E2E-encrypted messages and show a placeholder.
+    if (ChatEncryption.isEncrypted(body)) return '🔒 Pesan terenkripsi';
     return body;
   }
 
   String _timeLabel(String? dateStr) {
     if (dateStr == null) return '';
     try {
-      final dt = DateTime.parse(dateStr);
+      final dt = DateTime.parse(dateStr).toLocal();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final target = DateTime(dt.year, dt.month, dt.day);

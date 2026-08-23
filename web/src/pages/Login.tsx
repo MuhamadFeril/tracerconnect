@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowRight, Eye, EyeOff, Info, Lock, Mail, Sparkles } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Info, Lock, Mail } from 'lucide-react'
 import { apiError } from '../lib/api'
 import { rateLimiter } from '../lib/rateLimiter'
 import { hasAdminRole, setSession } from '../lib/auth'
@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button'
 import { AuthLayout } from '../components/auth/AuthLayout'
 import { GoogleErrorNotice } from '../components/auth/GoogleErrorNotice'
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
+import { LagLoader } from '../components/ui/StateViews'
 
 function Label({ label, htmlFor }: { label: string; htmlFor: string }) {
   return (
@@ -17,13 +18,6 @@ function Label({ label, htmlFor }: { label: string; htmlFor: string }) {
     </label>
   )
 }
-
-const DEMO_ACCOUNTS = import.meta.env.DEV
-  ? [
-      { label: 'Super Admin', email: 'superadmin@tracerconnect.test' },
-      { label: 'Admin Institusi', email: 'admin@smkn1tracer.sch.id' },
-    ]
-  : []
 
 export function Login() {
   const navigate = useNavigate()
@@ -72,6 +66,13 @@ export function Login() {
       <div className="relative animate-scale-in overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 p-7 shadow-xl shadow-slate-200/60 backdrop-blur sm:p-8">
         {/* Gradient accent bar */}
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-600 via-sky-500 to-indigo-400" />
+
+        {/* "Lag" loading overlay while signing in */}
+        {login.isPending && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/85 backdrop-blur-sm">
+            <LagLoader label="Lagi nge-lag nih, nyambungin…" />
+          </div>
+        )}
 
         {/* Heading */}
         <div className="text-center sm:text-left">
@@ -176,38 +177,6 @@ export function Login() {
             Daftar sekarang
           </Link>
         </p>
-
-        {/* Demo credentials — only shown in development */}
-        {DEMO_ACCOUNTS.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3.5 text-xs leading-relaxed text-slate-600">
-          <p className="font-semibold text-slate-700">Akun demo:</p>
-          <p className="mt-1">
-            Super Admin — <code className="font-semibold text-indigo-600">superadmin@tracerconnect.test</code>
-          </p>
-          <p>
-            Institution Admin — <code className="font-semibold text-indigo-600">admin@smkn1tracer.sch.id</code>
-          </p>
-          <p className="text-slate-400">
-            Password: <code>password</code>
-          </p>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account.email}
-                type="button"
-                onClick={() => {
-                  setEmail(account.email)
-                  setPassword('password')
-                  setError(null)
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white px-3 py-1 text-[11px] font-semibold text-indigo-700 transition-all hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-50 hover:shadow-sm active:scale-95"
-              >
-                <Sparkles className="size-3" /> Isi {account.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        )}
       </div>
     </AuthLayout>
   )

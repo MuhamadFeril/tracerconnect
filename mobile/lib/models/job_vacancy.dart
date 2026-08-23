@@ -13,6 +13,8 @@ class JobVacancy {
   final String? createdBy; // Employer (job creator) user id — untuk chat
   final bool isBookmarked;
   final int? applicantsCount;
+  final bool? hasApplied;
+  final String? myApplication;
 
   const JobVacancy({
     required this.id,
@@ -29,6 +31,8 @@ class JobVacancy {
     this.createdBy,
     this.isBookmarked = false,
     this.applicantsCount,
+    this.hasApplied,
+    this.myApplication,
   });
 
   factory JobVacancy.fromJson(Map<String, dynamic> json) {
@@ -45,8 +49,11 @@ class JobVacancy {
       postedAt: json['posted_at'] as String?,
       createdAt: json['created_at'] as String?,
       createdBy: json['created_by'] as String?,
-      isBookmarked: json['is_bookmarked'] as bool? ?? false,
+      // Support both field names for backwards compatibility
+      isBookmarked: (json['is_bookmarked'] ?? json['bookmarked']) as bool? ?? false,
       applicantsCount: (json['applicants_count'] as num?)?.toInt(),
+      hasApplied: json['has_applied'] as bool?,
+      myApplication: json['my_application'] as String?,
     );
   }
 }

@@ -3,7 +3,13 @@ import { clearSession, getToken } from './auth'
 import { ENDPOINT_LIMITS, parseRetryAfter, rateLimiter } from './rateLimiter'
 import type { ApiEnvelope, Paginated } from './types'
 
-export const api = axios.create({ baseURL: '/api/v1' })
+// Backend base URL. Defaults to a same-origin relative path (works when the
+// web build is served from the same domain as the API). Set
+// VITE_API_BASE_URL (e.g. https://traccerconnect.infinityfreeapp.com/api/v1)
+// in the web .env when the API lives on a different domain/origin.
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api/v1',
+})
 
 /**
  * Resolve the rate-limiter key for a given URL.

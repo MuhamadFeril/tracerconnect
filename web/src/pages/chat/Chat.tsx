@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { api, apiError, unwrapPage } from '../../lib/api'
 import { avatarUrl, initials } from '../../lib/format'
+import { sanitizeForDisplay, sanitizeUrl, sanitizeFileName } from '../../lib/sanitize'
 import {
   useConversation,
   useConversationMessages,
@@ -55,8 +56,8 @@ function messagePreview(message: ChatMessage | null | undefined): string {
   if (!message) return 'Belum ada pesan'
   if (message.is_deleted) return 'Pesan dihapus'
   if (message.type === 'image') return '📷 Foto'
-  if (message.type === 'file') return '📎 ' + (message.attachment?.name ?? 'File')
-  return message.body ?? ''
+  if (message.type === 'file') return '📎 ' + sanitizeFileName(message.attachment?.name ?? 'File')
+  return sanitizeForDisplay(message.body ?? '')
 }
 
 function Avatar({ name, src, size = 'size-10', text = 'text-sm' }: { name?: string | null; src?: string | null; size?: string; text?: string }) {
@@ -135,7 +136,7 @@ function ConversationList({
                 <Avatar name={conversation.other?.name} src={conversation.other?.avatar_url} size="size-11" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900">{conversation.other?.name ?? '—'}</p>
+                    <p className="truncate text-sm font-semibold text-slate-900">{sanitizeForDisplay(conversation.other?.name ?? '—')}</p>
                     <span className="shrink-0 text-[11px] text-slate-400">
                       {conversation.last_message ? formatTime(conversation.last_message.created_at) : formatTime(conversation.last_message_at)}
                     </span>
@@ -195,16 +196,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           {message.is_deleted ? (
             <p className="text-slate-400 italic">Pesan dihapus</p>
           ) : message.type === 'image' && message.attachment ? (
-            <a href={message.attachment.url} target="_blank" rel="noreferrer" className="block">
+            <a href={sanitizeUrl(message.attachment.url) ?? '#'} target="_blank" rel="noreferrer" className="block">
               <img
-                src={message.attachment.url}
-                alt={message.attachment.name}
+                src={sanitizeUrl(message.attachment.url) ?? ''}
+                alt={sanitizeFileName(message.attachment.name)}
                 className="max-h-64 w-full max-w-xs rounded-xl object-cover"
               />
             </a>
           ) : message.type === 'file' && message.attachment ? (
             <a
-              href={message.attachment.url}
+              href={sanitizeUrl(message.attachment.url) ?? '#'}
               target="_blank"
               rel="noreferrer"
               className={clsx('flex items-center gap-2.5', message.is_mine ? 'text-white' : 'text-slate-800')}
@@ -213,14 +214,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                 <FileText className="size-4.5" />
               </span>
               <span className="min-w-0">
-                <span className="block max-w-40 truncate font-medium">{message.attachment.name}</span>
+                <span className="block max-w-40 truncate font-medium">{sanitizeFileName(message.attachment.name)}</span>
                 <span className={clsx('block text-[11px]', message.is_mine ? 'text-indigo-100' : 'text-slate-400')}>
                   {Math.round(message.attachment.size / 1024)} KB
                 </span>
               </span>
             </a>
           ) : (
-            <p className="whitespace-pre-wrap break-words">{message.body}</p>
+            <p className="whitespace-pre-wrap break-words">{sanitizeForDisplay(message.body)}</p>
           )}
         </div>
         <p className={clsx('mt-1 text-[10px] text-slate-400', message.is_mine ? 'text-right' : 'text-left')}>
@@ -281,7 +282,7 @@ function ChatWindow({ conversationId, onBack }: { conversationId: string; onBack
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const conversation = conversationQuery.data
-  const newest = page1.data?.data ?? []
+  const newest = useMemo(() => page1.data?.data ?? [], [page1.data?.data])
   // Newest-first from the API → oldest-first for rendering.
   const messages = useMemo(() => [...older, ...[...newest].reverse()], [older, newest])
 
@@ -380,9 +381,9 @@ function ChatWindow({ conversationId, onBack }: { conversationId: string; onBack
         </button>
         <Avatar name={conversation.other?.name} src={conversation.other?.avatar_url} size="size-10" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-900">{conversation.other?.name ?? '—'}</p>
+          <p className="truncate text-sm font-bold text-slate-900">{sanitizeForDisplay(conversation.other?.name ?? '—')}</p>
           <p className="truncate text-xs text-slate-400">
-            {conversation.job ? `${conversation.job.title} · ${conversation.job.company_name}` : 'Percakapan'}
+            {conversation.job ? `${sanitizeForDisplay(conversation.job.title)} · ${sanitizeForDisplay(conversation.job.company_name)}` : 'Percakapan'}
           </p>
         </div>
         <div className="relative">
@@ -565,10 +566,10 @@ function NewConversationModal({ open, onClose }: { open: boolean; onClose: () =>
             >
               <Avatar name={connection.user?.name} src={connection.user?.avatar_url} size="size-10" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">{connection.user?.name}</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{sanitizeForDisplay(connection.user?.name)}</p>
                 {connection.alumni && (
                   <p className="truncate text-xs text-slate-400">
-                    {[connection.alumni.department, connection.alumni.company_name, connection.alumni.position].filter(Boolean).join(' · ') || 'Alumni'}
+                    {[sanitizeForDisplay(connection.alumni.department), sanitizeForDisplay(connection.alumni.company_name), sanitizeForDisplay(connection.alumni.position)].filter(Boolean).join(' · ') || 'Alumni'}
                   </p>
                 )}
               </div>

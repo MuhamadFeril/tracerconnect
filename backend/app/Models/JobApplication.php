@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'alumni_id',
     'status',
     'cover_letter',
+    'cv_data',
     'cv_path',
     'portfolio_path',
     'applied_at',
@@ -45,6 +46,7 @@ class JobApplication extends Model
     {
         return [
             'status' => 'string',
+            'cv_data' => 'array',
             'applied_at' => 'datetime',
         ];
     }

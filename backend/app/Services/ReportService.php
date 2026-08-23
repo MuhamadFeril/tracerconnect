@@ -225,7 +225,9 @@ class ReportService
 
     /**
      * Prevent CSV/XLSX formula injection: prefix cells that could be interpreted
-     * as spreadsheet formulas (=, +, -, @) with an apostrophe.
+     * as spreadsheet formulas with a tab character.
+     *
+     * Covers: = + - @ \t \r (Excel formula prefixes)
      */
     private function sanitizeCsvCell(mixed $value): mixed
     {
@@ -235,8 +237,9 @@ class ReportService
 
         $value = trim($value);
 
-        if (in_array($value[0], ['=', '+', '-', '@'], true)) {
-            return "'{$value}";
+        // Excel interprets these as formula starters
+        if (preg_match('/^[=+\-@\t\r]/', $value)) {
+            return "\t{$value}";
         }
 
         return $value;

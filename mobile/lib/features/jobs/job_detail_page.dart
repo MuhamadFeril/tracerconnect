@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +13,7 @@ import '../../models/job_vacancy.dart';
 import '../../shared/widgets/app_badge.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_view.dart';
+import '../auth/auth_controller.dart';
 import '../chat/chat_providers.dart';
 import 'jobs_providers.dart';
 
@@ -59,36 +63,144 @@ class JobDetailPage extends ConsumerWidget {
 
   Future<void> _apply(
       BuildContext context, WidgetRef ref, String jobId) async {
-    final controller = TextEditingController();
-    final applied = await showDialog<bool>(
+    final user = ref.read(authControllerProvider).user;
+    final a = user?.alumni;
+
+    final coverController = TextEditingController();
+    final nameCtrl = TextEditingController(text: a?.name ?? user?.name ?? '');
+    final emailCtrl = TextEditingController(text: user?.email ?? '');
+    final phoneCtrl = TextEditingController(text: a?.phone ?? user?.phone ?? '');
+    final deptCtrl = TextEditingController(text: a?.department ?? '');
+    final yearCtrl = TextEditingController(text: a?.graduationYear?.toString() ?? '');
+    final expCtrl = TextEditingController(text: '');
+    final skillCtrl = TextEditingController(text: (a?.skills ?? []).join(', '));
+    File? cvFile;
+    File? portfolioFile;
+
+    final applied = await showModalBottomSheet<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Kirim Lamaran'),
-        content: TextField(
-          controller: controller,
-          maxLines: 4,
-          maxLength: 5000,
-          decoration: const InputDecoration(
-            hintText: 'Ceritakan singkat mengapa Anda cocok… (opsional)',
-            border: OutlineInputBorder(),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          left: 20, right: 20, top: 16,
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (ctx, scrollController) => StatefulBuilder(
+            builder: (ctx, setDialogState) => ListView(
+              controller: scrollController,
+              children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Kirim Lamaran', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              const Text('Data CV akan dikirim ke perusahaan.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              const SizedBox(height: 16),
+
+              // ── CV Data Section ──
+              _sectionTitle('Data CV'),
+              const SizedBox(height: 10),
+              _field('Nama Lengkap', nameCtrl),
+              _field('Email', emailCtrl, keyboardType: TextInputType.emailAddress),
+              _field('No. HP', phoneCtrl, keyboardType: TextInputType.phone),
+              _field('Jurusan', deptCtrl),
+              _field('Tahun Lulus', yearCtrl, keyboardType: TextInputType.number),
+              _field('Pengalaman', expCtrl, maxLines: 2),
+              _field('Keahlian (pisahkan koma)', skillCtrl),
+
+              const SizedBox(height: 16),
+              _sectionTitle('Surat Lamaran'),
+              const SizedBox(height: 10),
+              TextField(
+                controller: coverController,
+                maxLines: 4,
+                maxLength: 5000,
+                decoration: const InputDecoration(
+                  hintText: 'Ceritakan singkat mengapa Anda cocok… (opsional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              // ── File Upload Section ──
+              const SizedBox(height: 16),
+              _sectionTitle('Upload File'),
+              const SizedBox(height: 10),
+              _FilePickerTile(
+                label: 'CV (PDF/DOC, maks 5MB)',
+                file: cvFile,
+                onPicked: (f) => setDialogState(() => cvFile = f),
+              ),
+              const SizedBox(height: 8),
+              _FilePickerTile(
+                label: 'Portofolio (opsional)',
+                file: portfolioFile,
+                onPicked: (f) => setDialogState(() => portfolioFile = f),
+              ),
+
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Batal'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Kirim Lamaran'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Kirim'),
-          ),
-        ],
       ),
     );
     if (applied != true || !context.mounted) return;
 
     try {
-      await ref.read(applyJobProvider((jobId: jobId, coverLetter: controller.text)).future);
+      final skills = skillCtrl.text
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      final cvData = {
+        'full_name': nameCtrl.text,
+        'email': emailCtrl.text,
+        'phone': phoneCtrl.text,
+        'department': deptCtrl.text,
+        'graduation_year': yearCtrl.text,
+        'experience': expCtrl.text,
+        'skills': skills,
+      };
+      await ref.read(applyJobProvider((
+        jobId: jobId,
+        coverLetter: coverController.text,
+        cvData: cvData,
+        cvPath: cvFile?.path,
+        portfolioPath: portfolioFile?.path,
+      )).future);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lamaran berhasil dikirim')),
@@ -283,6 +395,127 @@ class JobDetailPage extends ConsumerWidget {
               onPressed: () => context.push('/my-applications'),
               icon: const Icon(Icons.assignment_outlined, size: 18),
               label: const Text('Lamaran Saya'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+Widget _sectionTitle(String text) => Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textMuted,
+      ),
+    );
+
+Widget _field(
+  String label,
+  TextEditingController controller, {
+  TextInputType? keyboardType,
+  int maxLines = 1,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// ─── File Picker Tile ───────────────────────────────────────────────────────
+
+class _FilePickerTile extends StatelessWidget {
+  final String label;
+  final File? file;
+  final ValueChanged<File> onPicked;
+
+  const _FilePickerTile({
+    required this.label,
+    this.file,
+    required this.onPicked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () async {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+        );
+        if (result != null && result.files.single.path != null) {
+          onPicked(File(result.files.single.path!));
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: file != null ? AppColors.successBg : AppColors.background,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: file != null ? AppColors.success.withValues(alpha: 0.3) : AppColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              file != null ? Icons.check_circle_rounded : Icons.upload_rounded,
+              size: 20,
+              color: file != null ? AppColors.success : AppColors.primary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    file != null ? file!.path.split('/').last : 'Tap untuk memilih file',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: file != null ? AppColors.success : AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

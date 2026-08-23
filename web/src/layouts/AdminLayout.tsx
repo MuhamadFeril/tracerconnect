@@ -7,17 +7,16 @@ import {
   Briefcase,
   Building2,
   CalendarDays,
-  ClipboardList,
   ChevronUp,
   FileText,
-  GraduationCap,
   Home,
   LayoutDashboard,
   LogOut,
   Megaphone,
   Menu,
   MessageCircle,
-  MessagesSquare,
+
+  Palette,
   ShieldCheck,
   Sparkles,
   UserCog,
@@ -29,7 +28,7 @@ import {
 import clsx from 'clsx'
 import { getUser } from '../lib/auth'
 import { avatarUrl, initials } from '../lib/format'
-import { useLogout, useUnreadConversationsCount, useUnreadNotificationsCount } from '../hooks/queries'
+import { useLogout, useNewApplicationsCount, useUnreadConversationsCount, useUnreadNotificationsCount } from '../hooks/queries'
 import { Logo } from '../components/ui/Logo'
 import { Link } from 'react-router-dom'
 import { SetPasswordBanner } from '../components/auth/SetPasswordBanner'
@@ -48,12 +47,10 @@ interface NavItem {
 const ALUMNI_NAV: NavItem[] = [
   { to: '/home', label: 'Beranda', icon: Home, end: true },
   { to: '/pengumuman', label: 'Pengumuman', icon: Megaphone },
-  { to: '/kisah-sukses', label: 'Kisah Sukses', icon: Sparkles },
   { to: '/acara', label: 'Acara', icon: CalendarDays },
   { to: '/lowongan', label: 'Lowongan', icon: Briefcase },
   { to: '/applications', label: 'Lamaran', icon: FileText },
   { to: '/jejaring', label: 'Jejaring', icon: Users, end: false },
-  { to: '/kuisioner', label: 'Kuisioner', icon: ClipboardList },
 ]
 
 const NAV: NavItem[] = [
@@ -64,16 +61,15 @@ const NAV: NavItem[] = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/alumni', label: 'Alumni', icon: Users, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['super_admin', 'institution_admin'] },
-  { to: '/surveys', label: 'Surveys', icon: MessagesSquare, end: false, roles: ['super_admin', 'institution_admin'] },
-  { to: '/responses', label: 'Respons', icon: GraduationCap, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/reports', label: 'Laporan', icon: FileText, roles: ['super_admin', 'institution_admin'] },
   { to: '/institutions', label: 'Institusi', icon: Building2, roles: ['super_admin'] },
   { to: '/users', label: 'Pengguna', icon: UserCog, roles: ['super_admin', 'institution_admin'] },
   { to: '/roles', label: 'Roles', icon: ShieldCheck, roles: ['super_admin', 'institution_admin'] },
   { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
-  { to: '/success-stories', label: 'Kisah Sukses', icon: Sparkles, roles: ['super_admin', 'institution_admin'] },
   { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
   { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin'] },
+  { to: '/data-quality', label: 'Kualitas Data', icon: Sparkles, roles: ['super_admin', 'institution_admin'] },
+  { to: '/branding', label: 'Branding', icon: Palette, roles: ['super_admin', 'institution_admin'] },
 ]
 
 const EMPLOYER_NAV: NavItem[] = [
@@ -95,6 +91,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       : NAV.filter((item) => !item.roles || user?.roles?.some((role) => item.roles!.includes(role)))
 
   const unreadCount = useUnreadNotificationsCount().data?.count ?? 0
+  const newAppsCount = useNewApplicationsCount().data?.count ?? 0
 
   return (
     <div className="flex h-full flex-col">
@@ -123,14 +120,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Icon className="size-4.5" />
             {label}
-            {badge && unreadCount > 0 && (
-              <span
-                className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] leading-tight font-bold text-white"
-                aria-label={`${unreadCount} notifikasi belum dibaca`}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
+            {badge && (() => {
+              // Employer "Lamaran" badge shows new application count;
+              // other badges show the notification count.
+              const count = to === '/employer/lamaran' ? newAppsCount : unreadCount
+              if (count <= 0) return null
+              return (
+                <span
+                  className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] leading-tight font-bold text-white"
+                  aria-label={`${count} belum dibaca`}
+                >
+                  {count > 99 ? '99+' : count}
+                </span>
+              )
+            })()}
           </NavLink>
         ))}
       </nav>

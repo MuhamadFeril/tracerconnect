@@ -408,9 +408,13 @@ class _SurveyFillPageState extends State<SurveyFillPage> {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: (_saving || _submitting) ? null : () {
-                          if (_answeredCount < visible.length) {
+                          // Check only required questions that are visible.
+                          final missingRequired = visible
+                              .where((q) => q.isRequired && isEmptyAnswer(_answers[q.id]))
+                              .toList();
+                          if (missingRequired.isNotEmpty) {
                             setState(() => _topError =
-                                'Masih ada pertanyaan wajib/terisi yang belum dijawab.');
+                                'Masih ada ${missingRequired.length} pertanyaan wajib yang belum dijawab.');
                             return;
                           }
                           _confirmAndSubmit();

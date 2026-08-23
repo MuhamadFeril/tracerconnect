@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Concerns\ResolvesGoogleUser;
 use App\Http\Controllers\Controller;
+use Firebase\JWT\JWT;
 use Google\Client as GoogleClient;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -26,6 +27,11 @@ class GoogleAuthController extends Controller
     {
         $clientId = config('services.google.client_id');
         $redirectUri = $this->googleRedirectUri();
+
+        Log::info('Google OAuth redirect', [
+            'redirect_uri' => $redirectUri,
+            'client_id' => $clientId ? substr($clientId, 0, 10).'...' : null,
+        ]);
 
         if (! $clientId || ! $redirectUri) {
             return redirect()->away($this->frontendUrl().'/login?google_error=not_configured');
@@ -126,6 +132,11 @@ class GoogleAuthController extends Controller
             }
 
             // Step 2: Verify the ID token
+            // Allow up to 5 seconds of clock drift between server and Google.
+            // This handles environments where the server clock is slightly ahead
+            // or behind Google's authoritative time.
+            JWT::$leeway = 5;
+
             /** @var GoogleClient $client */
             $client = app(GoogleClient::class);
             $client->setClientId($clientId);
@@ -156,8 +167,11 @@ class GoogleAuthController extends Controller
 
             [$user, $isNew] = $result;
 
+            $user->tokens()->delete();
+
             $permissions = $user->getAllPermissions()->pluck('name')->all();
-            $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+            $expiration = now()->addMinutes(config('sanctum.expiration', 1440));
+            $token = $user->createToken('api-token', $permissions, $expiration);
 
             // Store token + metadata in a short-lived cache keyed by a random code
             // so the plaintext token never appears in the URL.
@@ -228,7 +242,26 @@ class GoogleAuthController extends Controller
 
     private function frontendUrl(): string
     {
-        return rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
+        // 1. Config (testable).
+        $configUrl = (string) config('app.frontend_url', '');
+        if (str_starts_with($configUrl, 'http://') || str_starts_with($configUrl, 'https://')) {
+            return rtrim($configUrl, '/');
+        }
+
+        // 2. FRONTEND_URL env var.
+        $env = (string) env('FRONTEND_URL', '');
+        if (str_starts_with($env, 'http://') || str_starts_with($env, 'https://')) {
+            return rtrim($env, '/');
+        }
+
+        // 3. If APP_URL is set, use it (frontend served from same origin).
+        $appUrl = (string) config('app.url', '');
+        if (str_starts_with($appUrl, 'http://') || str_starts_with($appUrl, 'https://')) {
+            return rtrim($appUrl, '/');
+        }
+
+        // 4. Last resort: assume frontend runs on localhost:5173.
+        return 'http://localhost:5173';
     }
 
     /**
@@ -240,24 +273,25 @@ class GoogleAuthController extends Controller
      *
      * Priority:
      * 1. GOOGLE_REDIRECT_URI env (full absolute URL — must match Google Cloud Console)
-     * 2. APP_URL + /api/v1/auth/google/callback
-     * 3. Request host + /api/v1/auth/google/callback (fallback)
+     * 2. Build from actual request host (auto-detect scheme + host)
+     * 3. APP_URL + /api/v1/auth/google/callback
      */
     private function googleRedirectUri(): string
     {
-        // 1. Explicit env value (must be a full URL like http://localhost:8000/api/v1/auth/google/callback)
-        $uri = (string) env('GOOGLE_REDIRECT_URI', '');
+        // 1. Explicit env value via config (cache-safe).
+        //    In services.php: 'redirect' => env('GOOGLE_REDIRECT_URI', '...')
+        $uri = (string) config('services.google.redirect', '');
         if (str_starts_with($uri, 'http://') || str_starts_with($uri, 'https://')) {
             return $uri;
         }
 
-        // 2. From APP_URL config
+        // 2. Build from APP_URL + path.
         $appUrl = (string) config('app.url', '');
         if (str_starts_with($appUrl, 'http://') || str_starts_with($appUrl, 'https://')) {
             return rtrim($appUrl, '/').'/api/v1/auth/google/callback';
         }
 
-        // 3. Build from actual request (last resort)
+        // 3. Build from actual request (auto-detect scheme + host).
         $request = request();
         $scheme = $request->getScheme();
         $host = $request->getHost();

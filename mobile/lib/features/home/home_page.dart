@@ -48,12 +48,12 @@ class HomePage extends ConsumerWidget {
     }
 
     return Scaffold(
+      appBar: _HomeAppBar(user: user, unreadCount: unreadCount),
       body: RefreshIndicator(
         onRefresh: onRefresh,
         child: home.when(
           loading: () => _HomeLayout(
             user: user,
-            unreadCount: unreadCount,
             children: const [
               SizedBox(height: 96),
               LoadingView(label: 'Memuat beranda…'),
@@ -61,7 +61,6 @@ class HomePage extends ConsumerWidget {
           ),
           error: (e, _) => _HomeLayout(
             user: user,
-            unreadCount: unreadCount,
             children: [
               const SizedBox(height: 64),
               ErrorView(
@@ -77,11 +76,12 @@ class HomePage extends ConsumerWidget {
           }
           return _HomeLayout(
             user: user,
-            unreadCount: unreadCount,
             children: [
               _PromoCarousel(onSurveyTap: () => context.go('/surveys'), user: user),
               const SizedBox(height: 18),
-              if (data.institution == null)
+              // Super admin doesn't belong to any institution — don't show the
+              // misleading "no institution" banner (parity with web dashboard).
+              if (data.institution == null && !RoleUtils.isSuperAdmin(user))
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: _NoInstitutionBanner(),
@@ -93,7 +93,8 @@ class HomePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              // Admin dashboard summary cards.
+              // Admin dashboard summary cards — show for both institution
+              // admin and super admin (parity with web /dashboard).
               if (RoleUtils.isAdmin(user))
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
@@ -136,52 +137,125 @@ class HomePage extends ConsumerWidget {
 }
 
 // ----------------------------------------------------------------------
+// AppBar beranda: profil + notifikasi real-time
+// ----------------------------------------------------------------------
+
+class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final User? user;
+  final int unreadCount;
+
+  const _HomeAppBar({required this.user, required this.unreadCount});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    final name = user?.name ?? 'Alumni';
+
+    return AppBar(
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      leading: GestureDetector(
+        onTap: () => context.push('/profile'),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: AppAvatar(
+            imageUrl: user?.avatarUrl,
+            name: name,
+            size: 32,
+          ),
+        ),
+      ),
+      leadingWidth: 48,
+      title: Text(
+        'Halo, $name 👋',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+        ),
+      ),
+      actions: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () => context.push('/notifications'),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.14),
+              ),
+              icon: const Icon(Icons.notifications_none_rounded,
+                  size: 24, color: Colors.white),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: Colors.white, width: 1.4),
+                  ),
+                  child: Text(
+                    unreadCount > 9 ? '9+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ----------------------------------------------------------------------
 // Layout dasar: header gradasi ala superapp + konten scroll
 // ----------------------------------------------------------------------
 class _HomeLayout extends StatelessWidget {
   final User? user;
-  final int unreadCount;
   final List<Widget> children;
 
   const _HomeLayout({
     required this.user,
-    required this.unreadCount,
     required this.children,
   });
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(16, topPadding + 14, 16, 48),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                ),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-              ),
-              child: _HeaderContent(user: user, unreadCount: unreadCount),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.primary, AppColors.primaryDark],
             ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: -34,
-              child: _ServicesGrid(user: user),
-            ),
-          ],
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+          ),
+          child: _HeaderContent(user: user),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _ServicesGrid(user: user),
+        ),
+        const SizedBox(height: 20),
         ...children,
       ],
     );
@@ -190,99 +264,14 @@ class _HomeLayout extends StatelessWidget {
 
 class _HeaderContent extends StatelessWidget {
   final User? user;
-  final int unreadCount;
 
-  const _HeaderContent({required this.user, required this.unreadCount});
+  const _HeaderContent({required this.user});
 
   @override
   Widget build(BuildContext context) {
-    final name = user?.name ?? 'Alumni';
-
-    // Role-aware greeting subtitle.
-    String subtitle;
-    if (RoleUtils.isSuperAdmin(user)) {
-      subtitle = 'Panel super admin — akses penuh ke seluruh platform';
-    } else if (RoleUtils.isInstitutionAdmin(user)) {
-      subtitle = 'Kelola data alumni & tracer study institusi Anda';
-    } else if (RoleUtils.isEmployer(user)) {
-      subtitle = 'Kelola lowongan kerja & lamaran masuk';
-    } else {
-      subtitle = 'Satu aplikasi untuk semua kebutuhan alumni';
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            AppAvatar(imageUrl: user?.avatarUrl, name: name, size: 46),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Halo, $name 👋',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                IconButton(
-                  onPressed: () => context.push('/notifications'),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.14),
-                  ),
-                  icon: const Icon(Icons.notifications_none_rounded,
-                      size: 24, color: Colors.white),
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    right: 2,
-                    top: 2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: AppColors.danger,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: Colors.white, width: 1.4),
-                      ),
-                      child: Text(
-                        unreadCount > 9 ? '9+' : '$unreadCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
         InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: () => context.go('/jobs'),
@@ -374,13 +363,15 @@ class _ServicesGrid extends StatelessWidget {
           Color(0xFFF0FDFA), '/my-applications'),
     ];
 
-    // Employer: lowongan management + pelamar masuk.
+    // Employer: lowongan management + pelamar masuk + alumni directory.
     if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) {
       services = const [
         _ServiceItem('Lowongan', Icons.work_outline_rounded, Color(0xFFB45309),
             Color(0xFFFEF3C7), '/jobs'),
         _ServiceItem('Kelola Lowongan', Icons.manage_accounts_outlined, AppColors.primary,
             AppColors.primaryLight, '/employer-jobs'),
+        _ServiceItem('Pelamar', Icons.how_to_reg_outlined, AppColors.violet,
+            AppColors.violetBg, '/employer-jobs'),
         _ServiceItem('Pengumuman', Icons.campaign_outlined, AppColors.danger,
             AppColors.dangerBg, '/announcements'),
         _ServiceItem('Chat', Icons.chat_bubble_outline_rounded, AppColors.success,
@@ -396,14 +387,17 @@ class _ServicesGrid extends StatelessWidget {
         _ServiceItem('Acara', Icons.event_outlined, AppColors.info,
             AppColors.infoBg, '/events'),
         _ServiceItem('Pengumuman', Icons.campaign_outlined, AppColors.danger,
-            AppColors.dangerBg, '/announcements'),
-        _ServiceItem('Chat', Icons.chat_bubble_outline_rounded, AppColors.success,
-            AppColors.successBg, '/chat'),
+            AppColors.dangerBg, '/announcements'),        _ServiceItem('Chat', Icons.chat_bubble_outline_rounded, AppColors.success,
+          AppColors.successBg, '/chat'),
+        _ServiceItem('Kualitas Data', Icons.fact_check_outlined, Color(0xFF0D9488),
+          Color(0xFFF0FDFA), '/data-quality'),
+        _ServiceItem('Branding', Icons.palette_outlined, Color(0xFF7C3AED),
+          Color(0xFFF5F3FF), '/branding'),
       ];
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 14, 8, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -421,8 +415,9 @@ class _ServicesGrid extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
-        mainAxisSpacing: 4,
-        childAspectRatio: 0.92,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 4,
+        childAspectRatio: 0.88,
         children: [
           for (final s in services)
             _GridTile(
@@ -462,12 +457,12 @@ class _GridTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-            child: Icon(icon, size: 21, color: color),
+            child: Icon(icon, size: 22, color: color),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Text(
@@ -1445,7 +1440,7 @@ class _DashboardStat extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,

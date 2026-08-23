@@ -19,7 +19,7 @@ final notificationsProvider =
 final unreadCountProvider = StreamProvider<int>((ref) async* {
   final repo = ref.watch(notificationsRepositoryProvider);
   yield await repo.unreadCount();
-  await for (final _ in Stream<void>.periodic(const Duration(seconds: 10))) {
+  await for (final _ in Stream<void>.periodic(const Duration(seconds: 5))) {
     try {
       yield await repo.unreadCount();
     } catch (_) {

@@ -22,10 +22,18 @@ class ChatRepository {
     final env = await _api.getEnvelope('/conversations', query: {
       if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
     });
-    return (env.data as List?)
-        ?.whereType<Map<String, dynamic>>()
+    // Backend returns paginated data wrapped in {data: [...], links, meta}
+    // when using →through() on a LengthAwarePaginator.
+    final List<dynamic> items;
+    if (env.data is Map<String, dynamic>) {
+      items = (env.data as Map<String, dynamic>)['data'] as List<dynamic>? ?? [];
+    } else {
+      items = env.data as List<dynamic>? ?? [];
+    }
+    return items
+        .whereType<Map<String, dynamic>>()
         .map(ChatConversation.fromJson)
-        .toList() ?? [];
+        .toList();
   }
 
   Future<ChatConversation> show(String conversationId) async {
@@ -80,17 +88,6 @@ class ChatRepository {
       return ChatMessage.fromJson(data as Map<String, dynamic>);
     }
 
-    // Encrypt body sebelum dikirim ke server (E2E).
-    if (payload['body'] != null && payload['type'] == 'text') {
-      final key = await _encryptionKey(conversationId);
-      if (key != null) {
-        payload['body'] = ChatEncryption.encryptBody(
-          payload['body'] as String,
-          key,
-        );
-      }
-    }
-
     final data = await _api.post('/conversations/$conversationId/messages', data: payload);
     return ChatMessage.fromJson(data as Map<String, dynamic>);
   }
@@ -114,11 +111,19 @@ class ChatRepository {
     });
   }
 
-  // ── E2E Encryption helpers ──────────────────────────────────────────
+  // ── Backward-compatible E2E decryption ──────────────────────────────
 
-  /// Derive encryption key untuk percakapan.
-  /// Menggunakan user IDs dari percakapan untuk membuat key yang sama
-  /// untuk kedua pihak.
+  /// Decrypt a message body that may have been encrypted with the old E2E
+  /// system. Returns the original plaintext for display. New messages are
+  /// sent as plaintext so this only runs for legacy encrypted messages.
+  Future<String?> decryptBody(String? body, String conversationId) async {
+    if (body == null || body.isEmpty) return body;
+    final key = await _encryptionKey(conversationId);
+    if (key == null) return body;
+    return ChatEncryption.decryptBody(body, key);
+  }
+
+  /// Derive encryption key for a conversation — matches the old E2E logic.
   Future<enc.Key?> _encryptionKey(String conversationId) async {
     try {
       final conv = await show(conversationId);
@@ -133,14 +138,6 @@ class ChatRepository {
     } catch (_) {
       return null;
     }
-  }
-
-  /// Decrypt body pesan dari server.
-  Future<String?> decryptBody(String? body, String conversationId) async {
-    if (body == null || body.isEmpty) return body;
-    final key = await _encryptionKey(conversationId);
-    if (key == null) return body;
-    return ChatEncryption.decryptBody(body, key);
   }
 
   Future<String?> _getMyId() async {

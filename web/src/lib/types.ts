@@ -179,7 +179,6 @@ export interface AlumniHome {
   announcements: Announcement[]
   events: EventItem[]
   jobs: JobVacancy[]
-  stories: SuccessStory[]
 }
 
 export interface NotificationItem {
@@ -446,28 +445,6 @@ export interface Announcement {
   updated_at?: string
 }
 
-export type StoryCategory = 'career' | 'study' | 'entrepreneur' | 'achievement' | 'other'
-
-export interface SuccessStory {
-  id: string
-  institution_id: string
-  title: string
-  category: StoryCategory
-  category_label: string
-  content: string
-  cover_image_url: string | null
-  alumni: {
-    id: string
-    name: string
-    department: string | null
-    graduation_year: number | null
-  } | null
-  status: ContentStatus
-  published_at: string | null
-  created_at?: string
-  updated_at?: string
-}
-
 export interface EventItem {
   id: string
   institution_id: string
@@ -532,12 +509,29 @@ export interface JobAcceptance {
   decided_at: string | null
 }
 
+export interface CvFormData {
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  gender: 'male' | 'female' | null
+  birth_date: string | null
+  birthplace: string | null
+  address: string | null
+  department: string | null
+  graduation_year: string | null
+  education: string | null
+  skills: string[] | null
+  experience: string | null
+  interests: string | null
+}
+
 export interface JobApplication {
   id: string
   job_vacancy_id: string
   user_id: string
   status: JobApplicationStatus
   cover_letter: string | null
+  cv_data: CvFormData | null
   cv_path: string | null
   portfolio_path: string | null
   applied_at: string | null
@@ -711,4 +705,96 @@ export interface TracerReport {
   distribution: { status: string; count: number }[]
   by_year: ({ year: number } & StatusCounts)[]
   by_department: ({ department: string } & StatusCounts)[]
+}
+
+// --- Employer Alumni Directory ---
+
+export interface EmployerAlumniListItem {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  gender: 'male' | 'female' | null
+  department: string | null
+  graduation_year: number | null
+  employment_status: string | null
+  company_name: string | null
+  position: string | null
+  location: string | null
+  skills: string[] | null
+}
+
+export interface EmployerAlumniDetail {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  gender: 'male' | 'female' | null
+  birth_date: string | null
+  birthplace_label: string | null
+  address: string | null
+  department: string | null
+  graduation_year: number | null
+  employment_status: string | null
+  company_name: string | null
+  position: string | null
+  location: string | null
+  work_city: string | null
+  work_province: string | null
+  business_name: string | null
+  business_field: string | null
+  business_address: string | null
+  study_institution: string | null
+  study_program: string | null
+  skills: string[] | null
+  socials: SocialLink[] | null
+  avatar_url: string | null
+}
+
+export interface InstitutionBranding {
+  id: string
+  name: string
+  logo_path: string | null
+  logo_url: string | null
+  primary_color: string | null
+  favicon_path: string | null
+  cover_image_path: string | null
+  cover_image_url: string | null
+  report_header: string | null
+  report_footer: string | null
+  custom_footer: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  about: string | null
+}
+
+export interface DataQualityReport {
+  total_alumni: number
+  health_score: number
+  health_status: string
+  missing_fields: {
+    email: number
+    phone: number
+    graduation_year: number
+    department: number
+    address: number
+    employment_status: number
+    gender: number
+    birth_date: number
+  }
+  duplicates: {
+    total_groups: number
+    total_duplicates: number
+    groups: { name: string; graduation_year_id: string | null; count: number }[]
+  }
+  profile_issues: {
+    without_user_account: number
+    unreachable: number
+    incomplete_profiles: number
+    stale_profiles: number
+  }
+  recommendations: {
+    priority: 'high' | 'medium' | 'low'
+    message: string
+  }[]
 }

@@ -26,7 +26,7 @@ class EventController extends Controller
             ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->when($currentUser->hasRole('alumni'), fn ($query) => $query->visibleToAlumni($currentUser->institution_id))
             ->when($request->filled('search'), function ($query) use ($request) {
-                $search = addcslashes(trim((string) $request->search), '%_\\');
+                $search = addcslashes(trim((string) $request->search), '%_\\\\');
                 $query->where(fn ($q) => $q->where('title', 'like', "%{$search}%")->orWhere('location', 'like', "%{$search}%"));
             })
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))

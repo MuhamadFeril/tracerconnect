@@ -20,7 +20,7 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
  */
 class SkipThrottleForMobile extends ThrottleRequests
 {
-    public function handle($request, Closure $next, $maxAttempts = 60, $decayMinutes = 1, $prefix = '')
+    public function handle($request, Closure $next, $maxAttempts = 60, $decayMinutes = 1, $prefix = '') // @phpstan-ignore-line
     {
         if ($request->header('X-Platform') === 'mobile' && $request->bearerToken()) {
             return $next($request);

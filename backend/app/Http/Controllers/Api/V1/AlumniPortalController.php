@@ -13,6 +13,7 @@ use App\Models\JobVacancy;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\User;
+use App\Services\ResponseService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -138,8 +139,18 @@ class AlumniPortalController extends Controller
                 $status = 'expired';
             }
 
-            $total = (int) $survey->questions_count;
-            $answered = (int) $response->answers_count;
+            // Calculate completion based on visible questions (not all questions).
+            // Questions hidden by conditional logic should not count against progress.
+            $allQuestions = $survey->questions()->with('conditions')->get()->keyBy('id');
+            $answers = $response->answers->pluck('value', 'question_id')->toArray();
+            $visibleIds = app(ResponseService::class)->visibleQuestionIds($allQuestions, $answers);
+            $total = count($visibleIds);
+            $answered = 0;
+            foreach ($visibleIds as $qid) {
+                if (isset($answers[$qid]) && $answers[$qid] !== null && $answers[$qid] !== '' && $answers[$qid] !== []) {
+                    $answered++;
+                }
+            }
 
             return [
                 'id' => $survey->id,

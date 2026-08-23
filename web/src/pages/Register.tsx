@@ -34,6 +34,7 @@ import { hasAdminRole, setSession } from '../lib/auth'
 import { useDebounce } from '../hooks/useDebounce'
 import type { LoginResponse } from '../lib/types'
 import {
+  useDepartmentOptions,
   useDistricts,
   useInstitutionOptions,
   useProvinces,
@@ -56,17 +57,6 @@ import { useToast } from '../components/ui/Toast'
 /* ------------------------------------------------------------------ */
 
 const STEP_LABELS = ['Informasi Akun', 'Informasi lanjut', 'Status Karir', 'Verifikasi']
-
-const DEPARTMENTS = [
-  'Rekayasa Perangkat Lunak',
-  'Teknik Komputer dan Jaringan',
-  'Multimedia',
-  'Akuntansi',
-  'Pemasaran',
-  'Desain Komunikasi Visual',
-  'Teknik Elektronika Industri',
-  'Perhotelan',
-]
 
 const SKILLS = [
   'JavaScript',
@@ -494,6 +484,8 @@ function InfoStep({
   onDistrictChange,
   regionStatus,
   onRegionRetry,
+  departments,
+  departmentsLoading,
 }: {
   form: {
     name: string
@@ -529,6 +521,8 @@ function InfoStep({
     districts: { isLoading: boolean; isError: boolean }
   }
   onRegionRetry: (key: 'provinces' | 'regencies' | 'districts') => void
+  departments: { id: string; name: string; code: string | null }[]
+  departmentsLoading: boolean
 }) {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -619,11 +613,22 @@ function InfoStep({
               name="department"
               value={form.department}
               onChange={(e) => update({ department: e.target.value })}
-              className={clsx(selectClass(Boolean(errors.department)), errors.department && 'border-rose-400')}
+              disabled={departmentsLoading || departments.length === 0}
+              className={clsx(
+                selectClass(Boolean(errors.department)),
+                errors.department && 'border-rose-400',
+                (departmentsLoading || departments.length === 0) && 'cursor-not-allowed opacity-60',
+              )}
             >
-              <option value="">Pilih jurusan</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
+              <option value="">
+                {departmentsLoading
+                  ? 'Memuat jurusan…'
+                  : departments.length === 0
+                    ? 'Pilih institusi terlebih dahulu'
+                    : 'Pilih jurusan'}
+              </option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.name}>{d.name}</option>
               ))}
             </select>
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
@@ -1792,6 +1797,8 @@ export function Register() {
   const [institutionId, setInstitutionId] = useState(draft?.institutionId ?? '')
   const [pendingOtp, setPendingOtp] = useState<{ email: string } | null>(null)
 
+  const departmentsQuery = useDepartmentOptions(institutionId || null)
+
   const [form, setForm] = useState(draft?.form ?? {
     name: '',
     department: '',
@@ -2138,6 +2145,8 @@ export function Register() {
                 else if (key === 'regencies') regenciesQuery.refetch()
                 else districtsQuery.refetch()
               }}
+              departments={departmentsQuery.data ?? []}
+              departmentsLoading={departmentsQuery.isLoading}
             />
           )}
 

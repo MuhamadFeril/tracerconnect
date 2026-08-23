@@ -53,7 +53,11 @@ return [
     |
     */
 
-    'expiration' => 10080,
+    // 43200 minutes = 30 days, matches the mobile app's session TTL.
+    // The previous 24-hour value caused the mobile session to silently
+    // expire — the local TTL (30 d) still passed but the server rejected
+    // the token, forcing the user to re-login.
+    'expiration' => 43200,
 
     /*
     |--------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/api_envelope.dart';
@@ -20,10 +22,17 @@ final jobDetailProvider = FutureProvider.family<JobVacancy, String>(
 
 /// Async action untuk melamar lowongan.
 final applyJobProvider =
-    FutureProvider.family<JobApplication, ({String jobId, String coverLetter})>(
-  (ref, args) => ref
-      .watch(jobsRepositoryProvider)
-      .apply(args.jobId, coverLetter: args.coverLetter),
+    FutureProvider.family<JobApplication, ({String jobId, String coverLetter, Map<String, dynamic>? cvData, String? cvPath, String? portfolioPath})>(
+  (ref, args) async {
+    final repo = ref.watch(jobsRepositoryProvider);
+    return repo.apply(
+      args.jobId,
+      coverLetter: args.coverLetter,
+      cvData: args.cvData,
+      cvFile: args.cvPath != null ? File(args.cvPath!) : null,
+      portfolioFile: args.portfolioPath != null ? File(args.portfolioPath!) : null,
+    );
+  },
 );
 
 final myApplicationsProvider = FutureProvider<Paged<JobApplication>>(

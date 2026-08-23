@@ -23,6 +23,7 @@ use App\Notifications\SendOtp;
 use App\Services\AuditService;
 use App\Services\OtpService;
 use App\Support\ApiResponse;
+use Firebase\JWT\JWT;
 use Google\Client as GoogleClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -106,13 +107,16 @@ class AuthController extends Controller
 
         $user->forceFill(['email_verified_at' => now()])->save();
 
+        $user->tokens()->delete();
+
         $permissions = $user->getAllPermissions()->pluck('name')->all();
-        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+        $expiration = now()->addMinutes(config('sanctum.expiration', 1440));
+        $token = $user->createToken('api-token', $permissions, $expiration);
 
         return ApiResponse::success([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
-            'expires_in' => 60 * 60 * 24 * 7,
+            'expires_in' => config('sanctum.expiration', 1440) * 60,
             'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
         ], 'Akun berhasil diverifikasi');
     }
@@ -304,15 +308,18 @@ class AuthController extends Controller
             return ApiResponse::error('Akun Anda telah dinonaktifkan', [], 403);
         }
 
+        $user->tokens()->delete();
+
         $permissions = $user->getAllPermissions()->pluck('name')->all();
-        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+        $expiration = now()->addMinutes(config('sanctum.expiration', 1440));
+        $token = $user->createToken('api-token', $permissions, $expiration);
 
         AuditService::log('login', 'user', $user->id, null, ['roles' => $user->getRoleNames()->all()], $request, $user->id, $user->institution_id);
 
         return ApiResponse::success([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
-            'expires_in' => 60 * 60 * 24 * 7,
+            'expires_in' => config('sanctum.expiration', 1440) * 60,
             'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
         ], 'Login berhasil');
     }
@@ -338,6 +345,11 @@ class AuthController extends Controller
         }
 
         try {
+            // Allow up to 5 seconds of clock drift between server and Google.
+            // Matches GoogleAuthController::callback() — handles shared hosting
+            // environments where the server clock may be slightly ahead or behind.
+            JWT::$leeway = 5;
+
             /** @var GoogleClient $client */
             $client = app(GoogleClient::class);
             $client->setClientId($clientId);
@@ -359,13 +371,16 @@ class AuthController extends Controller
 
         [$user, $isNew] = $result;
 
+        $user->tokens()->delete();
+
         $permissions = $user->getAllPermissions()->pluck('name')->all();
-        $token = $user->createToken('api-token', $permissions, now()->addDays(7));
+        $expiration = now()->addMinutes(config('sanctum.expiration', 1440));
+        $token = $user->createToken('api-token', $permissions, $expiration);
 
         return ApiResponse::success([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
-            'expires_in' => 60 * 60 * 24 * 7,
+            'expires_in' => config('sanctum.expiration', 1440) * 60,
             'new_google_user' => $isNew,
             'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
         ], 'Login berhasil');

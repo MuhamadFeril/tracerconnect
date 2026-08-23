@@ -1,12 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="TracerConnect">
-  <rect width="24" height="24" rx="6" fill="#1e3a8a"/>
-  <g fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Mortarboard top -->
-    <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/>
-    <!-- Band -->
-    <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TracerConnect">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="capGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="tasselGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="32" height="32" rx="6" fill="url(#bgGradient)"/>
+
+  <!-- Mortarboard (topi toga) -->
+  <g>
+    <!-- Board -->
+    <path d="M16 5 L27 12 L16 19 L5 12 Z" fill="url(#capGradient)" stroke="#cbd5e1" stroke-width="0.5"/>
+    <!-- Center button -->
+    <circle cx="16" cy="5" r="1.6" fill="url(#tasselGradient)"/>
+    <!-- Head band -->
+    <path d="M11.5 18.2 L20.5 18.2 L19.2 23.5 L12.8 23.5 Z" fill="url(#capGradient)" stroke="#cbd5e1" stroke-width="0.5"/>
     <!-- Tassel -->
-    <path d="M22 10v5.5"/>
-    <circle cx="22" cy="17.2" r="0.95" fill="#ffffff" stroke="none"/>
+    <path d="M16 5 C16 5 23 7 23 13" fill="none" stroke="url(#tasselGradient)" stroke-width="1.4" stroke-linecap="round"/>
+    <circle cx="23" cy="14.5" r="1.8" fill="url(#tasselGradient)"/>
   </g>
 </svg>

@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/announcements/announcement_detail_page.dart';
 import '../../features/announcements/announcements_page.dart';
+import '../../features/data_quality/data_quality_page.dart';
+import '../../features/branding/branding_page.dart';
 import '../../core/utils/role_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/forgot_password_page.dart';
@@ -255,6 +257,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             SurveyResultPage(responseId: state.pathParameters['responseId']!),
       ),
+
       // Employer job management
       GoRoute(
         path: '/employer-jobs',
@@ -276,6 +279,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           jobId: state.pathParameters['id']!,
           jobTitle: state.uri.queryParameters['title'],
         ),
+      ),
+      // Institution Branding
+      GoRoute(
+        path: '/branding',
+        builder: (context, state) => const BrandingPage(),
+      ),
+      // Data Quality Center
+      GoRoute(
+        path: '/data-quality',
+        builder: (context, state) => const DataQualityPage(),
       ),
       // Help
       GoRoute(

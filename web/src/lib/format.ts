@@ -73,11 +73,30 @@ export function formatAnswerValue(value: unknown): string {
  * Resolve an avatar/media URL returned by the API. Absolute URLs are used
  * as-is; relative ones (e.g. /storage/...) are resolved against the current
  * origin so the Vite dev proxy can serve them.
+ * Validates URLs to prevent open redirects.
  */
 export function avatarUrl(url: string | null | undefined): string | null {
   if (!url) return null
-  if (/^https?:\/\//i.test(url)) return url
-  return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`
+  
+  // Allow absolute HTTPS URLs (from trusted CDN/storage)
+  if (/^https:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url)
+      // Only allow HTTPS protocol
+      if (parsed.protocol !== 'https:') return null
+      return url
+    } catch {
+      return null
+    }
+  }
+  
+  // Relative URLs - resolve against current origin
+  if (url.startsWith('/')) {
+    return `${window.location.origin}${url}`
+  }
+  
+  // Block any other URL formats (javascript:, data:, etc.)
+  return null
 }
 
 /** Initials (max 2 chars) used as the avatar fallback. */

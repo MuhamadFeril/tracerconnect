@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Alumni;
 use App\Models\Institution;
 use App\Models\User;
+use Firebase\JWT\JWT;
 use Google\Client as GoogleClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -590,14 +591,14 @@ class AuthTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'alumni.baru@example.com']);
     }
 
-    public function test_register_with_duplicate_email_returns_409(): void
+    public function test_register_with_duplicate_email_returns_generic_success(): void
     {
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Duplikat',
             'email' => 'superadmin@tracerconnect.test',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertStatus(409)->assertJsonPath('success', false);
+        ])->assertStatus(201)->assertJsonPath('success', true);
     }
 
     public function test_register_with_invalid_input_returns_422(): void
@@ -866,12 +867,28 @@ class AuthTest extends TestCase
     {
         $token = $this->fakeGoogleToken();
 
-        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token])
-            ->assertOk()
+        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token]);
+
+        // Debug output
+        \Illuminate\Support\Facades\Log::info('TEST DEBUG', [
+            'status' => $response->getStatusCode(),
+            'body' => $response->getContent(),
+        ]);
+
+        $response->assertOk()
             ->assertJsonPath('data.new_google_user', true);
 
         // Account is created with alumni role.
         $user = User::where('email', 'alumni.google@example.com')->firstOrFail();
+        
+        // Debug: check what's in the database
+        \Illuminate\Support\Facades\Log::info('TEST DEBUG USER', [
+            'email_verified_at' => $user->email_verified_at,
+            'google_id' => $user->google_id,
+            'is_active' => $user->is_active,
+            'password' => $user->password,
+        ]);
+
         $this->assertTrue($user->hasRole('alumni'));
         $this->assertNotNull($user->google_id);
         $this->assertNotNull($user->email_verified_at);
@@ -1016,11 +1033,6 @@ class AuthTest extends TestCase
 
         $mock = \Mockery::mock(GoogleClient::class);
         $mock->shouldReceive('setClientId')->once();
-        $mock->shouldReceive('setClientSecret')->once();
-        $mock->shouldReceive('setRedirectUri')->once();
-        $mock->shouldReceive('fetchAccessTokenWithAuthCode')->once()->with('auth-code', 'test-verifier')->andReturn([
-            'id_token' => 'fake-id-token',
-        ]);
         $mock->shouldReceive('verifyIdToken')->once()->andReturn([
             'sub' => 'google-subject-id',
             'email' => 'alumni.redirect@example.com',
@@ -1031,7 +1043,20 @@ class AuthTest extends TestCase
         ]);
         $this->app->instance(GoogleClient::class, $mock);
 
+        // Mock the HTTP call to Google token endpoint
+        \Illuminate\Support\Facades\Http::fake([
+            'oauth2.googleapis.com/token' => \Illuminate\Support\Facades\Http::response([
+                'id_token' => 'fake-id-token',
+                'access_token' => 'fake-access-token',
+            ], 200),
+        ]);
+
         $response = $this->get('/api/v1/auth/google/callback?code=auth-code&state='.$state);
+
+        \Illuminate\Support\Facades\Log::info('TEST DEBUG CALLBACK', [
+            'status' => $response->getStatusCode(),
+            'location' => $response->headers->get('Location'),
+        ]);
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');
@@ -1050,11 +1075,6 @@ class AuthTest extends TestCase
 
         $mock = \Mockery::mock(GoogleClient::class);
         $mock->shouldReceive('setClientId')->once();
-        $mock->shouldReceive('setClientSecret')->once();
-        $mock->shouldReceive('setRedirectUri')->once();
-        $mock->shouldReceive('fetchAccessTokenWithAuthCode')->once()->with('auth-code', 'test-verifier')->andReturn([
-            'id_token' => 'fake-id-token',
-        ]);
         $mock->shouldReceive('verifyIdToken')->once()->andReturn([
             'sub' => 'google-subject-id',
             'email' => 'fresh.google@example.com',
@@ -1065,7 +1085,20 @@ class AuthTest extends TestCase
         ]);
         $this->app->instance(GoogleClient::class, $mock);
 
+        // Mock the HTTP call to Google token endpoint
+        \Illuminate\Support\Facades\Http::fake([
+            'oauth2.googleapis.com/token' => \Illuminate\Support\Facades\Http::response([
+                'id_token' => 'fake-id-token',
+                'access_token' => 'fake-access-token',
+            ], 200),
+        ]);
+
         $response = $this->get('/api/v1/auth/google/callback?code=auth-code&state='.$state);
+
+        \Illuminate\Support\Facades\Log::info('TEST DEBUG CALLBACK 2', [
+            'status' => $response->getStatusCode(),
+            'location' => $response->headers->get('Location'),
+        ]);
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');
@@ -1336,5 +1369,78 @@ class AuthTest extends TestCase
             'institution_id' => $institution->id,
             'phone' => '+628123456789',
         ])->assertStatus(201)->assertJsonPath('success', true);
+    }
+
+    // --- JWT::$leeway tolerance for Google login (clock drift) ----------------
+
+    /**
+     * Verify that AuthController::googleLogin() sets JWT::$leeway before
+     * calling verifyIdToken, so small clock drifts on shared hosting don't
+     * cause "Token Google tidak valid atau kedaluwarsa" for mobile users.
+     *
+     * The test resets JWT::$leeway to 0, hits the endpoint, and asserts
+     * that it was bumped to 5 — the same value used by GoogleAuthController.
+     */
+    public function test_google_login_sets_jwt_leeway_for_clock_drift(): void
+    {
+        // Ensure leeway starts at 0 so we can detect the change.
+        JWT::$leeway = 0;
+
+        $token = $this->fakeGoogleToken();
+
+        $this->postJson('/api/v1/auth/google', ['id_token' => $token])
+            ->assertOk()
+            ->assertJsonPath('data.new_google_user', true);
+
+        // leeway must have been set to 5 by AuthController::googleLogin().
+        $this->assertSame(5, JWT::$leeway);
+    }
+
+    /**
+     * Confirm that a Google login succeeds even when JWT::$leeway is active.
+     * This is a regression guard: if the leeway assignment is accidentally
+     * removed, the test still passes (the mock always returns valid) — so
+     * the previous test is the real safety net. This test documents intent.
+     */
+    public function test_google_login_succeeds_with_leeway_active(): void
+    {
+        JWT::$leeway = 5;
+
+        $token = $this->fakeGoogleToken();
+
+        $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token]);
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'success', 'message',
+                'data' => [
+                    'token', 'token_type', 'expires_in',
+                    'new_google_user',
+                    'user' => ['id', 'name', 'email', 'roles'],
+                ],
+            ]);
+
+        $this->assertNotEmpty($response->json('data.token'));
+    }
+
+    /**
+     * After a successful Google login, the issued Sanctum token should be
+     * usable on authenticated endpoints — confirming the full round-trip.
+     */
+    public function test_google_login_token_works_on_authenticated_endpoint(): void
+    {
+        JWT::$leeway = 5;
+
+        $token = $this->fakeGoogleToken();
+
+        $loginResponse = $this->postJson('/api/v1/auth/google', ['id_token' => $token])
+            ->assertOk();
+
+        $sanctumToken = $loginResponse->json('data.token');
+
+        $this->withToken($sanctumToken)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.email', 'alumni.google@example.com');
     }
 }

@@ -108,7 +108,16 @@ class AuthRepository {
     final userJson = map['user'] as Map<String, dynamic>;
     final user = User.fromJson(userJson);
     ApiClient.setToken(token);
-    await _storage.saveToken(token);
+
+    // Use the server's expires_in (seconds) for the local session TTL so
+    // the mobile never outlives the Sanctum token. Falls back to the
+    // default 30-day TTL when the server omits the field.
+    final expiresInSec = map['expires_in'] as int?;
+    final ttl = expiresInSec != null && expiresInSec > 0
+        ? Duration(seconds: expiresInSec)
+        : TokenStorage.sessionTtl;
+    await _storage.saveSession(token, ttl: ttl);
+
     await _storage.cacheUser(jsonEncode(userJson));
     return AuthSession(token: token, user: user);
   }

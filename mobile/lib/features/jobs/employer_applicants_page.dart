@@ -273,6 +273,27 @@ class _ApplicantCard extends ConsumerWidget {
             ),
           ],
 
+          // Detail CV button
+          if (applicant.cvData != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showCvDetail(context),
+                icon: const Icon(Icons.description_outlined, size: 16),
+                label: const Text('Detail CV'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
           // Status update buttons.
           const SizedBox(height: 12),
           Wrap(
@@ -349,10 +370,212 @@ class _ApplicantCard extends ConsumerWidget {
         ),
       );
     } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal mengubah status. Coba lagi.')),
-      );
+      if (!context.mounted) return;      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal mengubah status. Coba lagi.')),
+        );
     }
   }
+
+  void _showCvDetail(BuildContext context) {
+    final cv = applicant.cvData;
+    if (cv == null) return;
+
+    final skills = (cv['skills'] as List?)?.cast<String>() ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Header
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: AppColors.primaryLight,
+                    child: Text(
+                      (cv['full_name'] ?? applicant.alumniName ?? '?')[0].toString().toUpperCase(),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          cv['full_name'] ?? applicant.alumniName ?? '-',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (cv['email'] != null)
+                          Text(
+                            cv['email'],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Info items
+              _CvInfoRow(icon: Icons.person_outline, label: 'Jenis Kelamin', value: cv['gender'] == 'male' ? 'Laki-laki' : cv['gender'] == 'female' ? 'Perempuan' : null),
+              _CvInfoRow(icon: Icons.phone_outlined, label: 'No. HP', value: cv['phone'] as String?),
+              _CvInfoRow(icon: Icons.location_on_outlined, label: 'Tempat Lahir', value: cv['birthplace'] as String?),
+              _CvInfoRow(icon: Icons.calendar_today_outlined, label: 'Tanggal Lahir', value: cv['birth_date'] as String?),
+              _CvInfoRow(icon: Icons.school_outlined, label: 'Jurusan', value: cv['department'] as String?),
+              _CvInfoRow(icon: Icons.school_outlined, label: 'Tahun Lulus', value: cv['graduation_year'] as String?),
+              _CvInfoRow(icon: Icons.school_outlined, label: 'Pendidikan', value: cv['education'] as String?),
+              _CvInfoRow(icon: Icons.home_outlined, label: 'Alamat', value: cv['address'] as String?),
+              _CvInfoRow(icon: Icons.work_outline, label: 'Pengalaman', value: cv['experience'] as String?),
+              _CvInfoRow(icon: Icons.favorite_outline, label: 'Minat', value: cv['interests'] as String?),
+
+              // Skills
+              if (skills.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Keahlian',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: skills.map((s) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      s,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ],
+
+              // Cover letter
+              if (applicant.coverLetter != null && applicant.coverLetter!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Surat Lamaran',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  applicant.coverLetter!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+// ─── CV Info Row ────────────────────────────────────────────────────────────
+
+class _CvInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? value;
+
+  const _CvInfoRow({required this.icon, required this.label, this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == null || value!.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMuted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

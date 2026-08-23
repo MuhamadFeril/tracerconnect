@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Institution\StoreInstitutionRequest;
 use App\Http\Requests\Institution\UpdateInstitutionRequest;
 use App\Http\Resources\InstitutionResource;
+use App\Models\Department;
 use App\Models\Institution;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +34,34 @@ class InstitutionController extends Controller
                 'website' => $institution->website,
             ])->values(),
             'Daftar institusi berhasil diambil'
+        );
+    }
+
+    /**
+     * Public list of departments for a given institution.
+     * Used by the registration form so alumni see only their school's departments.
+     */
+    public function departments(string $institutionId): JsonResponse
+    {
+        $institution = Institution::where('id', $institutionId)
+            ->where('status', 'active')
+            ->first();
+
+        if (! $institution) {
+            return ApiResponse::error('Institusi tidak ditemukan', [], 404);
+        }
+
+        $departments = Department::where('institution_id', $institution->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
+        return ApiResponse::success(
+            $departments->map(fn (Department $d) => [
+                'id' => $d->id,
+                'name' => $d->name,
+                'code' => $d->code,
+            ])->values(),
+            'Daftar jurusan berhasil diambil'
         );
     }
 

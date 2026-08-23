@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\SecurityHeaders;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -14,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
+        apiPrefix: 'v1/api',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -29,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Force HTTPS in production and set HSTS header.
         $middleware->append(\Illuminate\Http\Middleware\TrustProxies::class);
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->append(SecurityHeaders::class);
+
+        // ⭐ KHUSUS VERCEL: Trust semua proxy (karena Vercel pake reverse proxy)
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -48,10 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Rate limit (429) harus memakai envelope API standar, bukan body
-        // Laravel default (tanpa kunci `success`) — kalau tidak, klien
-        // mobile/web tidak bisa mem-parsing pesannya dan login tampak gagal
-        // tanpa penjelasan.
+        // Rate limit (429) harus memakai envelope API standar
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if ($request->is('api/*')) {
                 return ApiResponse::error('Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.', [], 429);

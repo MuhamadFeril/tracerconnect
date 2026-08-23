@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/chat_encryption.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/chat.dart';
@@ -27,15 +29,18 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
   File? _pendingImage;
+  File? _pendingFile;
+  String? _pendingFileName;
   List<ChatMessage> _older = [];
+  List<ChatMessage> _optimisticMessages = [];
   int _olderPage = 1;
   bool _loadingOlder = false;
-  bool _sending = false;
+  bool _sending = false; // prevent double-send
+
+  String get _conversationId => widget.conversationId;
 
   /// Cached decrypted messages: id → decrypted body.
   final Map<String, String> _decryptedCache = {};
-
-  String get _conversationId => widget.conversationId;
 
   @override
   void initState() {
@@ -75,7 +80,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
       final page = await repo.messages(_conversationId, page: next);
       if (!mounted) return;
 
-      // Decrypt older messages
+      // Decrypt older messages for backward compatibility.
       for (final msg in page.items) {
         await _decryptIfNeeded(msg);
       }
@@ -89,6 +94,9 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     }
   }
 
+  /// Decrypt message body if it was encrypted with the old E2E system.
+  /// New messages are sent as plaintext, but old messages in the DB may
+  /// still be encrypted — we decrypt them on the fly for display.
   Future<void> _decryptIfNeeded(ChatMessage msg) async {
     if (msg.body != null && msg.body!.isNotEmpty) {
       final repo = ref.read(chatRepositoryProvider);
@@ -103,46 +111,103 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     if (_decryptedCache.containsKey(msg.id)) {
       return _decryptedCache[msg.id]!;
     }
-    return msg.body ?? '';
+    final body = msg.body ?? '';
+    // If still encrypted after decryption attempt, show placeholder
+    // instead of raw ciphertext.
+    if (body.isNotEmpty && ChatEncryption.isEncrypted(body)) {
+      return '\u{1F512} Pesan terenkripsi';
+    }
+    return body;
   }
 
   Future<void> _send() async {
     final body = _messageController.text.trim();
-    if ((body.isEmpty && _pendingImage == null) || _sending) return;
+    if ((body.isEmpty && _pendingImage == null && _pendingFile == null) || _sending) return;
+    _sending = true;
 
-    setState(() => _sending = true);
+    // Determine type and build optimistic message immediately.
+    final String type;
+    final String? attachmentName;
+    if (_pendingImage != null) {
+      type = 'image';
+      attachmentName = null;
+    } else if (_pendingFile != null) {
+      type = 'file';
+      attachmentName = _pendingFileName;
+    } else {
+      type = 'text';
+      attachmentName = null;
+    }
+
+    // Create optimistic message to display instantly.
+    final optimistic = ChatMessage(
+      id: 'opt_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: _conversationId,
+      senderId: null,
+      type: type,
+      body: body.isEmpty ? null : body,
+      attachment: attachmentName != null
+          ? ChatAttachment(name: attachmentName, mime: '', size: 0, url: '')
+          : null,
+      isDeleted: false,
+      isMine: true,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+
+    // Clear input and show optimistic message instantly.
+    final savedImage = _pendingImage;
+    final savedFile = _pendingFile;
+    setState(() {
+      _messageController.clear();
+      _pendingImage = null;
+      _pendingFile = null;
+      _pendingFileName = null;
+      _optimisticMessages = [..._optimisticMessages, optimistic];
+    });
+    _scrollToBottom();
+
+    // Send to server in background.
     try {
       final repo = ref.read(chatRepositoryProvider);
-      if (_pendingImage != null) {
+      if (savedImage != null) {
         await repo.sendMessage(
           _conversationId,
           type: 'image',
           body: body.isEmpty ? null : body,
-          attachment: _pendingImage,
+          attachment: savedImage,
+        );
+      } else if (savedFile != null) {
+        await repo.sendMessage(
+          _conversationId,
+          type: 'file',
+          body: body.isEmpty ? null : body,
+          attachment: savedFile,
         );
       } else {
         await repo.sendMessage(_conversationId, type: 'text', body: body);
       }
       if (!mounted) return;
+      // Replace optimistic with real message.
       setState(() {
-        _messageController.clear();
-        _pendingImage = null;
-        _older = [];
-        _olderPage = 1;
+        _optimisticMessages = _optimisticMessages
+            .where((m) => m.id != optimistic.id)
+            .toList();
       });
-      ref.invalidate(conversationMessagesStreamProvider(
-        (conversationId: _conversationId, page: 1),
-      ));
-      ref.invalidate(conversationProvider(_conversationId));
       ref.invalidate(conversationsProvider);
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
+      // Remove the optimistic message on failure.
+      setState(() {
+        _optimisticMessages = _optimisticMessages
+            .where((m) => m.id != optimistic.id)
+            .toList();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal mengirim pesan: ${e.toString().replaceAll('Exception: ', '')}')),
       );
     } finally {
-      if (mounted) setState(() => _sending = false);
+      _sending = false;
     }
   }
 
@@ -155,7 +220,25 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     );
     if (file == null) return;
     if (!mounted) return;
-    setState(() => _pendingImage = File(file.path));
+    setState(() {
+      _pendingImage = File(file.path);
+      _pendingFile = null;
+      _pendingFileName = null;
+    });
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'],
+    );
+    if (result == null || result.files.single.path == null) return;
+    if (!mounted) return;
+    setState(() {
+      _pendingFile = File(result.files.single.path!);
+      _pendingFileName = result.files.single.name;
+      _pendingImage = null;
+    });
   }
 
   Future<void> _pickCamera() async {
@@ -230,8 +313,12 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                 ),
               ),
               data: (page) {
+                // Decrypt old E2E-encrypted messages for backward compat.
+                for (final msg in page.items) {
+                  unawaited(_decryptIfNeeded(msg));
+                }
                 final newest = page.items.reversed.toList();
-                final messages = [..._older, ...newest];
+                final messages = [..._older, ...newest, ..._optimisticMessages];
 
                 if (messages.isEmpty) {
                   return Center(
@@ -245,11 +332,11 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.lock_outline_rounded,
+                          Icon(Icons.chat_bubble_outline_rounded,
                               size: 28, color: Colors.grey.shade400),
                           const SizedBox(height: 8),
                           Text(
-                            'Pesan terenkripsi end-to-end',
+                            'Belum ada pesan',
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: 13,
@@ -304,11 +391,11 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
 
                     return Column(
                       children: [
-                        if (showDate) _DateSeparator(date: message.createdAt),
-                        _MessageBubble(
+                        if (showDate) _DateSeparator(date: message.createdAt),                          _MessageBubble(
                           message: message,
                           displayBody: _getBody(message),
-                          onDelete: message.isMine
+                          isOptimistic: message.id.startsWith('opt_'),
+                          onDelete: message.isMine && !message.id.startsWith('opt_')
                               ? () => _deleteMessage(message)
                               : null,
                         ),
@@ -355,6 +442,45 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                 ],
               ),
             ),
+          if (_pendingFile != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFD1D5DB)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.insert_drive_file_outlined,
+                        color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _pendingFileName ?? 'File',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => setState(() { _pendingFile = null; _pendingFileName = null; }),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    color: AppColors.textMuted,
+                  ),
+                ],
+              ),
+            ),
           _Composer(
             controller: _messageController,
             focusNode: _focusNode,
@@ -362,6 +488,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
             onSend: _send,
             onCamera: _pickCamera,
             onGallery: _pickImage,
+            onFile: _pickFile,
           ),
         ],
       ),
@@ -404,7 +531,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    'terenkripsi end-to-end',
+                    'online',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.65),
@@ -549,11 +676,13 @@ class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final String displayBody;
   final VoidCallback? onDelete;
+  final bool isOptimistic;
 
   const _MessageBubble({
     required this.message,
     required this.displayBody,
     this.onDelete,
+    this.isOptimistic = false,
   });
 
   @override
@@ -615,17 +744,27 @@ class _MessageBubble extends StatelessWidget {
                   ],
                 )
               else if (message.type == 'image' &&
-                  message.attachment?.url != null)
+                  message.attachment != null &&
+                  message.attachment!.url != null)
                 _ImageContent(message: message)
               else if (message.type == 'file' && message.attachment != null)
                 _FileContent(message: message)
-              else
+              else if (displayBody.isNotEmpty)
                 Text(
                   displayBody,
                   style: const TextStyle(
                     color: Color(0xFF303030),
                     fontSize: 14.5,
                     height: 1.35,
+                  ),
+                )
+              else
+                Text(
+                  'Pesan kosong',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 13,
                   ),
                 ),
 
@@ -634,7 +773,16 @@ class _MessageBubble extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (mine) ...[
+                  if (isOptimistic)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: Colors.white70,
+                      ),
+                    )
+                  else if (mine) ...[
                     Icon(
                       message.isDeleted
                           ? Icons.block
@@ -644,8 +792,8 @@ class _MessageBubble extends StatelessWidget {
                           ? Colors.grey.shade400
                           : const Color(0xFF53BDEB),
                     ),
-                    const SizedBox(width: 3),
                   ],
+                  if (mine) const SizedBox(width: 3),
                   Text(
                     time,
                     style: TextStyle(
@@ -689,7 +837,7 @@ class _MessageBubble extends StatelessWidget {
   String _formatTime(String? dateStr) {
     if (dateStr == null) return '';
     try {
-      final dt = DateTime.parse(dateStr);
+      final dt = DateTime.parse(dateStr).toLocal();
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return '';
@@ -735,7 +883,7 @@ class _DateSeparator extends StatelessWidget {
   String _formatDate(String? dateStr) {
     if (dateStr == null) return '';
     try {
-      final dt = DateTime.parse(dateStr);
+      final dt = DateTime.parse(dateStr).toLocal();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final target = DateTime(dt.year, dt.month, dt.day);
@@ -850,6 +998,7 @@ class _Composer extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onCamera;
   final VoidCallback onGallery;
+  final VoidCallback onFile;
 
   const _Composer({
     required this.controller,
@@ -858,6 +1007,7 @@ class _Composer extends StatelessWidget {
     required this.onSend,
     required this.onCamera,
     required this.onGallery,
+    required this.onFile,
   });
 
   @override
@@ -904,32 +1054,13 @@ class _Composer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            // Send / voice button
-            sending
-                ? Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  )
-                : IconButton(
-                    onPressed: onSend,
-                    icon: const Icon(Icons.send_rounded),
-                    color: AppColors.primary,
-                    iconSize: 24,
-                  ),
+            // Send button
+            IconButton(
+              onPressed: onSend,
+              icon: const Icon(Icons.send_rounded),
+              color: AppColors.primary,
+              iconSize: 24,
+            ),
           ],
         ),
       ),
@@ -961,6 +1092,15 @@ class _Composer extends StatelessWidget {
                 onTap: () {
                   Navigator.of(ctx).pop();
                   onGallery();
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.attach_file_rounded,
+                label: 'File',
+                color: AppColors.info,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onFile();
                 },
               ),
             ],

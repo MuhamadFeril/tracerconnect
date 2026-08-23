@@ -283,7 +283,8 @@ class ChatController extends Controller
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');
             $attributes['attachment_path'] = $file->store('conversations', 'public');
-            $attributes['attachment_name'] = $file->getClientOriginalName();
+            // Sanitize filename: remove path traversal, null bytes, and dangerous chars
+            $attributes['attachment_name'] = $this->sanitizeFilename($file->getClientOriginalName());
             $attributes['attachment_mime'] = $file->getMimeType();
             $attributes['attachment_size'] = $file->getSize();
         }
@@ -498,5 +499,33 @@ class ChatController extends Controller
                 ->where('blocker_id', $firstUserId)->where('blocked_id', $secondUserId)
                 ->orWhere('blocker_id', $secondUserId)->where('blocked_id', $firstUserId))
             ->exists();
+    }
+
+    /**
+     * Sanitize a user-provided filename to prevent path traversal,
+     * null byte injection, and other filename-based attacks.
+     */
+    private function sanitizeFilename(string $filename): string
+    {
+        // Remove path components (keep only basename)
+        $filename = basename($filename);
+
+        // Remove null bytes
+        $filename = str_replace(chr(0), '', $filename);
+
+        // Remove path traversal sequences
+        $filename = str_replace(['../', '..\\', '..\\\\'], '', $filename);
+
+        // Replace dangerous characters with underscores
+        $filename = preg_replace('/[^a-zA-Z0-9._\-]/', '_', $filename);
+
+        // Collapse multiple underscores
+        $filename = preg_replace('/_+/', '_', $filename);
+
+        // Trim underscores from ends
+        $filename = trim($filename, '_');
+
+        // Fallback if empty
+        return $filename ?: 'attachment';
     }
 }

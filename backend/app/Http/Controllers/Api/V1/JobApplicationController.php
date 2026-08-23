@@ -115,6 +115,7 @@ class JobApplicationController extends Controller
             'alumni_id' => $user->alumni?->id,
             'status' => 'submitted',
             'cover_letter' => $data['cover_letter'] ?? null,
+            'cv_data' => $data['cv_data'] ?? null,
             'cv_path' => $cvPath,
             'portfolio_path' => $portfolioPath,
             'applied_at' => now(),

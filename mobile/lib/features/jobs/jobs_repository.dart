@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+
 import '../../core/network/api_client.dart';
 import '../../models/api_envelope.dart';
 import '../../models/job_application.dart';
@@ -7,8 +11,10 @@ import '../../models/job_vacancy.dart';
 class JobApplicant {
   final String id;
   final String userId;
+  final String? alumniId;
   final String status;
   final String? coverLetter;
+  final Map<String, dynamic>? cvData;
   final String? appliedAt;
   final String? alumniName;
   final String? alumniDepartment;
@@ -19,8 +25,10 @@ class JobApplicant {
   const JobApplicant({
     required this.id,
     required this.userId,
+    this.alumniId,
     required this.status,
     this.coverLetter,
+    this.cvData,
     this.appliedAt,
     this.alumniName,
     this.alumniDepartment,
@@ -35,8 +43,10 @@ class JobApplicant {
     return JobApplicant(
       id: json['id'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
+      alumniId: alumni?['id'] as String?,
       status: json['status'] as String? ?? 'submitted',
       coverLetter: json['cover_letter'] as String?,
+      cvData: json['cv_data'] as Map<String, dynamic>?,
       appliedAt: json['applied_at'] as String?,
       alumniName: alumni?['name'] as String?,
       alumniDepartment: alumni?['department'] as String?,
@@ -50,12 +60,50 @@ class JobApplicant {
 class JobsRepository {
   final ApiClient _api = ApiClient.instance;
 
-  /// Kirim lamaran ke lowongan (cover letter opsional).
-  Future<JobApplication> apply(String jobId, {String? coverLetter}) async {
-    final data = await _api.post('/job-vacancies/$jobId/apply', data: {
-      if (coverLetter != null && coverLetter.trim().isNotEmpty)
-        'cover_letter': coverLetter.trim(),
-    });
+  /// Kirim lamaran ke lowongan (cover letter + CV data opsional).
+  Future<JobApplication> apply(
+    String jobId, {
+    String? coverLetter,
+    Map<String, dynamic>? cvData,
+    File? cvFile,
+    File? portfolioFile,
+  }) async {
+    // Build form data for file uploads.
+    final form = <String, dynamic>{};
+    if (coverLetter != null && coverLetter.trim().isNotEmpty) {
+      form['cover_letter'] = coverLetter.trim();
+    }
+    // cvData as nested fields.
+    if (cvData != null) {
+      cvData.forEach((key, value) {
+        if (value is List) {
+          for (var i = 0; i < value.length; i++) {
+            form['cv_data[$key][$i]'] = value[i].toString();
+          }
+        } else if (value != null && value.toString().isNotEmpty) {
+          form['cv_data[$key]'] = value.toString();
+        }
+      });
+    }
+    // Attach files.
+    if (cvFile != null || portfolioFile != null) {
+      final formData = FormData.fromMap({
+        ...form,
+        if (cvFile != null)
+          'cv': await MultipartFile.fromFile(
+            cvFile.path,
+            filename: cvFile.path.split('/').last,
+          ),
+        if (portfolioFile != null)
+          'portfolio': await MultipartFile.fromFile(
+            portfolioFile.path,
+            filename: portfolioFile.path.split('/').last,
+          ),
+      });
+      final data = await _api.postForm('/job-vacancies/$jobId/apply', formData);
+      return JobApplication.fromJson(data as Map<String, dynamic>);
+    }
+    final data = await _api.post('/job-vacancies/$jobId/apply', data: form);
     return JobApplication.fromJson(data as Map<String, dynamic>);
   }
 

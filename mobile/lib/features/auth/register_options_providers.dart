@@ -6,6 +6,23 @@ import '../../models/institution.dart';
 import '../../models/region.dart';
 import '../../models/university.dart';
 
+/// Simple department option returned by the public institution departments endpoint.
+class DepartmentOption {
+  final String id;
+  final String name;
+  final String? code;
+
+  DepartmentOption({required this.id, required this.name, this.code});
+
+  factory DepartmentOption.fromJson(Map<String, dynamic> json) {
+    return DepartmentOption(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      code: json['code'] as String?,
+    );
+  }
+}
+
 /// Provider for institution options with autoDispose so errors aren't cached
 /// forever. Using keepAlive to prevent disposal during a single form session
 /// while still allowing retry via invalidation.
@@ -19,15 +36,49 @@ final institutionOptionsProvider =
         .map(InstitutionOption.fromJson)
         .toList();
   } on ApiException catch (e) {
-    // Re-throw with a friendlier message for the UI layer.
     throw ApiException(
       statusCode: e.statusCode,
-      message: 'Gagal memuat daftar institusi. Periksa koneksi Anda dan coba lagi.',
+      message: e.statusCode == 429
+          ? 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.'
+          : (e.message.isNotEmpty
+              ? e.message
+              : 'Gagal memuat daftar institusi. Periksa koneksi Anda.'),
       errors: e.errors,
     );
-  } on Exception {
+  } catch (_) {
     throw const ApiException(
-      message: 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      message: 'Tidak dapat terhubung ke server. Pastikan server berjalan dan periksa koneksi internet Anda.',
+    );
+  }
+});
+
+/// Department options for a specific institution.
+/// Returns empty list when institutionId is null or empty.
+final departmentOptionsProvider =
+    FutureProvider.autoDispose.family<List<DepartmentOption>, String>(
+        (ref, institutionId) async {
+  if (institutionId.isEmpty) return [];
+  try {
+    final data =
+        await ApiClient.instance.get('/institutions/$institutionId/departments');
+    final list = data as List;
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(DepartmentOption.fromJson)
+        .toList();
+  } on ApiException catch (e) {
+    throw ApiException(
+      statusCode: e.statusCode,
+      message: e.statusCode == 429
+          ? 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.'
+          : (e.message.isNotEmpty
+              ? e.message
+              : 'Gagal memuat daftar jurusan. Periksa koneksi Anda.'),
+      errors: e.errors,
+    );
+  } catch (_) {
+    throw const ApiException(
+      message: 'Tidak dapat terhubung ke server. Pastikan server berjalan dan periksa koneksi internet Anda.',
     );
   }
 });

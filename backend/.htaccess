@@ -1,0 +1,11 @@
+# InfinityFree: the account's document root is "htdocs", but Laravel
+# requires "public/" to be the web root. This rewrite internally routes
+# every request to the public folder WITHOUT exposing the app code above it
+# (requests for .env, composer.json, etc. resolve to public/<file> and 404).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+DirectoryIndex index.php

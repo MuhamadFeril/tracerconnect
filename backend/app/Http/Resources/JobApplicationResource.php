@@ -18,6 +18,7 @@ class JobApplicationResource extends JsonResource
             'user_id' => $this->user_id,
             'status' => $this->status,
             'cover_letter' => $this->cover_letter,
+            'cv_data' => $this->cv_data,
             'cv_path' => $this->cv_path,
             'portfolio_path' => $this->portfolio_path,
             'applied_at' => $this->applied_at,

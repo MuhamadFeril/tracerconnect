@@ -8,6 +8,8 @@ import { api, unwrap, unwrapPage } from '../lib/api'
 import { clearSession, setUser } from '../lib/auth'
 import type {
   Alumni,
+  DataQualityReport,
+  InstitutionBranding,
   AlumniHome,
   AlumniSurveyItem,
   AnalyticsOverview,
@@ -18,6 +20,8 @@ import type {
   District,
   Announcement,
   Department,
+  EmployerAlumniDetail,
+  EmployerAlumniListItem,
   EmploymentAnalytics,
   EventItem,
   EventParticipant,
@@ -48,7 +52,6 @@ import type {
   SurveyResponseItem,
   SurveyResults,
   SurveySection,
-  SuccessStory,
   University,
   User,
 } from '../lib/types'
@@ -67,7 +70,6 @@ export const qk = {
   responses: (params: Record<string, unknown>) => ['responses', params] as const,
   response: (id: string) => ['responses', id] as const,
   announcements: (params: Record<string, unknown>) => ['announcements', params] as const,
-  stories: (params: Record<string, unknown>) => ['success-stories', params] as const,
   events: (params: Record<string, unknown>) => ['events', params] as const,
   jobVacancies: (params: Record<string, unknown>) => ['job-vacancies', params] as const,
 }
@@ -196,6 +198,18 @@ export function useInstitutionOptions() {
   return useQuery({
     queryKey: ['institutions', 'options'],
     queryFn: () => unwrap<InstitutionOption[]>(api.get('/institutions/options')),
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useDepartmentOptions(institutionId: string | null) {
+  return useQuery({
+    queryKey: ['institutions', institutionId, 'departments'],
+    queryFn: () =>
+      unwrap<{ id: string; name: string; code: string | null }[]>(
+        api.get(`/institutions/${institutionId}/departments`),
+      ),
+    enabled: Boolean(institutionId),
     staleTime: 5 * 60_000,
   })
 }
@@ -594,43 +608,6 @@ export function useAnnouncementMutations() {
   return useEntityMutations<Announcement>('announcements', '/announcements')
 }
 
-export function useSuccessStories(params: { search?: string; status?: string; category?: string; page?: number }) {
-  return useCollection<SuccessStory>(qk.stories(params), '/success-stories', params)
-}
-
-export function useSuccessStory(id: string | undefined) {
-  return useQuery({
-    queryKey: ['success-stories', id],
-    queryFn: () => unwrap<SuccessStory>(api.get(`/success-stories/${id}`)),
-    enabled: Boolean(id),
-  })
-}
-
-export function useSuccessStoryMutations() {
-  const queryClient = useQueryClient()
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['success-stories'] })
-    queryClient.invalidateQueries({ queryKey: ['notifications'] })
-    queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
-  }
-
-  const create = useMutation({
-    mutationFn: (payload: FormData) => unwrap<SuccessStory>(api.post('/success-stories', payload)),
-    onSuccess: invalidate,
-  })
-  const update = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: FormData }) =>
-      unwrap<SuccessStory>(api.post(`/success-stories/${id}`, payload, { params: { _method: 'PUT' } })),
-    onSuccess: invalidate,
-  })
-  const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`/success-stories/${id}`),
-    onSuccess: invalidate,
-  })
-
-  return { create, update, remove }
-}
-
 export function useEvents(params: { search?: string; status?: string; upcoming?: boolean; page?: number }) {
   return useCollection<EventItem>(qk.events(params), '/events', params)
 }
@@ -682,11 +659,21 @@ function invalidateJobs(queryClient: ReturnType<typeof useQueryClient>) {
 export function useApplyJob(jobId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: { cover_letter?: string; cv?: File; portfolio?: File }) => {
+    mutationFn: (payload: { cover_letter?: string; cv?: File; portfolio?: File; cv_data?: Record<string, unknown> }) => {
       const form = new FormData()
       if (payload.cover_letter) form.append('cover_letter', payload.cover_letter)
       if (payload.cv) form.append('cv', payload.cv)
       if (payload.portfolio) form.append('portfolio', payload.portfolio)
+      if (payload.cv_data) {
+        // Send cv_data as nested form fields so Laravel validation works.
+        Object.entries(payload.cv_data).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            value.forEach((v, i) => form.append(`cv_data[${key}][${i}]`, String(v)))
+          } else if (value != null && value !== '') {
+            form.append(`cv_data[${key}]`, String(value))
+          }
+        })
+      }
       return unwrap<JobApplication>(api.post(`/job-vacancies/${jobId}/apply`, form))
     },
     onSuccess: () => invalidateJobs(queryClient),
@@ -747,6 +734,46 @@ export function useEmployerDashboard() {
   return useQuery({
     queryKey: ['employer', 'dashboard'],
     queryFn: () => unwrap<EmployerDashboard>(api.get('/employer/dashboard')),
+  })
+}
+
+/**
+ * New (submitted) application count for the employer — powers the badge
+ * next to the "Lamaran" sidebar item so it reflects actual new applicants
+ * rather than the general notification count.
+ */
+export function useNewApplicationsCount() {
+  return useQuery({
+    queryKey: ['employer', 'new-applications-count'],
+    queryFn: async () => {
+      const data = await unwrap<EmployerDashboard>(api.get('/employer/dashboard'))
+      return { count: data.applications.new }
+    },
+    refetchInterval: 15_000,
+  })
+}
+
+// --- Employer Alumni Directory ---
+
+export function useEmployerAlumni(params: {
+  search?: string
+  department_id?: string
+  graduation_year_id?: string
+  employment_status?: string
+  page?: number
+}) {
+  return useQuery({
+    queryKey: ['employer', 'alumni', params],
+    queryFn: () => unwrapPage<EmployerAlumniListItem>(api.get('/employer/alumni', { params })),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useEmployerAlumniDetail(alumniId: string | null) {
+  return useQuery({
+    queryKey: ['employer', 'alumni', alumniId],
+    queryFn: () => unwrap<EmployerAlumniDetail>(api.get(`/employer/alumni/${alumniId}`)),
+    enabled: Boolean(alumniId),
   })
 }
 
@@ -1286,6 +1313,65 @@ export function useResponse(id: string) {
   })
 }
 
+// --- Data Quality Center ------------------------------------------------
+
+// --- Institution Branding ------------------------------------------------
+
+export function useInstitutionBranding() {
+  return useQuery({
+    queryKey: ['institution-branding'],
+    queryFn: () => unwrap<InstitutionBranding>(api.get('/institution-branding')),
+  })
+}
+
+export function useUpdateInstitutionBranding() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Partial<InstitutionBranding>) =>
+      unwrap<InstitutionBranding>(api.put('/institution-branding', payload)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institution-branding'] }),
+  })
+}
+
+export function useUploadInstitutionLogo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData()
+      form.append('logo', file)
+      return unwrap<{ logo_path: string; logo_url: string }>(
+        api.post('/institution-branding/logo', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      )
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institution-branding'] }),
+  })
+}
+
+export function useUploadInstitutionCover() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData()
+      form.append('cover', file)
+      return unwrap<{ cover_image_path: string; cover_image_url: string }>(
+        api.post('/institution-branding/cover', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      )
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institution-branding'] }),
+  })
+}
+
+export function useDataQuality() {
+  return useQuery({
+    queryKey: ['data-quality'],
+    queryFn: () => unwrap<DataQualityReport>(api.get('/data-quality')),
+  })
+}
+
 export function useDeleteResponse() {
   const queryClient = useQueryClient()
 
@@ -1297,3 +1383,4 @@ export function useDeleteResponse() {
     },
   })
 }
+
