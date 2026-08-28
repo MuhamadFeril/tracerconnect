@@ -9,6 +9,7 @@ import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/region.dart';
 import '../../models/university.dart';
+import '../../shared/widgets/lag_loader.dart';
 import 'auth_controller.dart';
 import 'otp_verification_page.dart';
 import 'register_options_providers.dart';
@@ -429,7 +430,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Daftar Akun')),
-      body: SafeArea(
+      body: Stack(
+        children: [
+          SafeArea(
         child: Column(
           children: [
             // Stepper indicator
@@ -600,6 +603,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             ),
           ],
         ),
+      ),
+          // Lag loading overlay
+          if (_submitting)
+            Positioned.fill(
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.85),
+                child: const LagLoader(
+                  label: 'Lagi nge-lag nih, nyambungin',
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1277,7 +1292,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       ('continuing_study', 'Kuliah', Icons.school_outlined),
       ('entrepreneur', 'Wirausaha', Icons.storefront_outlined),
       ('unemployed', 'Mencari Kerja', Icons.hourglass_empty_rounded),
-      ('active_student', 'Siswa Aktif', Icons.menu_book_outlined),
     ];
 
     return Column(

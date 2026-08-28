@@ -73,7 +73,7 @@ function UserFormModal({
   const [error, setError] = useState<string | null>(null)
   const isEditing = Boolean(user)
   const isSaving = createUser.isPending || updateUser.isPending
-  const showInstitutionField = !isEditing && isSuperAdmin && form.role !== 'super_admin'
+  const showInstitutionField = !isEditing && isSuperAdmin && form.role !== 'super_admin' && form.role !== 'employer'
 
   // The institutions endpoint is super-admin only; institution admins never
   // render the field, so avoid firing a doomed request for them.

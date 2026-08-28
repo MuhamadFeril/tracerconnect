@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   ArrowLeft,
   ArrowRight,
   AtSign,
-  BookOpen,
   Briefcase,
   Building2,
   Camera,
@@ -30,7 +29,7 @@ import {
   X,
 } from 'lucide-react'
 import { apiError } from '../lib/api'
-import { hasAdminRole, setSession } from '../lib/auth'
+import { getUser, hasAdminRole, setSession } from '../lib/auth'
 import { useDebounce } from '../hooks/useDebounce'
 import type { LoginResponse } from '../lib/types'
 import {
@@ -38,6 +37,7 @@ import {
   useDistricts,
   useInstitutionOptions,
   useProvinces,
+  useCompleteGoogleRegistration,
   useRegister,
   useRegencies,
   useResendOtp,
@@ -50,6 +50,7 @@ import { Button } from '../components/ui/Button'
 import { AuthLayout } from '../components/auth/AuthLayout'
 import { GoogleErrorNotice } from '../components/auth/GoogleErrorNotice'
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
+import { LagLoader } from '../components/ui/StateViews'
 import { useToast } from '../components/ui/Toast'
 
 /* ------------------------------------------------------------------ */
@@ -57,6 +58,7 @@ import { useToast } from '../components/ui/Toast'
 /* ------------------------------------------------------------------ */
 
 const STEP_LABELS = ['Informasi Akun', 'Informasi lanjut', 'Status Karir', 'Verifikasi']
+const GOOGLE_STEP_LABELS = ['Informasi Biodata', 'Status Karir', 'Verifikasi']
 
 const SKILLS = [
   'JavaScript',
@@ -98,7 +100,6 @@ const CAREERS = [
   { key: 'continuing_study', label: 'Kuliah', caption: 'Studying', icon: GraduationCap },
   { key: 'entrepreneur', label: 'Wirausaha', caption: 'Entrepreneur', icon: Store },
   { key: 'unemployed', label: 'Mencari Kerja', caption: 'Unemployed', icon: Search },
-  { key: 'active_student', label: 'Siswa Aktif', caption: 'Active Student', icon: BookOpen },
 ]
 
 /**
@@ -171,13 +172,13 @@ function Stepper({ current }: { current: number }) {
   )
 }
 
-function StepHeader({ step }: { step: number }) {
-  const progress = Math.round(((step - 1) / (STEP_LABELS.length - 1)) * 100)
+function StepHeader({ step, labels = STEP_LABELS }: { step: number; labels?: string[] }) {
+  const progress = Math.round(((step - 1) / (labels.length - 1)) * 100)
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-          Step {step} dari {STEP_LABELS.length} : {STEP_LABELS[step - 1]}
+          Step {step} dari {labels.length} : {labels[step - 1]}
         </h1>
         <span className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-500">
           {progress}% Progres
@@ -408,36 +409,36 @@ function AccountStep({
           </div>
         </div>
 
-        <div>
-          <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
-          <div className="relative mt-2">
-            <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-            <select
-              id="reg-institution"
-              name="institution_id"
-              value={institutionId}
-              onChange={(e) => setInstitutionId(e.target.value)}
-              className={clsx(
-                'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
-                'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
-                errors.institution ? 'border-rose-400' : 'border-slate-300',
-              )}
-            >
-              <option value="">
-                {institutions.length > 0 ? 'Pilih institusi Anda…' : 'Memuat daftar institusi…'}
-              </option>
-              {institutions.map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name}
-                  {institution.code ? ` (${institution.code})` : ''}
+          <div>
+            <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
+            <div className="relative mt-2">
+              <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+              <select
+                id="reg-institution"
+                name="institution_id"
+                value={institutionId}
+                onChange={(e) => setInstitutionId(e.target.value)}
+                className={clsx(
+                  'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
+                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                  errors.institution ? 'border-rose-400' : 'border-slate-300',
+                )}
+              >
+                <option value="">
+                  {institutions.length > 0 ? 'Pilih institusi Anda…' : 'Memuat daftar institusi…'}
                 </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+                {institutions.map((institution) => (
+                  <option key={institution.id} value={institution.id}>
+                    {institution.name}
+                    {institution.code ? ` (${institution.code})` : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+            </div>
+            <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
+            <FieldError message={errors.institution} />
           </div>
-          <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
-          <FieldError message={errors.institution} />
-        </div>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -1763,18 +1764,23 @@ interface RegisterDraft {
 
 function readRegisterDraft(): RegisterDraft | null {
   try {
-    return JSON.parse(sessionStorage.getItem(REGISTER_DRAFT_KEY) ?? 'null') as RegisterDraft | null
+    return JSON.parse(localStorage.getItem(REGISTER_DRAFT_KEY) ?? 'null') as RegisterDraft | null
   } catch {
     return null
   }
-}
-
-export function Register() {
+}export function Register() {
   const navigate = useNavigate()
   const toast = useToast()
   const register = useRegister()
+  const completeGoogle = useCompleteGoogleRegistration()
   const uploadAvatar = useUploadAvatar()
   const institutionsQuery = useInstitutionOptions()
+  const [searchParams] = useSearchParams()
+  const isGoogle = searchParams.get('google') === '1'
+
+  // Pre-fill name/email from the Google user when in Google mode. Declared
+  // before the state initializers below that read it.
+  const googleUser = isGoogle ? getUser() : null
 
   const [draft] = useState<RegisterDraft | null>(readRegisterDraft)
 
@@ -1791,7 +1797,7 @@ export function Register() {
   const regenciesQuery = useRegencies(provinceId || null)
   const districtsQuery = useDistricts(regencyId || null)
 
-  const [email, setEmail] = useState(draft?.email ?? '')
+  const [email, setEmail] = useState(draft?.email ?? googleUser?.email ?? '')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [institutionId, setInstitutionId] = useState(draft?.institutionId ?? '')
@@ -1800,7 +1806,7 @@ export function Register() {
   const departmentsQuery = useDepartmentOptions(institutionId || null)
 
   const [form, setForm] = useState(draft?.form ?? {
-    name: '',
+    name: googleUser?.name ?? '',
     department: '',
     gender: '',
     phone: '',
@@ -1852,12 +1858,12 @@ export function Register() {
         career,
         careerDetails,
       }
-      sessionStorage.setItem(REGISTER_DRAFT_KEY, JSON.stringify(payload))
+      localStorage.setItem(REGISTER_DRAFT_KEY, JSON.stringify(payload))
     } catch {
     }
   }, [step, email, institutionId, provinceId, provinceName, regencyId, regencyName, districtId, form, career, careerDetails])
 
-  const clearDraft = () => sessionStorage.removeItem(REGISTER_DRAFT_KEY)
+  const clearDraft = () => localStorage.removeItem(REGISTER_DRAFT_KEY)
 
   const update = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -1890,68 +1896,126 @@ export function Register() {
   const validateStep = (target: number): boolean => {
     const next: Record<string, string> = {}
 
-    if (target === 1) {
-      if (!/^\S+@\S+\.\S+$/.test(email)) next.email = 'Masukkan email yang valid'
-      if (password.length < 8) next.password = 'Password minimal 8 karakter'
-      if (confirmation !== password || !confirmation) {
-        next.confirmation = 'Konfirmasi password tidak cocok'
+    // Google mode: step 1 = biodata (institution + personal info), step 2 = career
+    if (isGoogle) {
+      if (target === 1) {
+        if (!institutionId) next.institution = 'Pilih institusi Anda'
+        if (!form.name.trim()) next.name = 'Nama lengkap wajib diisi'
+        if (!form.department) next.department = 'Pilih jurusan'
+        if (!form.gender) next.gender = 'Pilih jenis kelamin'
+        if (!form.phone.trim()) next.phone = 'No HP wajib diisi'
+        else if (!/^(08|\+62)/.test(form.phone.trim())) next.phone = 'No HP harus diawali 08 atau +62'
+        else if (form.phone.trim().length < 10) next.phone = 'No HP minimal 10 karakter'
+        if (!form.nis.trim()) next.nis = 'NIS wajib diisi'
+        else if (form.nis.trim().length !== 10) next.nis = 'NIS harus tepat 10 karakter'
+        if (!form.nisn.trim()) next.nisn = 'NISN wajib diisi'
+        else if (form.nisn.trim().length !== 10) next.nisn = 'NISN harus tepat 10 karakter'
+        if (!form.yearIn) next.yearIn = 'Pilih tahun masuk'
+        if (!form.yearOut) next.yearOut = 'Pilih tahun lulus'
+        if (form.yearIn && form.yearOut && Number(form.yearOut) - Number(form.yearIn) < 3) {
+          next.yearOut = 'Tahun lulus minimal 3 tahun setelah tahun masuk'
+        }
+        if (!provinceId) next.province = 'Pilih provinsi'
+        if (!regencyId) next.birthplace = 'Pilih kabupaten/kota'
+        if (!districtId) next.district = 'Pilih kecamatan'
+        if (!form.birthDate) next.birthDate = 'Pilih tanggal lahir'
+        if (!form.address.trim()) next.address = 'Alamat wajib diisi'
       }
-      // Alumni records are tenant-scoped, so an institution is required to
-      // persist the profile data collected in steps 2 & 3.
-      if (!institutionId) next.institution = 'Pilih institusi Anda'
-    }
-
-    if (target === 2) {
-      if (!form.name.trim()) next.name = 'Nama lengkap wajib diisi'
-      if (!form.department) next.department = 'Pilih jurusan'
-      if (!form.gender) next.gender = 'Pilih jenis kelamin'
-      if (!form.phone.trim()) next.phone = 'No HP wajib diisi'
-      else if (!/^(08|\+62)/.test(form.phone.trim())) next.phone = 'No HP harus diawali 08 atau +62'
-      else if (form.phone.trim().length < 10) next.phone = 'No HP minimal 10 karakter'
-      if (!form.nis.trim()) next.nis = 'NIS wajib diisi'
-      else if (form.nis.trim().length !== 10) next.nis = 'NIS harus tepat 10 karakter'
-      if (!form.nisn.trim()) next.nisn = 'NISN wajib diisi'
-      else if (form.nisn.trim().length !== 10) next.nisn = 'NISN harus tepat 10 karakter'
-      if (!form.yearIn) next.yearIn = 'Pilih tahun masuk'
-      if (!form.yearOut) next.yearOut = 'Pilih tahun lulus'
-      if (form.yearIn && form.yearOut && Number(form.yearOut) - Number(form.yearIn) < 3) {
-        next.yearOut = 'Tahun lulus minimal 3 tahun setelah tahun masuk'
-      }
-      if (!provinceId) next.province = 'Pilih provinsi'
-      if (!regencyId) next.birthplace = 'Pilih kabupaten/kota'
-      if (!districtId) next.district = 'Pilih kecamatan'
-      if (!form.birthDate) next.birthDate = 'Pilih tanggal lahir'
-      if (!form.address.trim()) next.address = 'Alamat wajib diisi'
-    }
-
-    if (target === 3) {
-      if (!career) next.career = 'Pilih salah satu status karir'
-      if (career === 'working') {
-        if (!careerDetails.companyName.trim()) next.companyName = 'Nama perusahaan wajib diisi'
-        if (!careerDetails.position.trim()) next.position = 'Posisi wajib diisi'
-        if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
-        if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
-        if (!careerDetails.workProvince.trim()) next.workProvince = 'Pilih provinsi kerja'
-        if (!careerDetails.workCity.trim()) next.workCity = 'Pilih kota kerja'
-      }
-      if (career === 'continuing_study') {
-        if (!careerDetails.studyInstitution.trim()) next.studyInstitution = 'Pilih tempat kuliah'
-        if (!careerDetails.studyProgram.trim()) next.studyProgram = 'Pilih program studi'
-        if (!careerDetails.studyEntryYear) next.studyEntryYear = 'Pilih tahun masuk kuliah'
-        else if (
-          form.yearOut &&
-          Number(careerDetails.studyEntryYear) < Number(form.yearOut) + 3
-        ) {
-          next.studyEntryYear = 'Tahun masuk kuliah minimal 3 tahun setelah tahun lulus'
+      if (target === 2) {
+        if (!career) next.career = 'Pilih salah satu status karir'
+        if (career === 'working') {
+          if (!careerDetails.companyName.trim()) next.companyName = 'Nama perusahaan wajib diisi'
+          if (!careerDetails.position.trim()) next.position = 'Posisi wajib diisi'
+          if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
+          if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
+          if (!careerDetails.workProvince.trim()) next.workProvince = 'Pilih provinsi kerja'
+          if (!careerDetails.workCity.trim()) next.workCity = 'Pilih kota kerja'
+        }
+        if (career === 'continuing_study') {
+          if (!careerDetails.studyInstitution.trim()) next.studyInstitution = 'Pilih tempat kuliah'
+          if (!careerDetails.studyProgram.trim()) next.studyProgram = 'Pilih program studi'
+          if (!careerDetails.studyEntryYear) next.studyEntryYear = 'Pilih tahun masuk kuliah'
+          else if (
+            form.yearOut &&
+            Number(careerDetails.studyEntryYear) < Number(form.yearOut) + 3
+          ) {
+            next.studyEntryYear = 'Tahun masuk kuliah minimal 3 tahun setelah tahun lulus'
+          }
+        }
+        if (career === 'entrepreneur') {
+          if (!careerDetails.businessName.trim()) next.businessName = 'Nama usaha wajib diisi'
+          if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
+          if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
+          if (!careerDetails.businessAddress.trim()) next.businessAddress = 'Alamat usaha wajib diisi'
+          if (!careerDetails.businessProvince.trim()) next.businessProvince = 'Pilih provinsi usaha'
+          if (!careerDetails.businessCity.trim()) next.businessCity = 'Pilih kota usaha'
         }
       }
-      if (career === 'entrepreneur') {
-        if (!careerDetails.businessName.trim()) next.businessName = 'Nama usaha wajib diisi'
-        if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
-        if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
-        if (!careerDetails.businessAddress.trim()) next.businessAddress = 'Alamat usaha wajib diisi'
-        if (!careerDetails.businessProvince.trim()) next.businessProvince = 'Pilih provinsi usaha'
-        if (!careerDetails.businessCity.trim()) next.businessCity = 'Pilih kota usaha'
+    } else {
+      // Regular mode
+      if (target === 1) {
+        if (!/^\S+@\S+\.\S+$/.test(email)) next.email = 'Masukkan email yang valid'
+        if (password.length < 8) next.password = 'Password minimal 8 karakter'
+        if (confirmation !== password || !confirmation) {
+          next.confirmation = 'Konfirmasi password tidak cocok'
+        }
+        // Alumni records are tenant-scoped, so an institution is required to
+        // persist the profile data collected in steps 2 & 3.
+        if (!institutionId) next.institution = 'Pilih institusi Anda'
+      }
+
+      if (target === 2) {
+        if (!form.name.trim()) next.name = 'Nama lengkap wajib diisi'
+        if (!form.department) next.department = 'Pilih jurusan'
+        if (!form.gender) next.gender = 'Pilih jenis kelamin'
+        if (!form.phone.trim()) next.phone = 'No HP wajib diisi'
+        else if (!/^(08|\+62)/.test(form.phone.trim())) next.phone = 'No HP harus diawali 08 atau +62'
+        else if (form.phone.trim().length < 10) next.phone = 'No HP minimal 10 karakter'
+        if (!form.nis.trim()) next.nis = 'NIS wajib diisi'
+        else if (form.nis.trim().length !== 10) next.nis = 'NIS harus tepat 10 karakter'
+        if (!form.nisn.trim()) next.nisn = 'NISN wajib diisi'
+        else if (form.nisn.trim().length !== 10) next.nisn = 'NISN harus tepat 10 karakter'
+        if (!form.yearIn) next.yearIn = 'Pilih tahun masuk'
+        if (!form.yearOut) next.yearOut = 'Pilih tahun lulus'
+        if (form.yearIn && form.yearOut && Number(form.yearOut) - Number(form.yearIn) < 3) {
+          next.yearOut = 'Tahun lulus minimal 3 tahun setelah tahun masuk'
+        }
+        if (!provinceId) next.province = 'Pilih provinsi'
+        if (!regencyId) next.birthplace = 'Pilih kabupaten/kota'
+        if (!districtId) next.district = 'Pilih kecamatan'
+        if (!form.birthDate) next.birthDate = 'Pilih tanggal lahir'
+        if (!form.address.trim()) next.address = 'Alamat wajib diisi'
+      }
+
+      if (target === 3) {
+        if (!career) next.career = 'Pilih salah satu status karir'
+        if (career === 'working') {
+          if (!careerDetails.companyName.trim()) next.companyName = 'Nama perusahaan wajib diisi'
+          if (!careerDetails.position.trim()) next.position = 'Posisi wajib diisi'
+          if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
+          if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
+          if (!careerDetails.workProvince.trim()) next.workProvince = 'Pilih provinsi kerja'
+          if (!careerDetails.workCity.trim()) next.workCity = 'Pilih kota kerja'
+        }
+        if (career === 'continuing_study') {
+          if (!careerDetails.studyInstitution.trim()) next.studyInstitution = 'Pilih tempat kuliah'
+          if (!careerDetails.studyProgram.trim()) next.studyProgram = 'Pilih program studi'
+          if (!careerDetails.studyEntryYear) next.studyEntryYear = 'Pilih tahun masuk kuliah'
+          else if (
+            form.yearOut &&
+            Number(careerDetails.studyEntryYear) < Number(form.yearOut) + 3
+          ) {
+            next.studyEntryYear = 'Tahun masuk kuliah minimal 3 tahun setelah tahun lulus'
+          }
+        }
+        if (career === 'entrepreneur') {
+          if (!careerDetails.businessName.trim()) next.businessName = 'Nama usaha wajib diisi'
+          if (!careerDetails.businessField.trim()) next.businessField = 'Bidang usaha wajib diisi'
+          if (!careerDetails.businessStartYear) next.businessStartYear = 'Pilih tahun mulai'
+          if (!careerDetails.businessAddress.trim()) next.businessAddress = 'Alamat usaha wajib diisi'
+          if (!careerDetails.businessProvince.trim()) next.businessProvince = 'Pilih provinsi usaha'
+          if (!careerDetails.businessCity.trim()) next.businessCity = 'Pilih kota usaha'
+        }
       }
     }
 
@@ -1962,7 +2026,7 @@ export function Register() {
   const goNext = () => {
     setError(null)
     if (!validateStep(step)) return
-    setStep((s) => Math.min(s + 1, 3))
+    setStep((s) => Math.min(s + 1, maxStep))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -1971,14 +2035,80 @@ export function Register() {
     setStep((s) => Math.max(s - 1, 1))
   }
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    if (step < 3) {
+    if (step < maxStep) {
       goNext()
+    } else {
+      onSubmitForm()
+    }
+  }
+
+  const onSubmitForm = async () => {
+    setError(null)
+
+    // Google mode: skip account validation, submit biodata to complete registration.
+    if (isGoogle) {
+      if (!institutionId) {
+        setErrors({ institution: 'Pilih institusi Anda' })
+        return
+      }
+      setSubmitting(true)
+      try {
+        const data = await completeGoogle.mutateAsync({
+          name: form.name || undefined,
+          institution_id: institutionId,
+          gender: form.gender || undefined,
+          phone: form.phone || undefined,
+          nis: form.nis || undefined,
+          nisn: form.nisn || undefined,
+          entry_year: form.yearIn ? Number(form.yearIn) : undefined,
+          graduation_year: form.yearOut ? Number(form.yearOut) : undefined,
+          birthplace: form.birthplace || undefined,
+          birthplace_regency: regencyName || undefined,
+          birthplace_province: provinceName || undefined,
+          birth_date: form.birthDate || undefined,
+          address: form.address || undefined,
+          department: form.department || undefined,
+          socials: form.socials.filter((s) => s.url.trim()).length
+            ? form.socials.filter((s) => s.url.trim()).map((s) => ({ platform: s.platform, url: s.url.trim() }))
+            : undefined,
+          skills: form.skills.length ? form.skills : undefined,
+          employment_status: career ?? undefined,
+          company_name: career === 'working' ? careerDetails.companyName.trim() || undefined : undefined,
+          position: career === 'working' ? careerDetails.position.trim() || undefined : undefined,
+          business_field: career === 'working' || career === 'entrepreneur'
+            ? careerDetails.businessField.trim() || undefined
+            : undefined,
+          business_start_year: career === 'working' || career === 'entrepreneur'
+            ? (careerDetails.businessStartYear ? Number(careerDetails.businessStartYear) : undefined)
+            : undefined,
+          work_province: career === 'working' ? careerDetails.workProvince.trim() || undefined : undefined,
+          work_city: career === 'working' ? careerDetails.workCity.trim() || undefined : undefined,
+          study_institution: career === 'continuing_study' ? careerDetails.studyInstitution.trim() || undefined : undefined,
+          study_program: career === 'continuing_study' ? careerDetails.studyProgram.trim() || undefined : undefined,
+          study_entry_year: career === 'continuing_study' && careerDetails.studyEntryYear
+            ? Number(careerDetails.studyEntryYear)
+            : undefined,
+          business_name: career === 'entrepreneur' ? careerDetails.businessName.trim() || undefined : undefined,
+          business_address: career === 'entrepreneur' ? careerDetails.businessAddress.trim() || undefined : undefined,
+          business_province: career === 'entrepreneur' ? careerDetails.businessProvince.trim() || undefined : undefined,
+          business_city: career === 'entrepreneur' ? careerDetails.businessCity.trim() || undefined : undefined,
+        })
+
+        clearDraft()
+        setPendingOtp({ email: data.email })
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } catch (err) {
+        setError(apiError(err))
+      } finally {
+        setSubmitting(false)
+      }
       return
     }
-    if (!validateStep(3)) return
+
+    // Regular mode: validate account step first.
+    if (!validateStep(1)) return
 
     if (password.length < 8 || confirmation !== password) {
       setStep(1)
@@ -1994,7 +2124,6 @@ export function Register() {
         email,
         password,
         password_confirmation: confirmation,
-        institution_id: institutionId || undefined,
         gender: form.gender || undefined,
         phone: form.phone || undefined,
         nis: form.nis || undefined,
@@ -2059,21 +2188,38 @@ export function Register() {
       }
     }
 
+    // For Google users who just completed registration, show a success message.
+    if (isGoogle) {
+      toast('Registrasi berhasil! Akun Anda telah aktif.')
+    }
+
     navigate(hasAdminRole(data.user) ? '/dashboard' : '/home', { replace: true })
   }
 
   const institutions = institutionsQuery.data ?? []
 
+  const stepLabels = isGoogle ? GOOGLE_STEP_LABELS : STEP_LABELS
+  const maxStep = isGoogle ? 2 : 3
+
   return (
     <AuthLayout wide>
-      <StepHeader step={step} />
+      {/* Lag loading overlay */}
+      {submitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 backdrop-blur-sm">
+          <LagLoader label="Lagi nge-lag nih, nyambungin…" />
+        </div>
+      )}
+      <StepHeader step={step} labels={stepLabels} />
 
       <div className="mt-8">
         <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 px-5 py-4">
-          <p className="text-sm font-semibold text-indigo-800">Daftar gratis sebagai alumni</p>
+          <p className="text-sm font-semibold text-indigo-800">
+            {isGoogle ? 'Lengkapi biodata Anda' : 'Daftar gratis sebagai alumni'}
+          </p>
           <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-            Lengkapi data diri Anda dalam 3 langkah untuk terhubung dengan sesama alumni dan
-            mengikuti tracer study institusi Anda.
+            {isGoogle
+              ? 'Lengkapi data diri Anda untuk terhubung dengan sesama alumni dan mengikuti tracer study institusi Anda.'
+              : 'Lengkapi data diri Anda dalam 3 langkah untuk terhubung dengan sesama alumni dan\n            mengikuti tracer study institusi Anda.'}
           </p>
         </div>
       </div>
@@ -2104,7 +2250,8 @@ export function Register() {
 
           {/* Step content re-animates whenever the step changes */}
           <div key={step} className="animate-fade-in-up">
-          {step === 1 && (
+          {/* Regular mode: 3 steps (Account, Info, Career) */}
+          {!isGoogle && step === 1 && (
             <AccountStep
               email={email}
               setEmail={setEmail}
@@ -2119,7 +2266,7 @@ export function Register() {
             />
           )}
 
-          {step === 2 && (
+          {!isGoogle && step === 2 && (
             <InfoStep
               form={form}
               update={update}
@@ -2150,7 +2297,88 @@ export function Register() {
             />
           )}
 
-          {step === 3 && (
+          {!isGoogle && step === 3 && (
+            <CareerStep
+              career={career}
+              setCareer={setCareer}
+              details={careerDetails}
+              setDetails={(patch) => setCareerDetails((d) => ({ ...d, ...patch }))}
+              errors={errors}
+              graduationYear={form.yearOut}
+            />
+          )}
+
+          {/* Google mode: 2 steps (Info+Institution, Career) */}
+          {isGoogle && step === 1 && (
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader icon={<Building2 className="size-5" />} title="Institusi & Biodata" step={1} />
+              <div className="space-y-5 px-6 py-6">
+                <div>
+                  <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
+                  <div className="relative mt-2">
+                    <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+                    <select
+                      id="reg-institution"
+                      name="institution_id"
+                      value={institutionId}
+                      onChange={(e) => setInstitutionId(e.target.value)}
+                      className={clsx(
+                        'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
+                        'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                        errors.institution ? 'border-rose-400' : 'border-slate-300',
+                      )}
+                    >
+                      <option value="">
+                        {institutions.length > 0 ? 'Pilih institusi Anda…' : 'Memuat daftar institusi…'}
+                      </option>
+                      {institutions.map((institution) => (
+                        <option key={institution.id} value={institution.id}>
+                          {institution.name}
+                          {institution.code ? ` (${institution.code})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+                  </div>
+                  <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
+                  <FieldError message={errors.institution} />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {isGoogle && step === 1 && (
+            <InfoStep
+              form={form}
+              update={update}
+              errors={errors}
+              photoPreview={photoPreview}
+              onPhotoChange={onPhotoChange}
+              provinces={provincesQuery.data ?? []}
+              provinceId={provinceId}
+              onProvinceChange={handleProvinceChange}
+              regencies={regenciesQuery.data ?? []}
+              regencyId={regencyId}
+              onRegencyChange={handleRegencyChange}
+              districts={districtsQuery.data ?? []}
+              districtId={districtId}
+              onDistrictChange={handleDistrictChange}
+              regionStatus={{
+                provinces: { isLoading: provincesQuery.isLoading, isError: provincesQuery.isError },
+                regencies: { isLoading: regenciesQuery.isLoading, isError: regenciesQuery.isError },
+                districts: { isLoading: districtsQuery.isLoading, isError: districtsQuery.isError },
+              }}
+              onRegionRetry={(key) => {
+                if (key === 'provinces') provincesQuery.refetch()
+                else if (key === 'regencies') regenciesQuery.refetch()
+                else districtsQuery.refetch()
+              }}
+              departments={departmentsQuery.data ?? []}
+              departmentsLoading={departmentsQuery.isLoading}
+            />
+          )}
+
+          {isGoogle && step === 2 && (
             <CareerStep
               career={career}
               setCareer={setCareer}
@@ -2167,13 +2395,13 @@ export function Register() {
             <Button variant="secondary" type="button" onClick={goBack} disabled={step === 1 || submitting} className="border-slate-300">
               <ArrowLeft className="size-4" /> Kembali
             </Button>
-            {step < 3 ? (
+            {step < maxStep ? (
               <Button type="submit" className="text-[15px]">
                 Lanjut <ArrowRight className="size-4" />
               </Button>
             ) : (
               <Button type="submit" loading={submitting} className="text-[15px]">
-                <PencilLine className="size-4" /> Daftar Sekarang
+                <PencilLine className="size-4" /> {isGoogle ? 'Simpan & Verifikasi' : 'Daftar Sekarang'}
               </Button>
             )}
           </div>

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/lag_loader.dart';
 import 'auth_repository.dart';
 
 /// Lupa password — paritas dengan `web/src/pages/ForgotPassword.tsx`.
@@ -73,16 +74,29 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Lupa Password')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: _sent ? _buildSuccess() : _buildForm(),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: _sent ? _buildSuccess() : _buildForm(),
+                ),
+              ),
             ),
           ),
-        ),
+          if (_submitting)
+            Positioned.fill(
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.85),
+                child: const LagLoader(
+                  label: 'Lagi nge-lag nih, nyambungin',
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

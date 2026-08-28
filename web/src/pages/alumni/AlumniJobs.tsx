@@ -1,11 +1,13 @@
-import { useState } from 'react'
-import { ArrowUpRight, Briefcase, ChevronRight, MapPin } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowUpRight, Briefcase, ChevronRight, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useJobVacancies } from '../../hooks/queries'
 import { EMPLOYMENT_TYPE_LABELS, formatDate } from '../../lib/format'
+import { useDebounce } from '../../hooks/useDebounce'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import { Pagination } from '../../components/ui/Pagination'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/StateViews'
 
@@ -17,23 +19,114 @@ const TYPE_TONES: Record<string, 'indigo' | 'sky' | 'violet' | 'amber' | 'slate'
   freelance: 'slate',
 }
 
+const EMPLOYMENT_TYPES = Object.entries(EMPLOYMENT_TYPE_LABELS) as [string, string][]
+
 export function AlumniJobs() {
   const [page, setPage] = useState(1)
-  const { data, isPending, isError, refetch } = useJobVacancies({ page })
+  const [searchInput, setSearchInput] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const search = useDebounce(searchInput, 350)
+
+  // Reset to page 1 when filters change.
+  useEffect(() => { setPage(1) }, [search, typeFilter])
+
+  const { data, isPending, isError, refetch } = useJobVacancies({
+    page,
+    search: search || undefined,
+    employment_type: typeFilter || undefined,
+  })
 
   const rows = data?.data ?? []
+  const hasActiveFilters = Boolean(search || typeFilter)
+
+  const clearFilters = () => {
+    setSearchInput('')
+    setTypeFilter('')
+  }
 
   return (
     <div className="space-y-5">
       <PageHeader title="Lowongan Kerja" subtitle="Peluang karier yang dikurasi institusi untuk alumni" />
 
+      {/* ── Search & Filters ── */}
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* Search input */}
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Cari lowongan berdasarkan judul atau perusahaan…"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pr-3 pl-9.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+            />
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput('')}
+                className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Employment type filter */}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <SlidersHorizontal className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-slate-400" />
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="h-10 appearance-none rounded-lg border border-slate-200 bg-white pr-8 pl-8.5 text-sm text-slate-700 transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+              >
+                <option value="">Semua Tipe</option>
+                {EMPLOYMENT_TYPES.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <Button variant="secondary" size="sm" onClick={clearFilters} className="shrink-0">
+                <X className="size-3.5" /> Reset
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Active filter chips */}
+        {hasActiveFilters && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            <span className="text-[11px] font-medium text-slate-400">Filter aktif:</span>
+            {search && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
+                Pencarian: "{search}"
+                <button onClick={() => setSearchInput('')} className="ml-0.5 text-indigo-400 hover:text-indigo-700">×</button>
+              </span>
+            )}
+            {typeFilter && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
+                Tipe: {EMPLOYMENT_TYPE_LABELS[typeFilter]}
+                <button onClick={() => setTypeFilter('')} className="ml-0.5 text-indigo-400 hover:text-indigo-700">×</button>
+              </span>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Results ── */}
       {isPending ? (
         <LoadingState />
       ) : isError ? (
         <ErrorState message="Gagal memuat lowongan" onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
         <Card>
-          <EmptyState title="Tidak ada lowongan" description="Belum ada lowongan kerja dari institusi Anda." />
+          <EmptyState
+            title={hasActiveFilters ? 'Tidak ada lowongan yang cocok' : 'Tidak ada lowongan'}
+            description={hasActiveFilters ? 'Coba ubah kata kunci atau filter pencarian.' : 'Belum ada lowongan kerja dari institusi Anda.'}
+            action={hasActiveFilters ? <Button variant="secondary" onClick={clearFilters}>Reset Filter</Button> : undefined}
+          />
         </Card>
       ) : (
         <>

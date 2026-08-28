@@ -82,11 +82,18 @@ class ChatController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        // Optimized: Use a single query with join instead of subquery
         $count = Message::query()
-            ->whereIn('conversation_id', Conversation::query()->forUser($user->id)->select('id'))
-            ->where('sender_id', '!=', $user->id)
-            ->whereNull('deleted_at')
-            ->whereDoesntHave('reads', fn ($query) => $query->where('user_id', $user->id))
+            ->join('conversation_participants', 'messages.conversation_id', '=', 'conversation_participants.conversation_id')
+            ->where('conversation_participants.user_id', $user->id)
+            ->where('messages.sender_id', '!=', $user->id)
+            ->whereNull('messages.deleted_at')
+            ->whereNotExists(function ($sub) use ($user) {
+                $sub->selectRaw('1')
+                    ->from('message_reads')
+                    ->whereColumn('message_reads.message_id', 'messages.id')
+                    ->where('message_reads.user_id', $user->id);
+            })
             ->count();
 
         return ApiResponse::success(['count' => $count], 'Jumlah pesan belum dibaca berhasil diambil');
@@ -244,16 +251,80 @@ class ChatController extends Controller
 
         $perPage = max(1, min($request->integer('per_page', 30), 100));
 
-        $messages = $conversation->messages()
+        $select = [
+            'id', 'conversation_id', 'sender_id', 'type', 'body',
+            'attachment_path', 'attachment_name', 'attachment_mime', 'attachment_size',
+            'deleted_at', 'created_at', 'updated_at',
+        ];
+
+        // Cursor pagination (stable across new messages arriving):
+        // - no cursor            -> newest $perPage messages, newest first
+        // - before=<id>          -> messages older than <id> (for "load older")
+        // - after=<id>           -> messages newer than <id> (delta, for polling)
+        // The cursor is a message id; we compare on (created_at, id) so two
+        // messages sharing a timestamp never break the ordering or duplicate.
+        $after = $request->input('after');
+        $before = $request->input('before');
+        $isDelta = false;
+
+        $query = $conversation->messages()
             ->withTrashed()
-            ->latest()
-            ->paginate($perPage);
+            ->select($select);
 
-        $data = collect($messages->items())
-            ->map(fn (Message $message) => new MessageResource($message, $user->id))
-            ->values();
+        if ($after) {
+            $cursor = DB::table('messages')->where('id', $after)->select('created_at', 'id')->first();
+            if ($cursor) {
+                $query->where(function ($q) use ($cursor) {
+                    $q->where('created_at', '>', $cursor->created_at)
+                        ->orWhere(fn ($q2) => $q2->where('created_at', $cursor->created_at)->where('id', '>', $cursor->id));
+                })->oldest();
+                $isDelta = true;
+            } else {
+                $query->latest();
+            }
+        } elseif ($before) {
+            $cursor = DB::table('messages')->where('id', $before)->select('created_at', 'id')->first();
+            if ($cursor) {
+                $query->where(function ($q) use ($cursor) {
+                    $q->where('created_at', '<', $cursor->created_at)
+                        ->orWhere(fn ($q2) => $q2->where('created_at', $cursor->created_at)->where('id', '<', $cursor->id));
+                })->latest();
+            } else {
+                $query->latest();
+            }
+        } else {
+            $query->latest();
+        }
 
-        return ApiResponse::success($data, 'Riwayat pesan berhasil diambil', ApiResponse::paginationMeta($messages));
+        // Fetch one extra row to know whether older messages remain, without
+        // exposing an unbounded result set.
+        $rows = $query->limit($perPage + 1)->get();
+
+        $hasMoreOlder = false;
+        if (! $isDelta && $rows->count() > $perPage) {
+            $hasMoreOlder = true;
+            $rows = $rows->slice(0, $perPage)->values();
+        }
+
+        $data = $rows->map(fn (Message $message) => new MessageResource($message, $user->id))->values();
+
+        // Cursors depend on sort direction: "after" returns ascending (oldest
+        // of the delta first, newest last); the other modes return newest-first.
+        $oldestCursor = $isDelta ? $rows->first()?->id : $rows->last()?->id;
+        $newestCursor = $isDelta ? $rows->last()?->id : $rows->first()?->id;
+
+        $meta = [
+            'oldest_cursor' => $oldestCursor,
+            'newest_cursor' => $newestCursor,
+            'has_more_older' => $hasMoreOlder,
+            'per_page' => $perPage,
+            // Backward-compatible keys for any offset-based consumer.
+            'current_page' => 1,
+            'last_page' => $hasMoreOlder ? 2 : 1,
+            'total' => $rows->count(),
+        ];
+
+        return ApiResponse::success($data, 'Riwayat pesan berhasil diambil', $meta);
     }
 
     /**
@@ -334,23 +405,32 @@ class ChatController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $unread = $conversation->messages()
+        $now = now();
+
+        // Optimized: Use raw query to mark all unread messages as read
+        // in a single query instead of fetching each message first.
+        $unreadIds = Message::query()
+            ->where('conversation_id', $conversation->id)
             ->where('sender_id', '!=', $user->id)
             ->whereNull('deleted_at')
             ->whereDoesntHave('reads', fn ($q) => $q->where('user_id', $user->id))
-            ->get();
+            ->pluck('id');
 
-        $now = now();
-
-        if ($unread->isNotEmpty()) {
-            MessageRead::insert($unread->map(fn (Message $message) => [
+        if ($unreadIds->isNotEmpty()) {
+            // Batch insert read records
+            $readRecords = $unreadIds->map(fn ($id) => [
                 'id' => (string) Str::uuid(),
-                'message_id' => $message->id,
+                'message_id' => $id,
                 'user_id' => $user->id,
                 'read_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->all());
+            ])->all();
+
+            // Chunk insert for large batches
+            foreach (array_chunk($readRecords, 100) as $chunk) {
+                MessageRead::insert($chunk);
+            }
         }
 
         ConversationParticipant::query()

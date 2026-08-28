@@ -83,6 +83,15 @@ export function useLogin() {
   })
 }
 
+/** Check whether Google OAuth login is configured on the server. */
+export function useGoogleEnabled() {
+  return useQuery({
+    queryKey: ['auth', 'google-status'],
+    queryFn: () => unwrap<{ enabled: boolean }>(api.get('/auth/google/status')),
+    staleTime: 5 * 60_000,
+  })
+}
+
 export function useGoogleLogin() {
   return useMutation({
     mutationFn: (idToken: string) =>
@@ -94,6 +103,19 @@ export function useRegister() {
   return useMutation({
     mutationFn: (payload: RegisterPayload) =>
       unwrap<RegisterResponse>(api.post('/auth/register', payload)),
+  })
+}
+
+export function useCompleteGoogleRegistration() {
+  // `name`/`email` are already known from the Google account, so they are
+  // optional here; the rest of the biodata mirrors RegisterPayload.
+  type CompleteGooglePayload = Omit<
+    RegisterPayload,
+    'password' | 'password_confirmation' | 'name' | 'email'
+  > & { name?: string; email?: string }
+  return useMutation({
+    mutationFn: (payload: CompleteGooglePayload) =>
+      unwrap<RegisterResponse>(api.post('/auth/google/complete-registration', payload)),
   })
 }
 

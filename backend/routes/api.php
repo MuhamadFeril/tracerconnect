@@ -46,6 +46,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:15,1');
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+        Route::get('google/status', [AuthController::class, 'googleStatus'])->middleware('throttle:30,1');
         Route::post('google', [AuthController::class, 'googleLogin'])->middleware('throttle:10,1');
         Route::get('google', [GoogleAuthController::class, 'redirect']);
         Route::get('google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:10,1');
@@ -76,6 +77,7 @@ Route::prefix('v1')->group(function () {
             Route::post('logout', [AuthController::class, 'logout'])->middleware('throttle:60,1');
             Route::get('me', [AuthController::class, 'me'])->middleware('throttle:60,1');
             Route::put('profile', [AuthController::class, 'updateProfile'])->middleware('throttle:30,1');
+            Route::post('google/complete-registration', [AuthController::class, 'completeGoogleRegistration'])->middleware('throttle:10,1');
             Route::put('password', [AuthController::class, 'updatePassword'])->middleware('throttle:10,1');
             // Change password via email OTP (no current password needed).
             Route::post('password/otp', [AuthController::class, 'sendPasswordChangeOtp'])->middleware('throttle:3,1');

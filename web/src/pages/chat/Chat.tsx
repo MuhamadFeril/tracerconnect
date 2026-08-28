@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
 import {
@@ -18,11 +18,11 @@ import {
   X,
 } from 'lucide-react'
 import { api, apiError, unwrapPage } from '../../lib/api'
+import { useQueryClient } from '@tanstack/react-query'
 import { avatarUrl, initials } from '../../lib/format'
 import { sanitizeForDisplay, sanitizeUrl, sanitizeFileName } from '../../lib/sanitize'
 import {
   useConversation,
-  useConversationMessages,
   useConversations,
   useDeleteChatMessage,
   useMarkConversationRead,
@@ -169,7 +169,7 @@ function ConversationList({
 /* Chat window                                                         */
 /* ------------------------------------------------------------------ */
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry?: (message: ChatMessage) => void }) {
   const deleteMessage = useDeleteChatMessage()
   const toast = useToast()
   const [confirming, setConfirming] = useState(false)
@@ -224,8 +224,17 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             <p className="whitespace-pre-wrap break-words">{sanitizeForDisplay(message.body)}</p>
           )}
         </div>
-        <p className={clsx('mt-1 text-[10px] text-slate-400', message.is_mine ? 'text-right' : 'text-left')}>
-          {formatTime(message.created_at)}
+        <p className={clsx('mt-1 flex items-center gap-1 text-[10px] text-slate-400', message.is_mine ? 'justify-end text-right' : 'text-left')}>
+          {message.status === 'sending' && <span className="size-3 animate-spin rounded-full border border-slate-300 border-t-slate-500" />}
+          {message.status === 'failed' && (
+            <button
+              onClick={() => onRetry?.(message)}
+              className="inline-flex items-center gap-1 font-medium text-rose-500 hover:underline"
+            >
+              <span className="size-3">⚠</span> Gagal · Coba lagi
+            </button>
+          )}
+          {message.status !== 'sending' && message.status !== 'failed' && formatTime(message.created_at)}
         </p>
 
         {message.is_mine && !message.is_deleted && (
@@ -264,14 +273,19 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 function ChatWindow({ conversationId, onBack }: { conversationId: string; onBack: () => void }) {
   const toast = useToast()
   const conversationQuery = useConversation(conversationId)
-  const page1 = useConversationMessages(conversationId, 1)
   const sendMessage = useSendMessage()
   const markRead = useMarkConversationRead()
   const toggleMute = useToggleConversationMute()
   const reportConversation = useReportConversation()
+  const queryClient = useQueryClient()
 
-  const [older, setOlder] = useState<ChatMessage[]>([])
-  const [olderPage, setOlderPage] = useState(1)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [oldestCursor, setOldestCursor] = useState<string | null>(null)
+  const [newestCursor, setNewestCursor] = useState<string | null>(null)
+  const [hasMoreOlder, setHasMoreOlder] = useState(true)
+  const [loadingInitial, setLoadingInitial] = useState(true)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [initialError, setInitialError] = useState(false)
   const [text, setText] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -279,64 +293,186 @@ function ChatWindow({ conversationId, onBack }: { conversationId: string; onBack
   const [reportReason, setReportReason] = useState('')
   const [sending, setSending] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const atBottomRef = useRef(true)
 
   const conversation = conversationQuery.data
-  const newest = useMemo(() => page1.data?.data ?? [], [page1.data?.data])
-  // Newest-first from the API → oldest-first for rendering.
-  const messages = useMemo(() => [...older, ...[...newest].reverse()], [older, newest])
 
-  // Mark the conversation as read when it is opened.
+  // Dedupe by id, preserving order.
+  const merge = (prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] => {
+    const seen = new Set(prev.map((m) => m.id))
+    const out = [...prev]
+    for (const m of incoming) {
+      if (!seen.has(m.id)) {
+        seen.add(m.id)
+        out.push(m)
+      }
+    }
+    return out
+  }
+
+  // Fetch a page of messages with a small retry. The chat screen fires several
+  // /conversations* requests at once; the client rate limiter shares one key
+  // for all of them, so a co-fired request can be rejected. A brief retry
+  // (the behavior React Query gave us for free before) avoids surfacing that
+  // as a hard "load failed".
+  const loadMessages = async (params?: { before?: string | null; after?: string | null }) => {
+    let lastErr: unknown
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await unwrapPage<ChatMessage>(
+          api.get(`/conversations/${conversationId}/messages`, { params }),
+        )
+      } catch (err) {
+        lastErr = err
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 600))
+      }
+    }
+    throw lastErr
+  }
+
+  const scrollToBottom = (force = false) => {
+    const el = scrollRef.current
+    if (!el) return
+    if (!force && !atBottomRef.current) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }
+
+  // Track whether the user is near the bottom (so we auto-scroll on new msgs).
   useEffect(() => {
-    if (conversationId) {
-      markRead.mutate(conversationId)
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    }
+    el.addEventListener('scroll', onScroll)
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Initial load (newest-first from API → chronological for rendering).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoadingInitial(true)
+      setInitialError(false)
+      setMessages([])
+      setNewestCursor(null)
+      setOldestCursor(null)
+      try {
+        const page = await loadMessages()
+        if (cancelled) return
+        setMessages([...page.data].reverse())
+        setOldestCursor(page.meta?.oldest_cursor ?? null)
+        setNewestCursor(page.meta?.newest_cursor ?? null)
+        setHasMoreOlder(Boolean(page.meta?.has_more_older))
+        markRead.mutate(conversationId)
+      } catch {
+        if (!cancelled) {
+          setInitialError(true)
+        }
+      } finally {
+        if (!cancelled) setLoadingInitial(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId])
 
-  // Auto-scroll to the newest message.
+  // Lightweight delta polling — only fetches messages newer than the cursor,
+  // so each tick is tiny (and free when nothing new arrived). This is the
+  // shared-hosting-friendly stand-in for WebSocket realtime.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+    if (!newestCursor) return
+    const timer = window.setInterval(async () => {
+      try {
+        const page = await loadMessages({ after: newestCursor })
+        if (page.data.length === 0) return
+        setMessages((prev) => merge(prev, page.data))
+        setNewestCursor(page.meta?.newest_cursor ?? newestCursor)
+        if (page.data.some((m) => !m.is_mine)) {
+          markRead.mutate(conversationId)
+        }
+      } catch {
+        // transient — keep last known messages
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, newestCursor])
 
   const loadOlder = async () => {
-    const next = olderPage + 1
+    if (loadingOlder || !hasMoreOlder || !oldestCursor) return
+    setLoadingOlder(true)
     try {
-      const res = await unwrapPage<ChatMessage>(api.get(`/conversations/${conversationId}/messages`, { params: { page: next } }))
-      setOlder((prev) => [...[...res.data].reverse(), ...prev])
-      setOlderPage(next)
+      const page = await loadMessages({ before: oldestCursor })
+      setMessages((prev) => merge([...page.data].reverse(), prev))
+      setOldestCursor(page.meta?.oldest_cursor ?? oldestCursor)
+      setHasMoreOlder(Boolean(page.meta?.has_more_older))
     } catch {
-      // Older messages failed to load — keep what we have.
+      // keep what we have
+    } finally {
+      setLoadingOlder(false)
     }
   }
 
-  const canLoadOlder = (page1.data?.meta?.current_page ?? 1) < (page1.data?.meta?.last_page ?? 1) || olderPage < (page1.data?.meta?.last_page ?? 1)
+  const doSend = async (bodyText: string, file: File | null) => {
+    const body = bodyText.trim()
+    if ((!body && !file) || sending) return
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    const body = text.trim()
-    if ((!body && !attachment) || sending) return
+    const tempId = `opt_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    const type = file ? (file.type.startsWith('image/') ? 'image' : 'file') : 'text'
+    const optimistic: ChatMessage = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: null,
+      type,
+      body: body || null,
+      attachment: file ? { name: file.name, mime: file.type, size: file.size, url: '' } : null,
+      is_deleted: false,
+      is_mine: true,
+      created_at: new Date().toISOString(),
+      status: 'sending',
+    }
 
+    setText('')
+    setAttachment(null)
+    setMessages((prev) => merge(prev, [optimistic]))
+    scrollToBottom(true)
     setSending(true)
     try {
-      const type = attachment ? (attachment.type.startsWith('image/') ? 'image' : 'file') : 'text'
-      await sendMessage.mutateAsync({
+      const real = await sendMessage.mutateAsync({
         conversationId,
         type,
         body: body || undefined,
-        attachment: attachment ?? undefined,
+        attachment: file ?? undefined,
       })
-      setText('')
-      setAttachment(null)
-      // Clear local pagination so the newest page includes the sent message.
-      setOlder([])
-      setOlderPage(1)
-      markRead.mutate(conversationId)
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? real : m)))
+      setNewestCursor(real.id)
+      // Reflect the new last message in the conversation list without a full refetch.
+      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
     } catch (err) {
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
       toast(apiError(err), 'error')
     } finally {
       setSending(false)
     }
+  }
+
+  // Retry a failed message (text only — the original file is no longer held).
+  const retryMessage = (msg: ChatMessage) => {
+    setMessages((prev) => prev.filter((m) => m.id !== msg.id))
+    if (msg.type === 'text') {
+      void doSend(msg.body ?? '', null)
+    } else {
+      toast('Tidak dapat mengirim ulang lampiran', 'error')
+    }
+  }
+
+  const handleSend = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    void doSend(text, attachment)
   }
 
   const handleToggleMute = async () => {
@@ -361,6 +497,12 @@ function ChatWindow({ conversationId, onBack }: { conversationId: string; onBack
       toast(apiError(err), 'error')
     }
   }
+
+  // Auto-scroll to the newest message when the list grows (or on first load).
+  useEffect(() => {
+    scrollToBottom()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, loadingInitial])
 
   if (!conversation) {
     return (
@@ -421,24 +563,34 @@ function ChatWindow({ conversationId, onBack }: { conversationId: string; onBack
       </div>
 
       {/* Messages */}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/60 px-4 py-4">
-        {canLoadOlder && (
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/60 px-4 py-4">
+        {loadingOlder && (
+          <div className="flex justify-center py-2">
+            <span className="size-4 animate-spin rounded-full border border-slate-300 border-t-indigo-500" />
+          </div>
+        )}
+        {hasMoreOlder && !loadingInitial && (
           <div className="flex justify-center">
             <button
               onClick={loadOlder}
-              disabled={page1.isFetching}
-              className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+              disabled={loadingOlder}
+              className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-60"
             >
               Muat pesan lama
             </button>
           </div>
         )}
-        {messages.length === 0 && !page1.isPending ? (
+        {loadingInitial ? (
+          <LoadingState label="Memuat pesan…" />
+        ) : initialError ? (
+          <EmptyState title="Gagal memuat pesan" description="Coba beberapa saat lagi." />
+        ) : messages.length === 0 ? (
           <EmptyState title="Belum ada pesan" description="Kirim sapaan pertama Anda." />
         ) : (
-          messages.map((message) => <MessageBubble key={message.id} message={message} />)
+          messages.map((message) => (
+            <MessageBubble key={message.id} message={message} onRetry={retryMessage} />
+          ))
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Composer */}

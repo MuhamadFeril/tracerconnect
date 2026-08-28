@@ -28,6 +28,7 @@ class ChatMessage {
   final bool isDeleted;
   final bool isMine;
   final String? createdAt;
+  final String? status; // sending | sent | failed
 
   const ChatMessage({
     required this.id,
@@ -39,6 +40,7 @@ class ChatMessage {
     required this.isDeleted,
     required this.isMine,
     this.createdAt,
+    this.status,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,33 @@ class ChatMessage {
       isDeleted: json['is_deleted'] as bool? ?? false,
       isMine: json['is_mine'] as bool? ?? false,
       createdAt: json['created_at'] as String?,
+      status: json['status'] as String?,
+    );
+  }
+
+  ChatMessage copyWith({
+    String? id,
+    String? conversationId,
+    String? senderId,
+    String? type,
+    String? body,
+    ChatAttachment? attachment,
+    bool? isDeleted,
+    bool? isMine,
+    String? createdAt,
+    String? status,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      conversationId: conversationId ?? this.conversationId,
+      senderId: senderId ?? this.senderId,
+      type: type ?? this.type,
+      body: body ?? this.body,
+      attachment: attachment ?? this.attachment,
+      isDeleted: isDeleted ?? this.isDeleted,
+      isMine: isMine ?? this.isMine,
+      createdAt: createdAt ?? this.createdAt,
+      status: status ?? this.status,
     );
   }
 }

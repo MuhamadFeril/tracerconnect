@@ -31,23 +31,21 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   File? _pendingImage;
   File? _pendingFile;
   String? _pendingFileName;
-  List<ChatMessage> _older = [];
-  List<ChatMessage> _optimisticMessages = [];
-  int _olderPage = 1;
-  bool _loadingOlder = false;
-  bool _sending = false; // prevent double-send
-
-  String get _conversationId => widget.conversationId;
+  bool _atBottom = true;
 
   /// Cached decrypted messages: id → decrypted body.
   final Map<String, String> _decryptedCache = {};
 
+  String get _conversationId => widget.conversationId;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(chatRepositoryProvider).markRead(_conversationId);
-      _scrollToBottom();
+    _scrollController.addListener(() {
+      if (_scrollController.hasClients) {
+        _atBottom = _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 120;
+      }
     });
   }
 
@@ -59,61 +57,31 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    });
-  }
-
-  Future<void> _loadOlder() async {
-    if (_loadingOlder) return;
-    final next = _olderPage + 1;
-    final repo = ref.read(chatRepositoryProvider);
-    _loadingOlder = true;
-    try {
-      final page = await repo.messages(_conversationId, page: next);
-      if (!mounted) return;
-
-      // Decrypt older messages for backward compatibility.
-      for (final msg in page.items) {
-        await _decryptIfNeeded(msg);
-      }
-
-      setState(() {
-        _older = [...page.items.reversed, ..._older];
-        _olderPage = next;
-      });
-    } catch (_) {} finally {
-      _loadingOlder = false;
-    }
+  void _maybeScrollToBottom({bool force = false}) {
+    if (!_scrollController.hasClients) return;
+    if (!force && !_atBottom) return;
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   /// Decrypt message body if it was encrypted with the old E2E system.
-  /// New messages are sent as plaintext, but old messages in the DB may
-  /// still be encrypted — we decrypt them on the fly for display.
+  /// Plaintext messages (the common case) return immediately with no network.
   Future<void> _decryptIfNeeded(ChatMessage msg) async {
-    if (msg.body != null && msg.body!.isNotEmpty) {
-      final repo = ref.read(chatRepositoryProvider);
-      final decrypted = await repo.decryptBody(msg.body, _conversationId);
-      if (decrypted != null && decrypted != msg.body) {
-        _decryptedCache[msg.id] = decrypted;
-      }
+    if (_decryptedCache.containsKey(msg.id)) return;
+    if (msg.body == null || !ChatEncryption.isEncrypted(msg.body!)) return;
+    final repo = ref.read(chatRepositoryProvider);
+    final decrypted = await repo.decryptBody(msg.body, _conversationId);
+    if (decrypted != null && decrypted != msg.body) {
+      _decryptedCache[msg.id] = decrypted;
     }
   }
 
   String _getBody(ChatMessage msg) {
-    if (_decryptedCache.containsKey(msg.id)) {
-      return _decryptedCache[msg.id]!;
-    }
+    if (_decryptedCache.containsKey(msg.id)) return _decryptedCache[msg.id]!;
     final body = msg.body ?? '';
-    // If still encrypted after decryption attempt, show placeholder
-    // instead of raw ciphertext.
     if (body.isNotEmpty && ChatEncryption.isEncrypted(body)) {
       return '\u{1F512} Pesan terenkripsi';
     }
@@ -122,93 +90,31 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
 
   Future<void> _send() async {
     final body = _messageController.text.trim();
-    if ((body.isEmpty && _pendingImage == null && _pendingFile == null) || _sending) return;
-    _sending = true;
+    if (body.isEmpty && _pendingImage == null && _pendingFile == null) return;
 
-    // Determine type and build optimistic message immediately.
-    final String type;
-    final String? attachmentName;
-    if (_pendingImage != null) {
-      type = 'image';
-      attachmentName = null;
-    } else if (_pendingFile != null) {
-      type = 'file';
-      attachmentName = _pendingFileName;
-    } else {
-      type = 'text';
-      attachmentName = null;
-    }
-
-    // Create optimistic message to display instantly.
-    final optimistic = ChatMessage(
-      id: 'opt_${DateTime.now().millisecondsSinceEpoch}',
-      conversationId: _conversationId,
-      senderId: null,
-      type: type,
-      body: body.isEmpty ? null : body,
-      attachment: attachmentName != null
-          ? ChatAttachment(name: attachmentName, mime: '', size: 0, url: '')
-          : null,
-      isDeleted: false,
-      isMine: true,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-
-    // Clear input and show optimistic message instantly.
     final savedImage = _pendingImage;
     final savedFile = _pendingFile;
+    final savedName = _pendingFileName;
+    final type = savedImage != null
+        ? 'image'
+        : (savedFile != null ? 'file' : 'text');
+
     setState(() {
       _messageController.clear();
       _pendingImage = null;
       _pendingFile = null;
       _pendingFileName = null;
-      _optimisticMessages = [..._optimisticMessages, optimistic];
     });
-    _scrollToBottom();
 
-    // Send to server in background.
-    try {
-      final repo = ref.read(chatRepositoryProvider);
-      if (savedImage != null) {
-        await repo.sendMessage(
-          _conversationId,
-          type: 'image',
-          body: body.isEmpty ? null : body,
-          attachment: savedImage,
-        );
-      } else if (savedFile != null) {
-        await repo.sendMessage(
-          _conversationId,
-          type: 'file',
-          body: body.isEmpty ? null : body,
-          attachment: savedFile,
-        );
-      } else {
-        await repo.sendMessage(_conversationId, type: 'text', body: body);
-      }
-      if (!mounted) return;
-      // Replace optimistic with real message.
-      setState(() {
-        _optimisticMessages = _optimisticMessages
-            .where((m) => m.id != optimistic.id)
-            .toList();
-      });
-      ref.invalidate(conversationsProvider);
-      _scrollToBottom();
-    } catch (e) {
-      if (!mounted) return;
-      // Remove the optimistic message on failure.
-      setState(() {
-        _optimisticMessages = _optimisticMessages
-            .where((m) => m.id != optimistic.id)
-            .toList();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengirim pesan: ${e.toString().replaceAll('Exception: ', '')}')),
-      );
-    } finally {
-      _sending = false;
-    }
+    final notifier =
+        ref.read(chatMessagesNotifierProvider(_conversationId).notifier);
+    await notifier.send(
+      _conversationId,
+      type: type,
+      body: body.isEmpty ? null : body,
+      attachment: savedImage ?? savedFile,
+      attachmentName: savedName,
+    );
   }
 
   Future<void> _pickImage() async {
@@ -218,8 +124,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
       maxWidth: 1600,
       imageQuality: 85,
     );
-    if (file == null) return;
-    if (!mounted) return;
+    if (file == null || !mounted) return;
     setState(() {
       _pendingImage = File(file.path);
       _pendingFile = null;
@@ -232,8 +137,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'],
     );
-    if (result == null || result.files.single.path == null) return;
-    if (!mounted) return;
+    if (result == null || result.files.single.path == null || !mounted) return;
     setState(() {
       _pendingFile = File(result.files.single.path!);
       _pendingFileName = result.files.single.name;
@@ -248,8 +152,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
       maxWidth: 1600,
       imageQuality: 85,
     );
-    if (file == null) return;
-    if (!mounted) return;
+    if (file == null || !mounted) return;
     setState(() => _pendingImage = File(file.path));
   }
 
@@ -276,9 +179,9 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(chatRepositoryProvider).deleteMessage(message.id);
-      ref.invalidate(conversationMessagesStreamProvider(
-        (conversationId: _conversationId, page: 1),
-      ));
+      ref
+          .read(chatMessagesNotifierProvider(_conversationId).notifier)
+          .markDeleted(message.id);
       ref.invalidate(conversationsProvider);
     } catch (_) {
       if (!mounted) return;
@@ -291,35 +194,46 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   @override
   Widget build(BuildContext context) {
     final conversation = ref.watch(conversationProvider(_conversationId));
-    final page1 = ref.watch(conversationMessagesStreamProvider(
-      (conversationId: _conversationId, page: 1),
-    ));
+    final msgs = ref.watch(chatMessagesNotifierProvider(_conversationId));
+    final notifier =
+        ref.read(chatMessagesNotifierProvider(_conversationId).notifier);
+
+    // Auto-scroll ke bawah saat ada pesan baru (kirim / polling), asal user
+    // sedang di bawah atau ini pemuatan pertama.
+    ref.listen(chatMessagesNotifierProvider(_conversationId), (prev, next) {
+      final had = prev?.messages.length ?? 0;
+      final now = next.messages.length;
+      if (now > had || prev == null && now > 0) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _maybeScrollToBottom(force: prev == null),
+        );
+      }
+    });
+
+    final messages = msgs.messages;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFECE5DD), // WhatsApp-style warm background
+      backgroundColor: const Color(0xFFECE5DD),
       appBar: _buildAppBar(conversation),
       body: Column(
         children: [
           Expanded(
-            child: page1.when(
-              loading: () => const LoadingView(label: 'Memuat pesan…'),
-              error: (e, _) => Center(
-                child: Text(
-                  'Gagal memuat pesan.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              data: (page) {
-                // Decrypt old E2E-encrypted messages for backward compat.
-                for (final msg in page.items) {
-                  unawaited(_decryptIfNeeded(msg));
+            child: Builder(
+              builder: (context) {
+                if (msgs.loadingInitial && messages.isEmpty) {
+                  return const LoadingView(label: 'Memuat pesan…');
                 }
-                final newest = page.items.reversed.toList();
-                final messages = [..._older, ...newest, ..._optimisticMessages];
-
+                if (msgs.initialError && messages.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Gagal memuat pesan.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                  );
+                }
                 if (messages.isEmpty) {
                   return Center(
                     child: Container(
@@ -362,41 +276,62 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                   itemCount: messages.length + 1,
                   itemBuilder: (context, index) {
+                    // Header (atas): indikator / tombol "muat pesan lama".
                     if (index == 0) {
-                      if (!page.hasMore && _olderPage == 1) {
-                        return const SizedBox.shrink();
+                      if (msgs.loadingOlder) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
                       }
-                      return Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            borderRadius: BorderRadius.circular(8),
+                      if (msgs.hasMoreOlder) {
+                        return Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: TextButton(
+                              onPressed: () => notifier.loadOlder(_conversationId),
+                              child: const Text('Muat pesan lama',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
                           ),
-                          child: TextButton(
-                            onPressed: _loadOlder,
-                            child: const Text('Muat pesan lama',
-                                style: TextStyle(fontSize: 12)),
-                          ),
-                        ),
-                      );
+                        );
+                      }
+                      return const SizedBox.shrink();
                     }
-                    final message = messages[index - 1];
 
-                    // Show date separator
-                    final showDate = index == 1 ||
+                    final message = messages[index - 1];
+                    if (message.body != null &&
+                        ChatEncryption.isEncrypted(message.body!)) {
+                      unawaited(_decryptIfNeeded(message));
+                    }
+
+                    final showDate = index - 1 == 0 ||
                         _isNewDay(messages[index - 2], message);
 
                     return Column(
                       children: [
-                        if (showDate) _DateSeparator(date: message.createdAt),                          _MessageBubble(
+                        if (showDate) _DateSeparator(date: message.createdAt),
+                        _MessageBubble(
                           message: message,
                           displayBody: _getBody(message),
                           isOptimistic: message.id.startsWith('opt_'),
                           onDelete: message.isMine && !message.id.startsWith('opt_')
                               ? () => _deleteMessage(message)
+                              : null,
+                          onRetry: message.status == 'failed'
+                              ? () => notifier.retry(_conversationId, message.id)
                               : null,
                         ),
                       ],
@@ -474,7 +409,10 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => setState(() { _pendingFile = null; _pendingFileName = null; }),
+                    onPressed: () => setState(() {
+                      _pendingFile = null;
+                      _pendingFileName = null;
+                    }),
                     icon: const Icon(Icons.close_rounded, size: 18),
                     color: AppColors.textMuted,
                   ),
@@ -484,7 +422,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
           _Composer(
             controller: _messageController,
             focusNode: _focusNode,
-            sending: _sending,
             onSend: _send,
             onCamera: _pickCamera,
             onGallery: _pickImage,
@@ -676,12 +613,14 @@ class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final String displayBody;
   final VoidCallback? onDelete;
+  final VoidCallback? onRetry;
   final bool isOptimistic;
 
   const _MessageBubble({
     required this.message,
     required this.displayBody,
     this.onDelete,
+    this.onRetry,
     this.isOptimistic = false,
   });
 
@@ -691,9 +630,8 @@ class _MessageBubble extends StatelessWidget {
     final time = _formatTime(message.createdAt);
 
     return GestureDetector(
-      onLongPress: onDelete != null
-          ? () => _showOptions(context)
-          : null,
+      onLongPress: onDelete != null ? () => _showOptions(context) : null,
+      onTap: onRetry,
       child: Align(
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
@@ -726,7 +664,6 @@ class _MessageBubble extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Content
               if (message.isDeleted)
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -768,12 +705,11 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
 
-              // Time + read receipt
               const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isOptimistic)
+                  if (isOptimistic || message.status == 'sending')
                     const SizedBox(
                       width: 14,
                       height: 14,
@@ -781,6 +717,12 @@ class _MessageBubble extends StatelessWidget {
                         strokeWidth: 1.5,
                         color: Colors.white70,
                       ),
+                    )
+                  else if (message.status == 'failed')
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 16,
+                      color: Colors.red.shade300,
                     )
                   else if (mine) ...[
                     Icon(
@@ -805,6 +747,17 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ],
               ),
+              if (message.status == 'failed')
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Gagal · Ketuk untuk coba lagi',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: Colors.red.shade300,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -994,7 +947,6 @@ class _FileContent extends StatelessWidget {
 class _Composer extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool sending;
   final VoidCallback onSend;
   final VoidCallback onCamera;
   final VoidCallback onGallery;
@@ -1003,7 +955,6 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.focusNode,
-    required this.sending,
     required this.onSend,
     required this.onCamera,
     required this.onGallery,
@@ -1020,14 +971,12 @@ class _Composer extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Attachment button
             IconButton(
               onPressed: () => _showAttachmentSheet(context),
               icon: const Icon(Icons.add_circle_outline_rounded),
               color: AppColors.primary,
               iconSize: 26,
             ),
-            // Text field
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(minHeight: 42),
@@ -1054,7 +1003,6 @@ class _Composer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            // Send button
             IconButton(
               onPressed: onSend,
               icon: const Icon(Icons.send_rounded),

@@ -90,8 +90,8 @@ class AuthTest extends TestCase
 
         $this->putJson('/api/v1/auth/password', [
             'current_password' => 'password',
-            'password' => 'newpassword123',
-            'password_confirmation' => 'newpassword123',
+            'password' => 'NewPassword@123',
+            'password_confirmation' => 'NewPassword@123',
         ])->assertStatus(401);
     }
 
@@ -161,8 +161,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/reset-password', [
             'email' => 'superadmin@tracerconnect.test',
             'otp' => $otp,
-            'password' => 'barupassword1',
-            'password_confirmation' => 'barupassword1',
+            'password' => 'BaruPass@1',
+            'password_confirmation' => 'BaruPass@1',
         ])->assertOk()->assertJsonPath('success', true);
 
         // Old password no longer works.
@@ -173,7 +173,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/v1/auth/login', [
             'email' => 'superadmin@tracerconnect.test',
-            'password' => 'barupassword1',
+            'password' => 'BaruPass@1',
         ])->assertOk();
     }
 
@@ -199,8 +199,8 @@ class AuthTest extends TestCase
         $token = $this->registerAndVerify([
             'name' => 'Alumni Update',
             'email' => 'alumni.update@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '1234567890',
             'nisn' => '0987654321',
@@ -242,8 +242,8 @@ class AuthTest extends TestCase
         $token = $this->registerAndVerify([
             'name' => 'Alumni Kosong',
             'email' => 'alumni.kosong@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '1234567890',
             'socials' => [['platform' => 'facebook', 'url' => 'https://facebook.com/x']],
@@ -271,8 +271,8 @@ class AuthTest extends TestCase
         $token = $this->registerAndVerify([
             'name' => 'Alumni Biodata',
             'email' => 'alumni.biodata@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
         ]);
 
@@ -315,8 +315,8 @@ class AuthTest extends TestCase
         $token = $this->registerAndVerify([
             'name' => 'Alumni Bersih',
             'email' => 'alumni.bersih@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'phone' => '081234567890',
             'address' => 'Jl. Lama No. 1',
@@ -426,14 +426,14 @@ class AuthTest extends TestCase
 
         $this->withToken($token)->putJson('/api/v1/auth/password', [
             'current_password' => 'password',
-            'password' => 'newpassword123',
-            'password_confirmation' => 'newpassword123',
+            'password' => 'NewPassword@123',
+            'password_confirmation' => 'NewPassword@123',
         ])->assertOk()->assertJsonPath('success', true);
 
         // The new password works on the next login.
         $this->postJson('/api/v1/auth/login', [
             'email' => $user->email,
-            'password' => 'newpassword123',
+            'password' => 'NewPassword@123',
         ])->assertOk();
     }
 
@@ -444,8 +444,8 @@ class AuthTest extends TestCase
 
         $this->withToken($token)->putJson('/api/v1/auth/password', [
             'current_password' => 'wrong-password',
-            'password' => 'newpassword123',
-            'password_confirmation' => 'newpassword123',
+            'password' => 'NewPassword@123',
+            'password_confirmation' => 'NewPassword@123',
         ])->assertStatus(422)->assertJsonPath('success', false);
     }
 
@@ -457,8 +457,8 @@ class AuthTest extends TestCase
 
         $this->withToken($currentToken)->putJson('/api/v1/auth/password', [
             'current_password' => 'password',
-            'password' => 'newpassword123',
-            'password_confirmation' => 'newpassword123',
+            'password' => 'NewPassword@123',
+            'password_confirmation' => 'NewPassword@123',
         ])->assertOk();
 
         $this->withToken($otherToken)->getJson('/api/v1/auth/me')->assertStatus(401);
@@ -480,8 +480,8 @@ class AuthTest extends TestCase
 
         $this->withToken($token)->putJson('/api/v1/auth/password/otp', [
             'otp' => $otp,
-            'password' => 'otpnewpassword1',
-            'password_confirmation' => 'otpnewpassword1',
+            'password' => 'OtpNewPass@1',
+            'password_confirmation' => 'OtpNewPass@1',
         ])->assertOk()->assertJsonPath('success', true);
 
         // Old password no longer works; the new one does.
@@ -492,7 +492,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/v1/auth/login', [
             'email' => $user->email,
-            'password' => 'otpnewpassword1',
+            'password' => 'OtpNewPass@1',
         ])->assertOk();
     }
 
@@ -503,8 +503,8 @@ class AuthTest extends TestCase
 
         $this->withToken($token)->putJson('/api/v1/auth/password/otp', [
             'otp' => '000000',
-            'password' => 'otpnewpassword1',
-            'password_confirmation' => 'otpnewpassword1',
+            'password' => 'OtpNewPass@1',
+            'password_confirmation' => 'OtpNewPass@1',
         ])->assertStatus(422)->assertJsonPath('success', false);
 
         // Password stays unchanged.
@@ -526,8 +526,8 @@ class AuthTest extends TestCase
 
         $this->withToken($currentToken)->putJson('/api/v1/auth/password/otp', [
             'otp' => $otp,
-            'password' => 'otpnewpassword1',
-            'password_confirmation' => 'otpnewpassword1',
+            'password' => 'OtpNewPass@1',
+            'password_confirmation' => 'OtpNewPass@1',
         ])->assertOk();
 
         $this->withToken($otherToken)->getJson('/api/v1/auth/me')->assertStatus(401);
@@ -540,8 +540,8 @@ class AuthTest extends TestCase
 
         $this->putJson('/api/v1/auth/password/otp', [
             'otp' => '123456',
-            'password' => 'newpassword123',
-            'password_confirmation' => 'newpassword123',
+            'password' => 'NewPassword@123',
+            'password_confirmation' => 'NewPassword@123',
         ])->assertStatus(401);
     }
 
@@ -569,8 +569,8 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/v1/auth/register', [
             'name' => 'Alumni Baru',
             'email' => 'alumni.baru@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
         ]);
 
         $response->assertStatus(201)
@@ -596,8 +596,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Duplikat',
             'email' => 'superadmin@tracerconnect.test',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
         ])->assertStatus(201)->assertJsonPath('success', true);
     }
 
@@ -621,8 +621,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Alumni Link',
             'email' => 'alumni.link@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
         ])->assertStatus(201);
 
         $user = User::where('email', 'alumni.link@example.com')->firstOrFail();
@@ -642,8 +642,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Alumni NIS',
             'email' => 'alumni.nis@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $alumni->institution_id,
             'nis' => '1234567890',
         ])->assertStatus(201);
@@ -667,8 +667,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Pendaftar Lain',
             'email' => 'another@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '1234567890',
         ])->assertStatus(422)
@@ -684,8 +684,8 @@ class AuthTest extends TestCase
         $base = [
             'name' => 'Alumni Kuliah',
             'email' => 'kuliah.too-early@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => Institution::firstOrFail()->id,
             'entry_year' => 2018,
             'graduation_year' => 2021,
@@ -713,8 +713,8 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/v1/auth/register', [
             'name' => 'Alumni Token',
             'email' => 'alumni.token@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
         ])->assertStatus(201)
             ->assertJsonPath('data.requires_verification', true)
             ->assertJsonPath('data.email', 'alumni.token@example.com');
@@ -752,8 +752,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Resend Otp',
             'email' => 'resend.otp@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
         ])->assertStatus(201);
 
         $resend = $this->postJson('/api/v1/auth/resend-otp', [
@@ -1130,8 +1130,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Scoped Alumni',
             'email' => 'scoped.alumni@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
         ])->assertStatus(201);
 
@@ -1153,8 +1153,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Cross Tenant',
             'email' => 'cross.tenant@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $chosen->id,
         ])->assertStatus(201);
 
@@ -1168,8 +1168,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'X',
             'email' => 'x@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => '00000000-0000-0000-0000-000000000000',
         ])->assertStatus(422)->assertJsonPath('success', false);
     }
@@ -1181,8 +1181,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Alumni Wilayah',
             'email' => 'alumni.wilayah@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'birthplace' => 'Cileunyi',
             'birthplace_regency' => 'Kabupaten Bandung',
@@ -1205,8 +1205,8 @@ class AuthTest extends TestCase
         $token = $this->registerAndVerify([
             'name' => 'Alumni Profil',
             'email' => 'alumni.profil@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '1234567890',
             'birthplace' => 'Cileunyi',
@@ -1237,8 +1237,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Tahun Salah',
             'email' => 'tahun.salah@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'entry_year' => 2024,
             'graduation_year' => 2023,
@@ -1248,8 +1248,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Tahun Sama',
             'email' => 'tahun.sama@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'entry_year' => 2024,
             'graduation_year' => 2024,
@@ -1259,8 +1259,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Tahun Dua Tahun',
             'email' => 'tahun.dua.tahun@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'entry_year' => 2024,
             'graduation_year' => 2025,
@@ -1269,8 +1269,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Tahun Dua Tahun Kedua',
             'email' => 'tahun.dua.tahun2@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'entry_year' => 2024,
             'graduation_year' => 2026,
@@ -1280,8 +1280,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Tahun Benar',
             'email' => 'tahun.benar@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'entry_year' => 2023,
             'graduation_year' => 2026,
@@ -1296,8 +1296,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Nis Pendek',
             'email' => 'nis.pendek@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '123456789',
             'nisn' => '987654321',
@@ -1307,8 +1307,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Nis Panjang',
             'email' => 'nis.panjang@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '12345678901',
             'nisn' => '09876543210',
@@ -1318,8 +1318,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Nis Pas',
             'email' => 'nis.pas@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'nis' => '1234567890',
             'nisn' => '0987654321',
@@ -1334,8 +1334,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'NoHP Salah Prefix',
             'email' => 'nohp.prefix@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'phone' => '1234567890',
         ])->assertStatus(422)->assertJsonPath('success', false);
@@ -1344,8 +1344,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'NoHP Pendek',
             'email' => 'nohp.pendek@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'phone' => '081234567',
         ])->assertStatus(422)->assertJsonPath('success', false);
@@ -1354,8 +1354,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'NoHP Pas',
             'email' => 'nohp.pas@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'phone' => '08123456789',
         ])->assertStatus(201)->assertJsonPath('success', true);
@@ -1364,8 +1364,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'NoHP Internasional',
             'email' => 'nohp.internasional@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
             'institution_id' => $institution->id,
             'phone' => '+628123456789',
         ])->assertStatus(201)->assertJsonPath('success', true);
@@ -1379,7 +1379,8 @@ class AuthTest extends TestCase
      * cause "Token Google tidak valid atau kedaluwarsa" for mobile users.
      *
      * The test resets JWT::$leeway to 0, hits the endpoint, and asserts
-     * that it was bumped to 5 — the same value used by GoogleAuthController.
+     * that it was bumped to 60 — the same generous value used by
+     * GoogleAuthController to tolerate shared-hosting clock drift.
      */
     public function test_google_login_sets_jwt_leeway_for_clock_drift(): void
     {
@@ -1392,8 +1393,8 @@ class AuthTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.new_google_user', true);
 
-        // leeway must have been set to 5 by AuthController::googleLogin().
-        $this->assertSame(5, JWT::$leeway);
+        // leeway must have been set to 60 by AuthController::googleLogin().
+        $this->assertSame(60, JWT::$leeway);
     }
 
     /**

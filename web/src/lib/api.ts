@@ -68,7 +68,13 @@ api.interceptors.response.use(
       error.message = `Terlalu banyak percobaan. Silakan tunggu ${retryAfter} detik lalu coba lagi.`
     }
 
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    if (
+      error.response?.status === 401 &&
+      window.location.pathname !== '/login' &&
+      // Don't hijack the Google OAuth callback: let GoogleCallback show the
+      // real error and offer a retry instead of bouncing to /login.
+      window.location.pathname !== '/google/callback'
+    ) {
       clearSession()
       window.location.assign('/login')
     }

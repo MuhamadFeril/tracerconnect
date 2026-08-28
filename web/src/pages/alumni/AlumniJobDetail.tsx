@@ -60,7 +60,6 @@ export function AlumniJobDetail() {
 
   const [applyOpen, setApplyOpen] = useState(false)
   const [coverLetter, setCoverLetter] = useState('')
-  const [cvFile, setCvFile] = useState<File | null>(null)
   const [portfolioFile, setPortfolioFile] = useState<File | null>(null)
   const [cvData, setCvData] = useState<CvData>(defaultCvData)
   const [skillInput, setSkillInput] = useState('')
@@ -113,7 +112,6 @@ export function AlumniJobDetail() {
     try {
       await apply.mutateAsync({
         cover_letter: coverLetter.trim() || undefined,
-        cv: cvFile ?? undefined,
         portfolio: portfolioFile ?? undefined,
         cv_data: cvData,
       })
@@ -347,14 +345,9 @@ export function AlumniJobDetail() {
               placeholder="Ceritakan singkat mengapa Anda cocok untuk posisi ini…"
             />
           </Field>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Upload CV" hint="PDF/DOC/JPG/PNG maks 5 MB">
-              <Input type="file" name="cv" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={(e) => setCvFile(e.target.files?.[0] ?? null)} />
-            </Field>
-            <Field label="Portofolio" hint="PDF/DOC/JPG/PNG maks 5 MB">
-              <Input type="file" name="portfolio" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={(e) => setPortfolioFile(e.target.files?.[0] ?? null)} />
-            </Field>
-          </div>
+          <Field label="Portofolio" hint="PDF/DOC/JPG/PNG maks 5 MB">
+            <Input type="file" name="portfolio" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={(e) => setPortfolioFile(e.target.files?.[0] ?? null)} />
+          </Field>
         </form>
       </Modal>
     </div>

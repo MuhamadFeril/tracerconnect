@@ -2,15 +2,26 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/api_envelope.dart';
 import '../../models/chat.dart';
+import 'chat_messages_notifier.dart';
 import 'chat_repository.dart';
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) => ChatRepository());
 
-/// Daftar percakapan user.
-final conversationsProvider = FutureProvider<List<ChatConversation>>(
-  (ref) => ref.watch(chatRepositoryProvider).conversations(),
+/// Daftar percakapan user — tampilkan cache lokal instan, lalu perbarui dari
+/// server di background (satu emit cache, lalu satu emit data segar).
+/// Bila refresh gagal, cache tetap ditampilkan (tidak berpindah ke error).
+final conversationsProvider = StreamProvider<List<ChatConversation>>(
+  (ref) async* {
+    final repo = ref.watch(chatRepositoryProvider);
+    final cached = await repo.getCachedConversations();
+    if (cached != null && cached.isNotEmpty) yield cached; // instan
+    try {
+      yield await repo.conversations(); // segar (dan memperbarui cache)
+    } catch (_) {
+      if (cached == null || cached.isEmpty) yield <ChatConversation>[];
+    }
+  },
 );
 
 /// Detail satu percakapan.
@@ -18,39 +29,18 @@ final conversationProvider = FutureProvider.family<ChatConversation, String>(
   (ref, id) => ref.watch(chatRepositoryProvider).show(id),
 );
 
-/// Halaman pesan (1 = terbaru).
-final conversationMessagesProvider =
-    FutureProvider.family<Paged<ChatMessage>, ({String conversationId, int page})>(
-  (ref, query) => ref
-      .watch(chatRepositoryProvider)
-      .messages(query.conversationId, page: query.page),
+/// Pesan dalam satu percakapan — dikelola oleh [ChatMessagesNotifier]
+/// (cache-first, polling delta, optimistic send, load older).
+final chatMessagesNotifierProvider =
+    NotifierProvider.family<ChatMessagesNotifier, ChatMessagesState, String>(
+  ChatMessagesNotifier.new,
 );
 
-/// Streaming messages for a conversation — auto-refreshes every 1.5 seconds
-/// for real-time feel. Errors are swallowed so the UI retains the last
-/// known data and doesn't flash to error state.
-final conversationMessagesStreamProvider =
-    StreamProvider.family<Paged<ChatMessage>, ({String conversationId, int page})>(
-  (ref, query) async* {
-    final repo = ref.watch(chatRepositoryProvider);
-    // Initial fetch
-    yield await repo.messages(query.conversationId, page: query.page);
-    // Poll every 1.5 seconds for real-time feel
-    await for (final _ in Stream<void>.periodic(const Duration(milliseconds: 1500))) {
-      try {
-        yield await repo.messages(query.conversationId, page: query.page);
-      } catch (_) {
-        // Keep last known data on transient errors.
-      }
-    }
-  },
-);
-
-/// Jumlah pesan belum dibaca lintas percakapan — polling tiap 3 detik.
+/// Jumlah pesan belum dibaca lintas percakapan — polling tiap 5 detik.
 final chatUnreadCountProvider = StreamProvider<int>((ref) async* {
   final repo = ref.watch(chatRepositoryProvider);
   yield await repo.unreadCount();
-  await for (final _ in Stream<void>.periodic(const Duration(seconds: 3))) {
+  await for (final _ in Stream<void>.periodic(const Duration(seconds: 5))) {
     try {
       yield await repo.unreadCount();
     } catch (_) {

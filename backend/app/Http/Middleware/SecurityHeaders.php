@@ -43,7 +43,8 @@ class SecurityHeaders
      * Build the Content-Security-Policy header value.
      *
      * Production policy removes 'unsafe-eval' and tightens directives.
-     * Development keeps 'unsafe-eval' for React/Vite HMR.
+     * Development keeps 'unsafe-eval' for React/Vite HMR and allows
+     * localhost origins for cross-port API calls.
      */
     private function buildCsp(bool $isProduction): string
     {
@@ -53,6 +54,14 @@ class SecurityHeaders
         $scriptSrc = $isProduction
             ? "'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com"
             : "'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com";
+
+        // ── connect-src ──────────────────────────────────────────────
+        // Production: only self + Google OAuth endpoints
+        // Development: also allow localhost (any port) for cross-port API calls
+        // (frontend on :5173, backend on :8000)
+        $connectSrc = $isProduction
+            ? "'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com"
+            : "'self' http://localhost:* http://127.0.0.1:* https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com";
 
         $directives = [
             // Core
@@ -65,7 +74,7 @@ class SecurityHeaders
             "img-src 'self' data: https: blob:",
 
             // Network
-            "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com",
+            "connect-src {$connectSrc}",
 
             // Frames
             "frame-src https://accounts.google.com",

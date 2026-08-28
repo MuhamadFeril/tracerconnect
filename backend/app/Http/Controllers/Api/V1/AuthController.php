@@ -26,6 +26,7 @@ use App\Support\ApiResponse;
 use Firebase\JWT\JWT;
 use Google\Client as GoogleClient;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -44,11 +45,53 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request)
     {
-        if (User::withTrashed()->where('email', $request->email)->exists()) {
-            // Return generic success to prevent email enumeration.
+        $email = mb_strtolower($request->email);
+
+        // Check if an active (non-deleted) user already owns this email.
+        // Return a generic success to prevent email enumeration.
+        $existingUser = User::query()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->first();
+
+        if ($existingUser) {
             return ApiResponse::success([
                 'requires_verification' => true,
                 'email' => $request->email,
+            ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
+        }
+
+        // If a soft-deleted user with this email exists (deleted by superadmin),
+        // restore it and allow re-registration. This lets the user verify and
+        // re-activate their account.
+        $trashedUser = User::onlyTrashed()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->first();
+
+        if ($trashedUser) {
+            $trashedUser->restore();
+            $trashedUser->update([
+                'name' => $request->name,
+                'password' => $request->password,
+                'institution_id' => $request->institution_id,
+                'is_active' => true,
+                'email_verified_at' => null,
+            ]);
+            $trashedUser->syncRoles(['alumni']);
+
+            $this->linkOrCreateAlumni($request, $trashedUser->id);
+
+            AuditService::log('restore', 'user', $trashedUser->id, null, [
+                'email' => $trashedUser->email,
+                'name' => $trashedUser->name,
+                'restored_by' => 'self-registration',
+            ], $request, $trashedUser->id, $trashedUser->institution_id);
+
+            $code = OtpService::generate($trashedUser->email, 'register');
+            $trashedUser->notify(new SendOtp($code, 'register'));
+
+            return ApiResponse::success([
+                'requires_verification' => true,
+                'email' => $trashedUser->email,
             ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
         }
 
@@ -68,6 +111,21 @@ class AuthController extends Controller
 
                 return $user;
             });
+        } catch (QueryException $e) {
+            // Race condition: two concurrent requests both passed the
+            // duplicate check and tried to INSERT. The unique constraint
+            // on email catches the collision — return a generic success
+            // to the loser (same as the "already exists" branch above).
+            if ($e->errorInfo[1] ?? 0 === 1062) {
+                return ApiResponse::success([
+                    'requires_verification' => true,
+                    'email' => $request->email,
+                ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
+            }
+
+            Log::error('Pendaftaran gagal', ['email' => $request->email, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error('Registrasi gagal, silakan coba lagi', [], 500);
         } catch (ValidationException $e) {
             // A field-level conflict (e.g. NIS already claimed by another
             // account) must reach the client as a 422, not a generic 500.
@@ -80,6 +138,12 @@ class AuthController extends Controller
 
         // The account is created but NOT activated yet: an OTP is sent to the
         // email and the user must verify it before the account can log in.
+        AuditService::log('register', 'user', $user->id, null, [
+            'email' => $user->email,
+            'name' => $user->name,
+            'institution_id' => $request->institution_id,
+        ], $request, $user->id, $request->institution_id);
+
         $code = OtpService::generate($user->email, 'register');
         $user->notify(new SendOtp($code, 'register'));
 
@@ -345,10 +409,10 @@ class AuthController extends Controller
         }
 
         try {
-            // Allow up to 5 seconds of clock drift between server and Google.
-            // Matches GoogleAuthController::callback() — handles shared hosting
-            // environments where the server clock may be slightly ahead or behind.
-            JWT::$leeway = 5;
+            // Allow generous clock drift (60s) between server and Google. Shared
+            // hosting / container clocks are often off by more than a few seconds,
+            // which previously made valid Google tokens fail verification.
+            JWT::$leeway = 60;
 
             /** @var GoogleClient $client */
             $client = app(GoogleClient::class);
@@ -384,6 +448,16 @@ class AuthController extends Controller
             'new_google_user' => $isNew,
             'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
         ], 'Login berhasil');
+    }
+
+    /**
+     * Check whether Google OAuth login is configured and available.
+     */
+    public function googleStatus()
+    {
+        $enabled = (bool) config('services.google.client_id');
+
+        return ApiResponse::success(['enabled' => $enabled]);
     }
 
     /**
@@ -629,5 +703,157 @@ class AuthController extends Controller
         $user->tokens()->delete();
 
         return ApiResponse::success([], 'Password berhasil direset. Silakan login kembali.');
+    }
+
+    /**
+     * Complete the Google registration by saving biodata and triggering
+     * OTP verification. The user was already created via Google OAuth
+     * but needs to fill in their profile and verify their email.
+     */
+    public function completeGoogleRegistration(Request $request)
+    {
+        $user = $request->user();
+
+        $maxYear = (int) date('Y') + 10;
+
+        $validated = $request->validate([
+            'institution_id' => ['required', 'uuid', Rule::exists('institutions', 'id')->where('status', 'active')],
+            'name' => ['sometimes', 'string', 'max:255'],
+            'gender' => ['sometimes', 'string', Rule::in(['male', 'female'])],
+            'phone' => ['sometimes', 'string', 'regex:/^(08|\\+62)/', 'min:10', 'max:50'],
+            'nis' => ['sometimes', 'string', 'size:10'],
+            'nisn' => ['sometimes', 'string', 'size:10'],
+            'entry_year' => ['sometimes', 'integer', 'min:1990', "max:{$maxYear}"],
+            'graduation_year' => [
+                'sometimes', 'integer', 'min:1990', "max:{$maxYear}", 'gt:entry_year',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($this->filled('entry_year') && (int) $value - (int) $this->input('entry_year') < 3) {
+                        $fail('Tahun lulus minimal 3 tahun setelah tahun masuk.');
+                    }
+                },
+            ],
+            'birthplace' => ['sometimes', 'string', 'max:255'],
+            'birthplace_regency' => ['sometimes', 'string', 'max:255'],
+            'birthplace_province' => ['sometimes', 'string', 'max:255'],
+            'birth_date' => ['sometimes', 'date'],
+            'address' => ['sometimes', 'string', 'max:1000'],
+            'department' => ['sometimes', 'string', 'max:255'],
+            'socials' => ['sometimes', 'array', 'max:10'],
+            'socials.*.platform' => ['required_with:socials', 'string', 'max:50'],
+            'socials.*.url' => ['required_with:socials', 'string', 'max:500'],
+            'skills' => ['sometimes', 'array', 'max:20'],
+            'skills.*' => ['string', 'max:100'],
+            'employment_status' => ['sometimes', 'string', Rule::in([
+                'working', 'unemployed', 'entrepreneur', 'continuing_study', 'active_student',
+            ])],
+            'company_name' => ['sometimes', 'string', 'max:255'],
+            'position' => ['sometimes', 'string', 'max:255'],
+            'business_field' => ['sometimes', 'string', 'max:255'],
+            'business_start_year' => ['sometimes', 'integer', 'min:1990', "max:{$maxYear}"],
+            'work_province' => ['sometimes', 'string', 'max:255'],
+            'work_city' => ['sometimes', 'string', 'max:255'],
+            'study_institution' => ['sometimes', 'string', 'max:255'],
+            'study_program' => ['sometimes', 'string', 'max:255'],
+            'study_entry_year' => [
+                'sometimes', 'integer', 'min:1990', "max:{$maxYear}",
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($this->filled('graduation_year') && (int) $value < (int) $this->input('graduation_year') + 3) {
+                        $fail('Tahun masuk kuliah minimal 3 tahun setelah tahun lulus.');
+                    }
+                },
+            ],
+            'business_name' => ['sometimes', 'string', 'max:255'],
+            'business_address' => ['sometimes', 'string', 'max:255'],
+            'business_province' => ['sometimes', 'string', 'max:255'],
+            'business_city' => ['sometimes', 'string', 'max:255'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated, $user) {
+                // Update user's institution and name if provided.
+                $user->update(array_merge(
+                    ['institution_id' => $validated['institution_id']],
+                    ! empty($validated['name']) ? ['name' => $validated['name']] : []
+                ));
+
+                // Link or create alumni record with all profile data.
+                $this->linkOrCreateAlumniForGoogle($validated, $user);
+            });
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::error('Penyelesaian registrasi Google gagal', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ApiResponse::error('Gagal menyimpan biodata, silakan coba lagi', [], 500);
+        }
+
+        // Send OTP for email verification.
+        $code = OtpService::generate($user->email, 'register');
+        $user->notify(new SendOtp($code, 'register'));
+
+        return ApiResponse::success([
+            'requires_verification' => true,
+            'email' => $user->email,
+        ], 'Biodata berhasil disimpan. Silakan verifikasi kode OTP yang dikirim ke email Anda.');
+    }
+
+    /**
+     * Link an existing alumni record or create a new one for a Google user
+     * completing their registration.
+     */
+    private function linkOrCreateAlumniForGoogle(array $validated, User $user): void
+    {
+        $institutionId = $validated['institution_id'];
+        $email = mb_strtolower($user->email);
+
+        // Try to find an existing alumni record linked by email.
+        $alumni = Alumni::query()
+            ->whereRaw('lower(email) = ?', [$email])
+            ->where('institution_id', $institutionId)
+            ->first();
+
+        if ($alumni) {
+            // Link to user if not already linked, and update profile data.
+            if (! $alumni->user_id) {
+                $alumni->update(['user_id' => $user->id]);
+            }
+            $alumni->update($this->alumniProfileData($validated, $institutionId));
+
+            return;
+        }
+
+        // Check for NIS conflict before creating.
+        $nis = $validated['nis'] ?? null;
+        if ($nis !== null) {
+            $byNis = Alumni::query()
+                ->where('institution_id', $institutionId)
+                ->where('nis_nim', $nis)
+                ->first();
+
+            if ($byNis) {
+                if ($byNis->user_id && $byNis->user_id !== $user->id) {
+                    throw ValidationException::withMessages([
+                        'nis' => 'NIS sudah terdaftar pada akun lain.',
+                    ]);
+                }
+
+                $byNis->update(array_merge(
+                    ['user_id' => $user->id],
+                    $this->alumniProfileData($validated, $byNis->institution_id)
+                ));
+
+                return;
+            }
+        }
+
+        Alumni::create(array_merge([
+            'institution_id' => $institutionId,
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ], $this->alumniProfileData($validated, $institutionId)));
     }
 }

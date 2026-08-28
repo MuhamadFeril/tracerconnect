@@ -67,35 +67,43 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
  */
 export function LagLoader({ label = 'Menyambungkan ke server…' }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16">
-      {/* Jittering logo tile */}
-      <div className="relative size-14 animate-lag-jitter">
-        <div className="absolute inset-0 rounded-2xl bg-white shadow-lg shadow-indigo-600/30" />
+    <div className="flex flex-col items-center justify-center gap-4 py-12">
+      {/* Jittering graduation cap logo */}
+      <div className="relative size-16 animate-lag-jitter">
+        {/* Background tile with gradient */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 shadow-xl shadow-indigo-600/40" />
+        {/* Graduation cap icon */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="none" className="size-7 text-indigo-800" aria-hidden="true">
-            <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" fill="currentColor" />
+          <svg viewBox="0 0 24 24" fill="none" className="size-9" aria-hidden="true">
+            {/* Cap board (diamond) */}
+            <path d="M12 2L1 7.5L12 13L23 7.5L12 2Z" fill="white" opacity="0.95"/>
+            {/* Cap bottom band */}
+            <path d="M5 9.5V14.5C5 14.5 8 17.5 12 17.5C16 17.5 19 14.5 19 14.5V9.5L12 13.5L5 9.5Z" fill="white" opacity="0.85"/>
+            {/* Tassel */}
+            <line x1="20" y1="7.5" x2="20" y2="13" stroke="#FCD34D" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="20" cy="14" r="1.2" fill="#FCD34D"/>
           </svg>
         </div>
-        {/* Partial ring that only ever completes in snaps */}
-        <svg className="absolute -inset-1 size-[calc(100%+8px)] animate-spin" viewBox="0 0 56 56">
+        {/* Partial spinning ring */}
+        <svg className="absolute -inset-1.5 size-[calc(100%+12px)] animate-spin" viewBox="0 0 72 72">
           <circle
-            cx="28"
-            cy="28"
-            r="24"
+            cx="36"
+            cy="36"
+            r="32"
             fill="none"
             stroke="currentColor"
-            strokeWidth="3"
+            strokeWidth="2.5"
             strokeLinecap="round"
-            strokeDasharray="40 200"
-            className="text-indigo-300"
+            strokeDasharray="50 250"
+            className="text-indigo-300/60"
           />
         </svg>
       </div>
 
       {/* Erratic buffering bar */}
-      <div className="w-56">
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-          <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-700 animate-lag-fill" />
+      <div className="w-52">
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 animate-lag-fill" />
         </div>
       </div>
 

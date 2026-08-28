@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\Alumni;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Exceptions\RoleDoesNotExist;
+use Spatie\Permission\Models\Role;
 use Illuminate\Support\Str;
 
 trait ResolvesGoogleUser
@@ -44,7 +47,26 @@ trait ResolvesGoogleUser
 
         if ($user) {
             if ($user->trashed()) {
-                return 'Akun ini telah dihapus';
+                // Restore soft-deleted user so they can re-activate their
+                // account via the normal Google login flow. Google already
+                // verified the email, so we mark it as verified immediately.
+                $user->restore();
+                $user->update([
+                    'google_id' => $googleId,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]);
+                $user->syncRoles(['alumni']);
+
+                AuditService::log('restore', 'user', $user->id, null, [
+                    'email' => $user->email,
+                    'name' => $user->name,
+                    'restored_by' => 'google-oauth',
+                ], null, $user->id, $user->institution_id);
+
+                $isNew = false;
+
+                return [$user, $isNew];
             }
 
             if (! $user->is_active) {
@@ -61,13 +83,14 @@ trait ResolvesGoogleUser
                     'name' => $googleName,
                     'email' => $email,
                     'google_id' => $googleId,
-                    'email_verified_at' => now(),
+                    // Don't auto-verify — the user must complete biodata
+                    // registration and verify via OTP.
                     'is_active' => true,
                     // No password for Google users — use a random hash that
                     // can never match any real password input.
                     'password' => bcrypt(Str::random(32)),
                 ]);
-                $user->assignRole('alumni');
+                $this->assignAlumniRole($user);
 
                 // Try to link an existing imported alumni record by email.
                 $alumni = Alumni::query()
@@ -86,5 +109,23 @@ trait ResolvesGoogleUser
         }
 
         return [$user, $isNew];
+    }
+
+    /**
+     * Assign the default 'alumni' role to a freshly created Google user.
+     *
+     * If the role does not exist yet (e.g. the permission seeder has not been
+     * run on a fresh database), we create it on the fly instead of throwing a
+     * Spatie\Permission\Exceptions\RoleDoesNotExist that would otherwise abort
+     * the entire Google sign-in with a generic "callback_failed" error.
+     */
+    protected function assignAlumniRole(User $user): void
+    {
+        try {
+            $user->assignRole('alumni');
+        } catch (RoleDoesNotExist $e) {
+            Role::findOrCreate('alumni', 'web');
+            $user->assignRole('alumni');
+        }
     }
 }

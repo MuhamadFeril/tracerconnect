@@ -15,10 +15,7 @@ import {
   Megaphone,
   Menu,
   MessageCircle,
-
-  Palette,
   ShieldCheck,
-  Sparkles,
   UserCog,
   UserRound,
   Users,
@@ -68,8 +65,6 @@ const NAV: NavItem[] = [
   { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
   { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
   { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin'] },
-  { to: '/data-quality', label: 'Kualitas Data', icon: Sparkles, roles: ['super_admin', 'institution_admin'] },
-  { to: '/branding', label: 'Branding', icon: Palette, roles: ['super_admin', 'institution_admin'] },
 ]
 
 const EMPLOYER_NAV: NavItem[] = [

@@ -32,6 +32,15 @@ export function GoogleCallback() {
       .post('/auth/google/exchange', { auth_code: authCode })
       .then((res) => {
         if (!active) return
+
+        // Surface the exact backend failure instead of a generic message.
+        if (res.data?.success === false) {
+          clearSession()
+          setError(res.data?.message || 'Login Google gagal. Silakan coba lagi.')
+          setProcessing(false)
+          return
+        }
+
         const data = res.data?.data
         const token = data?.token
         const isNewUser = data?.new_google_user ?? false
@@ -48,19 +57,23 @@ export function GoogleCallback() {
           if (!active) return
           setSession(token, user)
 
-          // New Google users go straight to the biodata form.
+          // New Google users must complete biodata registration + OTP verification.
           if (isNewUser || !user.has_password) {
-            navigate('/profile', { replace: true })
+            navigate('/register?google=1', { replace: true })
           } else {
             const target = user.roles?.includes('employer') ? '/employer' : hasAdminRole(user) ? '/dashboard' : '/home'
             navigate(target, { replace: true })
           }
         })
       })
-      .catch(() => {
+      .catch((err: any) => {
         if (!active) return
         clearSession()
-        setError('Sesi Google tidak valid. Silakan coba login lagi.')
+        // Prefer the backend's message when present (e.g. expired/invalid code).
+        const msg =
+          err?.response?.data?.message ||
+          'Sesi Google tidak valid. Silakan coba login lagi.'
+        setError(msg)
         setProcessing(false)
       })
 

@@ -132,10 +132,11 @@ class GoogleAuthController extends Controller
             }
 
             // Step 2: Verify the ID token
-            // Allow up to 5 seconds of clock drift between server and Google.
-            // This handles environments where the server clock is slightly ahead
-            // or behind Google's authoritative time.
-            JWT::$leeway = 5;
+            // Allow generous clock drift (60s) between server and Google. Shared
+            // hosting / container clocks are often off by more than a few seconds,
+            // and a too-small leeway made valid Google tokens fail verification
+            // with "Token Google tidak valid atau kedaluwarsa".
+            JWT::$leeway = 60;
 
             /** @var GoogleClient $client */
             $client = app(GoogleClient::class);
@@ -167,21 +168,33 @@ class GoogleAuthController extends Controller
 
             [$user, $isNew] = $result;
 
+            // Send OTP verification for newly registered Google users.
+            if ($isNew) {
+                $code = \App\Services\OtpService::generate($user->email, 'register');
+                $user->notify(new \App\Notifications\SendOtp($code, 'register'));
+            }
+
             $user->tokens()->delete();
 
             $permissions = $user->getAllPermissions()->pluck('name')->all();
             $expiration = now()->addMinutes(config('sanctum.expiration', 1440));
             $token = $user->createToken('api-token', $permissions, $expiration);
 
-            // Store token + metadata in a short-lived cache keyed by a random code
-            // so the plaintext token never appears in the URL.
-            $authCode = Str::random(32);
-            Cache::put('google_auth_code_'.$authCode, [
+            // The token is carried inside the authorization code itself, so the
+            // code→token exchange needs no server-side cache/state. This keeps
+            // the flow working even when the callback and the exchange hit
+            // different processes or cache backends (which previously caused a
+            // "Sesi Google tidak valid" error because the cached token was
+            // missing on the second request). The code is encrypted, short-lived
+            // (5 min) and self-expiring, and the plaintext token never sits in
+            // the URL after the exchange.
+            $authCode = encrypt(json_encode([
                 'token' => $token->plainTextToken,
                 'new_user' => $isNew,
-            ], now()->addMinutes(5));
+                'exp' => now()->addMinutes(5)->timestamp,
+            ]));
 
-            $redirectUrl = $frontendUrl.'/google/callback?auth_code='.$authCode;
+            $redirectUrl = $frontendUrl.'/google/callback?auth_code='.rawurlencode($authCode);
 
             return redirect()->away($redirectUrl);
         } catch (Throwable $e) {
@@ -203,31 +216,30 @@ class GoogleAuthController extends Controller
     public function exchange(\Illuminate\Http\Request $request)
     {
         $request->validate([
-            'auth_code' => ['required', 'string', 'size:32'],
+            'auth_code' => ['required', 'string'],
         ]);
 
-        $key = 'google_auth_code_'.$request->auth_code;
-        $resultKey = 'google_auth_code_result_'.$request->auth_code;
-
-        // Idempotent: if the code was already consumed (e.g. React
-        // StrictMode double-invoke), return the cached result.
-        $cached = Cache::get($resultKey);
-        if (! $cached) {
-            $cached = Cache::pull($key);
-        }
-
-        if (! $cached) {
+        // The authorization code is a self-contained, encrypted payload (no
+        // server-side cache lookup). This makes the exchange safe to call more
+        // than once (e.g. React StrictMode) and resilient to any cache backend.
+        try {
+            $data = json_decode(decrypt($request->auth_code), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kode otorisasi tidak valid atau sudah kedaluwarsa',
             ], 422);
         }
 
-        // Persist the result so duplicate calls return the same token.
-        Cache::put($resultKey, $cached, now()->addMinutes(5));
+        if (empty($data['token']) || empty($data['exp']) || $data['exp'] < time()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode otorisasi tidak valid atau sudah kedaluwarsa',
+            ], 422);
+        }
 
-        $isNewUser = is_array($cached) && ($cached['new_user'] ?? false);
-        $token = is_array($cached) ? $cached['token'] : $cached;
+        $isNewUser = (bool) ($data['new_user'] ?? false);
+        $token = $data['token'];
 
         return response()->json([
             'success' => true,

@@ -22,9 +22,20 @@ class RegisterRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'confirmed', function (string $attribute, mixed $value, \Closure $fail) {
+                if (! preg_match('/[A-Z]/', $value)) {
+                    $fail('Password harus mengandung minimal satu huruf besar.');
+                }
+                if (! preg_match('/[0-9]/', $value)) {
+                    $fail('Password harus mengandung minimal satu angka.');
+                }
+                if (! preg_match('/[^A-Za-z0-9]/', $value)) {
+                    $fail('Password harus mengandung minimal satu simbol.');
+                }
+            }],
             'institution_id' => [
-                'sometimes', 'uuid',
+                'sometimes',
+                'uuid',
                 Rule::exists('institutions', 'id')->where('status', 'active'),
             ],
 

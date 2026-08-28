@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/lag_loader.dart';
 import 'auth_controller.dart';
 
 /// Halaman verifikasi OTP setelah registrasi.
@@ -142,169 +143,182 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Verifikasi Email')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 32),
-              // Icon
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.mark_email_read_outlined,
-                  size: 36,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Verifikasi Email',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                  children: [
-                    const TextSpan(
-                      text: 'Kami telah mengirim kode OTP 6 digit ke\n',
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 32),
+                  // Icon
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryLight,
+                      shape: BoxShape.circle,
                     ),
-                    TextSpan(
-                      text: widget.email,
+                    child: const Icon(
+                      Icons.mark_email_read_outlined,
+                      size: 36,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Verifikasi Email',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
                       style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                      children: [
+                        const TextSpan(
+                          text: 'Kami telah mengirim kode OTP 6 digit ke\n',
+                        ),
+                        TextSpan(
+                          text: widget.email,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const TextSpan(
+                          text:
+                              '\nMasukkan kode tersebut untuk mengaktifkan akun Anda.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // OTP input
+                  TextFormField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    maxLength: 6,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 12,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Kode OTP',
+                      counterText: '',
+                      prefixIcon: Icon(Icons.pin_outlined, size: 20),
+                    ),
+                    onChanged: (_) => setState(() => _error = null),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Error
+                  if (_error != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.dangerBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded,
+                              color: AppColors.danger, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: AppColors.danger,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const TextSpan(
-                      text:
-                          '\nMasukkan kode tersebut untuk mengaktifkan akun Anda.',
-                    ),
+                    const SizedBox(height: 16),
                   ],
-                ),
-              ),
-              const SizedBox(height: 32),
 
-              // OTP input
-              TextFormField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 6,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(6),
-                ],
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 12,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Kode OTP',
-                  counterText: '',
-                  prefixIcon: Icon(Icons.pin_outlined, size: 20),
-                ),
-                onChanged: (_) => setState(() => _error = null),
-              ),
-              const SizedBox(height: 20),
-
-              // Error
-              if (_error != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
-                    borderRadius: BorderRadius.circular(10),
+                  // Verify button
+                  FilledButton(
+                    onPressed: _submitting ? null : _verify,
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Verifikasi Akun'),
                   ),
-                  child: Row(
+                  const SizedBox(height: 20),
+
+                  // Resend + back
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.error_outline_rounded,
-                          color: AppColors.danger, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
+                      TextButton(
+                        onPressed:
+                            (_resending || _resendCooldown > 0) ? null : _resend,
                         child: Text(
-                          _error!,
+                          _resending
+                              ? 'Mengirim\u2026'
+                              : _resendCooldown > 0
+                                  ? 'Kirim ulang dalam ${_resendCooldown}s'
+                                  : 'Kirim ulang kode',
                           style: const TextStyle(
-                            color: AppColors.danger,
+                            fontWeight: FontWeight.w600,
                             fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text(
+                          'Ganti email',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.textMuted,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Verify button
-              FilledButton(
-                onPressed: _submitting ? null : _verify,
-                child: _submitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Verifikasi Akun'),
-              ),
-              const SizedBox(height: 20),
-
-              // Resend + back
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed:
-                        (_resending || _resendCooldown > 0) ? null : _resend,
-                    child: Text(
-                      _resending
-                          ? 'Mengirim\u2026'
-                          : _resendCooldown > 0
-                              ? 'Kirim ulang dalam ${_resendCooldown}s'
-                              : 'Kirim ulang kode',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Ganti email',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+          if (_submitting)
+            Positioned.fill(
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.85),
+                child: const LagLoader(
+                  label: 'Verifikasi akun kamu',
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

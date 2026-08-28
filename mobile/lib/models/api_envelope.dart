@@ -37,11 +37,21 @@ class PaginationMeta {
   final int perPage;
   final int total;
 
+  /// Cursor-based pagination (chat). `oldest_cursor` / `newest_cursor` are the
+  /// message ids at the edges of the returned page; pass them back as
+  /// `before` / `after` to page without unstable offsets.
+  final String? oldestCursor;
+  final String? newestCursor;
+  final bool hasMoreOlder;
+
   const PaginationMeta({
-    required this.currentPage,
-    required this.lastPage,
-    required this.perPage,
-    required this.total,
+    this.currentPage = 1,
+    this.lastPage = 1,
+    this.perPage = 15,
+    this.total = 0,
+    this.oldestCursor,
+    this.newestCursor,
+    this.hasMoreOlder = false,
   });
 
   factory PaginationMeta.fromJson(Map<String, dynamic> json) {
@@ -50,8 +60,13 @@ class PaginationMeta {
       lastPage: json['last_page'] as int? ?? 1,
       perPage: json['per_page'] as int? ?? 15,
       total: json['total'] as int? ?? 0,
+      oldestCursor: json['oldest_cursor'] as String?,
+      newestCursor: json['newest_cursor'] as String?,
+      hasMoreOlder: json['has_more_older'] as bool? ?? false,
     );
   }
+
+  static const PaginationMeta empty = PaginationMeta();
 
   bool get hasMore => currentPage < lastPage;
 }

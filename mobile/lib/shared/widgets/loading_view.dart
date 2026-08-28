@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_logo.dart';
+
 /// Branded loading view with animated logo tile and pulsing dots.
 ///
 /// All colors are derived from [Theme.of(context).colorScheme] so the
@@ -24,35 +26,7 @@ class LoadingView extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [cs.primary, cs.primary],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cs.primary.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      'TC',
-                      style: TextStyle(
-                        color: cs.onPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
+                const AppLogo(size: 48),
                 // Spinning ring
                 SizedBox(
                   width: 56,

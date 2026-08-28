@@ -12,6 +12,10 @@ export interface PaginationMeta {
   last_page: number
   per_page: number
   total: number
+  // Cursor pagination for chat (oldest/newest message ids + more flag).
+  oldest_cursor?: string | null
+  newest_cursor?: string | null
+  has_more_older?: boolean
 }
 
 export interface Paginated<T> {
@@ -675,6 +679,8 @@ export interface ChatMessage {
   is_deleted: boolean
   is_mine: boolean
   created_at: string
+  // Local-only optimistic UI state (not sent by the server).
+  status?: 'sending' | 'failed'
 }
 
 export interface Conversation {

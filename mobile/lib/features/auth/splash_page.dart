@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/app_logo.dart';
 
 /// Branded splash screen shown while the app restores the session.
 ///
@@ -60,26 +61,7 @@ class _SplashPageState extends State<SplashPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Logo tile
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 28,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.school_rounded,
-                    color: AppColors.primary,
-                    size: 46,
-                  ),
-                ),
+                const AppLogo(size: 88, borderRadius: 24),
                 const SizedBox(height: 24),
                 // App name
                 const Text(
