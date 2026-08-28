@@ -121,7 +121,8 @@ export const ENDPOINT_LIMITS: Record<string, { key: string; minInterval: number 
   '/auth/verify-otp':        { key: 'auth/verify-otp',        minInterval: 2000 },
   '/auth/resend-otp':        { key: 'auth/resend-otp',        minInterval: 10000 },
   '/auth/password/otp':      { key: 'auth/password-otp',      minInterval: 10000 },
-  '/conversations':          { key: 'chat',                   minInterval: 500 },
+  '/conversations':          { key: 'chat.list',              minInterval: 300 },
+  '/conversations/':         { key: 'chat.detail',            minInterval: 200 },
 }
 
 /**
