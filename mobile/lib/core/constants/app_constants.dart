@@ -1,6 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-
-import 'platform_stub.dart' if (dart.library.io) 'platform_native.dart' as platform;
 import 'api_config.dart';
 
 /// Konstanta global aplikasi TracerConnect.
@@ -25,11 +22,7 @@ class AppConstants {
     // Synchronous fallback before async init completes
     const defined = String.fromEnvironment('API_BASE_URL');
     if (defined.isNotEmpty) return defined;
-    if (kIsWeb) return 'http://localhost:8000/api/v1';
-    // Android: 127.0.0.1 via adb reverse (device fisik).
-    // Emulator tanpa adb reverse: gunakan --dart-define.
-    if (platform.isAndroid) return 'http://127.0.0.1:8000/api/v1';
-    return 'http://127.0.0.1:8000/api/v1';
+    return 'https://tracceralumni.freehosting.dev/api/v1';
   }
 
   /// Asal host (tanpa `/api/v1`) untuk melengkapi URL aset relatif.

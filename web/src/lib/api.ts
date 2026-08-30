@@ -73,7 +73,10 @@ api.interceptors.response.use(
       window.location.pathname !== '/login' &&
       // Don't hijack the Google OAuth callback: let GoogleCallback show the
       // real error and offer a retry instead of bouncing to /login.
-      window.location.pathname !== '/google/callback'
+      window.location.pathname !== '/google/callback' &&
+      // Don't bounce users mid-registration (Google biodata + OTP step lives
+      // on /register) when an auth call fails there.
+      window.location.pathname !== '/register'
     ) {
       clearSession()
       window.location.assign('/login')

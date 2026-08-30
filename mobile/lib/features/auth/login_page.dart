@@ -12,6 +12,7 @@ import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/lag_loader.dart';
 import 'auth_controller.dart';
+import 'google_register_page.dart';
 
 /// Logo Google 4 warna sederhana (biru-merah-kuning-hijau) untuk tombol login.
 class _GoogleLogo extends StatelessWidget {
@@ -171,8 +172,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
       }
 
-      await ref.read(authControllerProvider.notifier).googleLogin(idToken);
-      // Redirect otomatis ditangani router setelah status berubah.
+      final result =
+          await ref.read(authControllerProvider.notifier).googleLogin(idToken);
+
+      // Akun Google baru → arahkan ke layar pelengkapan biodata + OTP.
+      if (result.registration != null) {
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GoogleRegisterPage(info: result.registration!),
+          ),
+        );
+        return;
+      }
+      // Akun sudah lengkap → redirect otomatis ditangani router.
     } on ApiException catch (e) {
       setState(() => _error = firstValidationMessage(e));
     } on GoogleSignInException catch (e) {

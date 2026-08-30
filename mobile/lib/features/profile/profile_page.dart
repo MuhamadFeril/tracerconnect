@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/role_utils.dart';
@@ -114,6 +115,92 @@ class ProfilePage extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
     await ref.read(authControllerProvider.notifier).logout();
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          var submitting = false;
+          return AlertDialog(
+            title: const Text('Hapus Akun?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Akun dan seluruh data Anda akan dihapus secara permanen '
+                  'dan tidak dapat dikembalikan. Tindakan ini tidak dapat dibatalkan.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Ketik HAPUS untuk menyetujui:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'HAPUS',
+                    border: OutlineInputBorder(),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.of(context).pop(false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: submitting || controller.text.trim() != 'HAPUS'
+                    ? null
+                    : () async {
+                        setState(() => submitting = true);
+                        try {
+                          await ref.read(authControllerProvider.notifier).deleteAccount();
+                          if (!context.mounted) return;
+                          Navigator.of(context).pop(true);
+                        } on ApiException catch (e) {
+                          if (!context.mounted) return;
+                          setState(() => submitting = false);
+                          Navigator.of(context).pop(false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.message)),
+                          );
+                        } catch (_) {
+                          if (!context.mounted) return;
+                          setState(() => submitting = false);
+                          Navigator.of(context).pop(false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Gagal menghapus akun')),
+                          );
+                        }
+                      },
+                style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+                child: submitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Hapus Akun'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    if (confirmed == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Akun berhasil dihapus')),
+      );
+    }
   }
 
   @override
@@ -384,6 +471,12 @@ class ProfilePage extends ConsumerWidget {
                 title: 'Keluar',
                 destructive: true,
                 onTap: () => _confirmLogout(context, ref),
+              ),
+              _MenuTile(
+                icon: Icons.delete_forever_rounded,
+                title: 'Hapus Akun',
+                destructive: true,
+                onTap: () => _confirmDeleteAccount(context, ref),
               ),
             ],
           ),

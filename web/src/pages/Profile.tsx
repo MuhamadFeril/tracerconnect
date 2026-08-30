@@ -7,7 +7,6 @@ import {
   Globe,
   GraduationCap,
   ImagePlus,
-  KeyRound,
   LifeBuoy,
   Plus,
   Save,
@@ -35,7 +34,6 @@ import { Card, CardHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Field'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { PasswordChangeForm } from '../components/auth/PasswordChangeForm'
 import { useToast } from '../components/ui/Toast'
 
 function ProfileInfo({
@@ -898,15 +896,6 @@ export function Profile() {
           </Card>
         )}
 
-        {/* Password */}
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Ubah Password"
-            subtitle="Ganti kata sandi akun Anda secara berkala"
-            actions={<KeyRound className="size-4.5 text-slate-400" />}
-          />
-          <PasswordChangeForm email={me.data?.email ?? user?.email} />
-        </Card>
       </div>
     </div>
   )

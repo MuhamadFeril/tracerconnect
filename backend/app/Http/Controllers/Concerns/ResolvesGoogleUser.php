@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Exceptions\RoleDoesNotExist;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Str;
+use Throwable;
 
 trait ResolvesGoogleUser
 {
@@ -109,6 +110,53 @@ trait ResolvesGoogleUser
         }
 
         return [$user, $isNew];
+    }
+
+    /**
+     * Issue a short-lived, server-signed token that proves the Google identity
+     * was already verified during the OAuth callback. The frontend carries this
+     * through to `completeGoogleRegistration` instead of re-verifying the
+     * (short-lived, network-dependent) Google ID token — which avoids flaky
+     * failures when the ID token expires or Google's cert endpoint is unreachable.
+     */
+    protected function issueGoogleRegistrationToken(User $user): string
+    {
+        return encrypt(json_encode([
+            'email' => $user->email,
+            'exp' => now()->addMinutes(15)->timestamp,
+        ]));
+    }
+
+    /**
+     * Resolve the user from a server-signed Google registration token, or null
+     * when the token is missing, tampered, or expired.
+     */
+    protected function resolveGoogleRegistrationToken(string $token): ?User
+    {
+        try {
+            $data = json_decode(decrypt($token), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $e) {
+            return null;
+        }
+
+        if (empty($data['email']) || empty($data['exp']) || $data['exp'] < time()) {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('lower(email) = ?', [mb_strtolower($data['email'])])
+            ->whereNotNull('google_id')
+            ->first();
+    }
+
+    /**
+     * Whether a Google user has finished the mandatory post-sign-up steps:
+     * institution biodata filled in and email verified via OTP. Until both are
+     * true the account must not receive a usable API token.
+     */
+    protected function isGoogleRegistrationComplete(User $user): bool
+    {
+        return $user->email_verified_at !== null && $user->institution_id !== null;
     }
 
     /**

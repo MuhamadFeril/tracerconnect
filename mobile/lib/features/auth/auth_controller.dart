@@ -98,9 +98,29 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   /// Login dengan Google menggunakan ID token dari `google_sign_in`.
-  Future<void> googleLogin(String idToken) async {
-    final session = await _repo.googleLogin(idToken);
-    state = AuthState.authenticated(session.user);
+  /// Mengembalikan [GoogleLoginResult] sehingga pemanggil dapat mengarahkan
+  /// akun Google baru ke layar pelengkapan biodata (tanpa token).
+  Future<GoogleLoginResult> googleLogin(String idToken) async {
+    final result = await _repo.googleLogin(idToken);
+    if (result.session != null) {
+      state = AuthState.authenticated(result.session!.user);
+    }
+    return result;
+  }
+
+  /// Selesaikan pendaftaran Google (pelengkapan biodata + OTP).
+  Future<RegisterResult> completeGoogleRegistration(
+    String registrationToken,
+    Map<String, dynamic> payload,
+  ) async {
+    final result = await _repo.completeGoogleRegistration(
+      registrationToken,
+      payload,
+    );
+    if (result.session != null) {
+      state = AuthState.authenticated(result.session!.user);
+    }
+    return result;
   }
 
   Future<RegisterResult> register(Map<String, dynamic> payload) async {
@@ -127,6 +147,15 @@ class AuthController extends StateNotifier<AuthState> {
     // setelah keluar (sebelum ApiClient kehilangan Authorization).
     await PushNotificationService.instance.removeToken();
     await _repo.logout();
+    await _clearLocalSession();
+    state = AuthState.unauthenticated;
+  }
+
+  /// Hapus akun permanen (soft-delete di server). Setelah berhasil, bersihkan
+  /// sesi lokal dan kembalikan ke status unauthenticated.
+  Future<void> deleteAccount() async {
+    await PushNotificationService.instance.removeToken();
+    await _repo.deleteAccount();
     await _clearLocalSession();
     state = AuthState.unauthenticated;
   }

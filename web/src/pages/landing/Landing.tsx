@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   ArrowRight,
+  Download,
   LayoutDashboard,
   Mail,
   Menu,
@@ -144,6 +145,14 @@ function LandingNavbar() {
               </div>
             )}
           </div>
+          <a
+            href="/downloads/app-release.apk"
+            download
+            onClick={() => setOpen(false)}
+            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-900 text-[15px] font-semibold text-slate-900"
+          >
+            <Download className="size-4" /> Download APK
+          </a>
         </div>
       </div>
     </header>
@@ -175,9 +184,10 @@ function LandingFooter() {
                 ['Fitur', '#fitur'],
                 ['Cara Kerja', '#cara-kerja'],
                 ['Jejaring Alumni', '#alumni-network'],
+                ['Download APK', '/downloads/app-release.apk'],
               ].map(([label, href]) => (
                 <li key={label}>
-                  <a href={href} className="transition-colors hover:text-white">
+                  <a href={href} download={href.includes('app-release') ? true : undefined} className="transition-colors hover:text-white">
                     {label}
                   </a>
                 </li>

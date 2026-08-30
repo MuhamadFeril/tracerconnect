@@ -43,11 +43,26 @@ export function GoogleCallback() {
 
         const data = res.data?.data
         const token = data?.token
-        const isNewUser = data?.new_google_user ?? false
 
+        // New Google users do NOT receive a Sanctum token yet — they must
+        // finish their institution biodata and verify via OTP first. Stash
+        // the verified email/name and redirect to the registration form.
         if (!token) {
-          setError('Login Google gagal — token tidak ditemukan. Silakan coba lagi.')
-          setProcessing(false)
+          const email = data?.email
+          const regToken = data?.registration_token
+
+          if (!email || !regToken) {
+            clearSession()
+            setError('Login Google gagal — data registrasi tidak lengkap. Silakan coba lagi.')
+            setProcessing(false)
+            return
+          }
+
+          if (!active) return
+          navigate('/register?google=1', {
+            replace: true,
+            state: { email, name: data?.name ?? '', registration_token: regToken },
+          })
           return
         }
 
@@ -57,13 +72,9 @@ export function GoogleCallback() {
           if (!active) return
           setSession(token, user)
 
-          // New Google users must complete biodata registration + OTP verification.
-          if (isNewUser || !user.has_password) {
-            navigate('/register?google=1', { replace: true })
-          } else {
-            const target = user.roles?.includes('employer') ? '/employer' : hasAdminRole(user) ? '/dashboard' : '/home'
-            navigate(target, { replace: true })
-          }
+          // Existing fully-registered Google users go straight to the app.
+          const target = user.roles?.includes('employer') ? '/employer' : hasAdminRole(user) ? '/dashboard' : '/home'
+          navigate(target, { replace: true })
         })
       })
       .catch((err: any) => {

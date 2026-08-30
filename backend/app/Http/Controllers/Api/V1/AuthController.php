@@ -435,6 +435,20 @@ class AuthController extends Controller
 
         [$user, $isNew] = $result;
 
+        // New Google users (or those who abandoned the flow) must complete
+        // their institution biodata and verify via OTP before they may use the
+        // app. Do NOT issue a usable token yet — just flag the frontend to
+        // route them to the biodata form.
+        if ($isNew || ! $this->isGoogleRegistrationComplete($user)) {
+            return ApiResponse::success([
+                'new_google_user' => true,
+                'requires_registration' => true,
+                'email' => $user->email,
+                'name' => $user->name,
+                'registration_token' => $this->issueGoogleRegistrationToken($user),
+            ], 'Silakan lengkapi biodata dan verifikasi OTP untuk melanjutkan');
+        }
+
         $user->tokens()->delete();
 
         $permissions = $user->getAllPermissions()->pluck('name')->all();
@@ -712,7 +726,24 @@ class AuthController extends Controller
      */
     public function completeGoogleRegistration(Request $request)
     {
+        // New Google users have no API token yet. The OAuth callback already
+        // verified their Google identity and issued a short-lived, server-signed
+        // registration token (no fragile Google ID-token re-verification). We
+        // resolve the user from that token; returning users with a session use
+        // their token instead.
         $user = $request->user();
+
+        if (! $user && $request->filled('registration_token')) {
+            $user = $this->resolveGoogleRegistrationToken($request->input('registration_token'));
+
+            if (! $user) {
+                return ApiResponse::error('Sesi registrasi Google tidak valid atau kedaluwarsa', [], 401);
+            }
+        }
+
+        if (! $user) {
+            return ApiResponse::error('Sesi tidak valid. Silakan login dengan Google kembali.', [], 401);
+        }
 
         $maxYear = (int) date('Y') + 10;
 
@@ -855,5 +886,33 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
         ], $this->alumniProfileData($validated, $institutionId)));
+    }
+
+    /**
+     * Soft-delete the authenticated user's account. All tokens are revoked,
+     * the avatar file is removed (if any), and the user record is soft-deleted
+     * so it can be restored later if needed.
+     */
+    public function deleteAccount(Request $request)
+    {
+        $user = $request->user();
+
+        AuditService::log('delete_account', 'user', $user->id, null, [
+            'email' => $user->email,
+            'name' => $user->name,
+        ], $request);
+
+        // Remove avatar file from storage.
+        if ($user->avatar_path) {
+            Storage::disk('public')->delete($user->avatar_path);
+        }
+
+        // Revoke all tokens (current session included).
+        $user->tokens()->delete();
+
+        // Soft-delete the user.
+        $user->delete();
+
+        return ApiResponse::success([], 'Akun berhasil dihapus');
     }
 }

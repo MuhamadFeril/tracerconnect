@@ -18,6 +18,31 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Splash loading shown instantly before React mounts, so the page never looks frozen. -->
+    <div id="boot-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#0c0d1b;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;z-index:9999;">
+        <div style="position:relative;width:56px;height:56px;">
+          <div style="position:absolute;inset:0;border-radius:16px;background:linear-gradient(135deg,#4f46e5,#1e3a8a);box-shadow:0 10px 30px rgba(79,70,229,.4);"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none">
+              <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" fill="white"/>
+            </svg>
+          </div>
+          <svg viewBox="0 0 56 56" style="position:absolute;-inset:4px;width:calc(100% + 8px);height:calc(100% + 8px);animation:boot-spin 1s linear infinite;">
+            <circle cx="28" cy="28" r="24" fill="none" stroke="#a5b4fc" stroke-width="3" stroke-linecap="round" stroke-dasharray="120 60"/>
+          </svg>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <span style="width:8px;height:8px;border-radius:9999px;background:#818cf8;animation:boot-bounce 0.8s infinite;" ></span>
+          <span style="width:8px;height:8px;border-radius:9999px;background:#818cf8;animation:boot-bounce 0.8s infinite;animation-delay:150ms;"></span>
+          <span style="width:8px;height:8px;border-radius:9999px;background:#818cf8;animation:boot-bounce 0.8s infinite;animation-delay:300ms;"></span>
+        </div>
+        <p style="margin:0;font-size:13px;font-weight:500;color:#94a3b8;">Memuat TracerConnect…</p>
+        <style>
+          @keyframes boot-spin { to { transform: rotate(360deg); } }
+          @keyframes boot-bounce { 0%,100% { transform: translateY(0); opacity:.6; } 50% { transform: translateY(-6px); opacity:1; } }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -7,6 +7,7 @@ import 'package:dio/io.dart';
 import '../constants/app_constants.dart';
 import '../../models/api_envelope.dart';
 import 'api_error.dart';
+import 'anti_bot_bypass.dart';
 import 'rate_limiter.dart';
 
 /// Klien HTTP tunggal berbasis Dio.
@@ -35,19 +36,27 @@ class ApiClient {
   static String? get token => _token;
   static void setToken(String? value) => _token = value;
 
-  late final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: AppConstants.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 20),
-      receiveTimeout: const Duration(seconds: 25),
-      headers: {
-        'Accept': 'application/json',
-        // Penanda platform agar backend bisa memberi perlakuan khusus
-        // (mis. pengecualian rate limit untuk pengguna mobile terautentikasi).
-        'X-Platform': 'mobile',
-      },
-    ),
-  )..httpClientAdapter = IOHttpClientAdapter(
+  late final Dio _dio = _createDio();
+
+  static Dio _createDio() {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: AppConstants.apiBaseUrl,
+        connectTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 25),
+        headers: {
+          'Accept': 'application/json',
+          // Penanda platform agar backend bisa memberi perlakuan khusus
+          // (mis. pengecualian rate limit untuk pengguna mobile terautentikasi).
+          'X-Platform': 'mobile',
+        },
+      ),
+    );
+
+    // Anti-bot bypass interceptor (dijalankan duluan)
+    dio.interceptors.add(AntiBotInterceptor());
+
+    dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
         // Reject connections to non-HTTPS hosts (defense-in-depth).
@@ -69,7 +78,10 @@ class ApiClient {
         };
         return client;
       },
-    )..interceptors.add(
+    );
+
+    // Auth & error interceptor
+    dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
           final token = ApiClient.token;
@@ -99,6 +111,9 @@ class ApiClient {
         },
       ),
     );
+
+    return dio;
+  }
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
     try {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_error.dart';
 import '../../core/storage/token_storage.dart';
 import '../../models/user.dart';
 
@@ -13,6 +14,29 @@ class AuthSession {
   final User user;
 
   const AuthSession({required this.token, required this.user});
+}
+
+/// Info pendaftaran Google yang belum selesai: dipakai untuk membawa
+/// pengguna ke layar pelengkapan biodata (tanpa token API).
+class GoogleRegistrationInfo {
+  final String email;
+  final String name;
+  final String registrationToken;
+
+  const GoogleRegistrationInfo({
+    required this.email,
+    required this.name,
+    required this.registrationToken,
+  });
+}
+
+/// Hasil `googleLogin`: bisa langsung login (akun sudah lengkap) atau butuh
+/// pelengkapan biodata (akun Google baru).
+class GoogleLoginResult {
+  final AuthSession? session;
+  final GoogleRegistrationInfo? registration;
+
+  const GoogleLoginResult({this.session, this.registration});
 }
 
 /// Hasil register: bisa langsung login atau butuh verifikasi OTP.
@@ -51,9 +75,61 @@ class AuthRepository {
 
   /// Login dengan Google: kirim ID token ke `POST /auth/google` (sama seperti
   /// tombol Google di landing/login web).
-  Future<AuthSession> googleLogin(String idToken) async {
+  ///
+  /// Login dengan Google. Akun Google baru (belum melengkapi biodata &
+  /// OTP) mengembalikan [GoogleLoginResult.registration] TANPA token — alihkan
+  /// ke layar pelengkapan biodata. Akun yang sudah lengkap mengembalikan
+  /// [GoogleLoginResult.session] seperti login biasa.
+  Future<GoogleLoginResult> googleLogin(String idToken) async {
     final data = await _api.post('/auth/google', data: {'id_token': idToken});
-    return _sessionFromData(data);
+
+    // Akun Google baru → butuh pelengkapan biodata (tanpa token API).
+    if (data is Map<String, dynamic> &&
+        data['new_google_user'] == true &&
+        (data['token'] == null || (data['token'] as String? ?? '').isEmpty)) {
+      final regToken = data['registration_token'];
+      if (regToken == null || (regToken as String? ?? '').isEmpty) {
+        throw const ApiException(
+          statusCode: null,
+          message: 'Sesi registrasi Google tidak valid. Silakan coba lagi.',
+        );
+      }
+      return GoogleLoginResult(
+        registration: GoogleRegistrationInfo(
+          email: (data['email'] as String? ?? '').toString(),
+          name: (data['name'] as String? ?? '').toString(),
+          registrationToken: regToken as String,
+        ),
+      );
+    }
+
+    return GoogleLoginResult(session: await _sessionFromData(data));
+  }
+
+  /// Selesaikan pendaftaran Google: simpan biodata institusi lalu backend
+  /// akan mengirim OTP. Endpoint publik — diautentikasi via `registration_token`
+  /// (server-signed, bukan Google ID token, agar tidak rapuh).
+  Future<RegisterResult> completeGoogleRegistration(
+    String registrationToken,
+    Map<String, dynamic> payload,
+  ) async {
+    final data = await _api.post(
+      '/auth/google/complete-registration',
+      data: {...payload, 'registration_token': registrationToken},
+    );
+    final map = data as Map<String, dynamic>;
+
+    if (map['requires_verification'] == true) {
+      return RegisterResult(
+        requiresVerification: true,
+        email: map['email'] as String?,
+      );
+    }
+
+    return RegisterResult(
+      requiresVerification: false,
+      session: await _sessionFromData(data),
+    );
   }
 
   /// Tukar authorization code (dari Google OAuth redirect) dengan token.
@@ -100,6 +176,12 @@ class AuthRepository {
       '/auth/resend-otp',
       data: {'email': email.trim(), 'purpose': purpose},
     );
+  }
+
+  /// Hapus akun yang sedang login. Backend melakukan soft-delete dan mencabut
+  /// seluruh token. Lokal session harus dibersihkan oleh pemanggil setelahnya.
+  Future<void> deleteAccount() async {
+    await _api.delete('/auth/account');
   }
 
   Future<AuthSession> _sessionFromData(dynamic data) async {

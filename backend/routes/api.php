@@ -52,6 +52,9 @@ Route::prefix('v1')->group(function () {
         Route::get('google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:10,1');
         Route::post('google/exchange', [GoogleAuthController::class, 'exchange'])->middleware('throttle:10,1');
         Route::post('verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
+        // New Google users have no token yet and authenticate this step with
+        // their Google ID token; returning users may use their session.
+        Route::post('google/complete-registration', [AuthController::class, 'completeGoogleRegistration'])->middleware('throttle:10,1');
         Route::post('resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:5,1');
         Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
         Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
@@ -77,13 +80,13 @@ Route::prefix('v1')->group(function () {
             Route::post('logout', [AuthController::class, 'logout'])->middleware('throttle:60,1');
             Route::get('me', [AuthController::class, 'me'])->middleware('throttle:60,1');
             Route::put('profile', [AuthController::class, 'updateProfile'])->middleware('throttle:30,1');
-            Route::post('google/complete-registration', [AuthController::class, 'completeGoogleRegistration'])->middleware('throttle:10,1');
             Route::put('password', [AuthController::class, 'updatePassword'])->middleware('throttle:10,1');
             // Change password via email OTP (no current password needed).
             Route::post('password/otp', [AuthController::class, 'sendPasswordChangeOtp'])->middleware('throttle:3,1');
             Route::put('password/otp', [AuthController::class, 'changePasswordWithOtp'])->middleware('throttle:5,1');
             Route::post('me/avatar', [AuthController::class, 'uploadAvatar'])->middleware('throttle:10,1');
             Route::delete('me/avatar', [AuthController::class, 'deleteAvatar'])->middleware('throttle:10,1');
+            Route::delete('account', [AuthController::class, 'deleteAccount'])->middleware('throttle:5,1');
         });
 
         Route::get('roles', [RoleController::class, 'index'])->middleware('throttle:60,1');

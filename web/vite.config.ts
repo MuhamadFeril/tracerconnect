@@ -9,7 +9,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: https: blob:",
-  "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com",
+  "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://tracceralumni.freehosting.dev ",
   "frame-src 'self' https://accounts.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -35,13 +35,15 @@ export default defineConfig({
     headers: securityHeaders,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8000',
+        target: 'https://tracceralumni.freehosting.dev',
         changeOrigin: true,
+        secure: true,
       },
       // Serve uploaded files (avatars, etc.) through the same dev origin.
       '/storage': {
-        target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8000',
+        target: 'https://tracceralumni.freehosting.dev',
         changeOrigin: true,
+        secure: true,
       },
     },
   },

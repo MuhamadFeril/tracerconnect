@@ -112,7 +112,7 @@ export function useCompleteGoogleRegistration() {
   type CompleteGooglePayload = Omit<
     RegisterPayload,
     'password' | 'password_confirmation' | 'name' | 'email'
-  > & { name?: string; email?: string }
+  > & { name?: string; email?: string; registration_token?: string }
   return useMutation({
     mutationFn: (payload: CompleteGooglePayload) =>
       unwrap<RegisterResponse>(api.post('/auth/google/complete-registration', payload)),
@@ -198,6 +198,19 @@ export function useDeleteAvatar() {
   return useMutation({
     mutationFn: () => unwrap<User>(api.delete('/auth/me/avatar')),
     onSuccess: (user) => setUser(user),
+  })
+}
+
+export function useDeleteAccount() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => api.delete('/auth/account'),
+    onSettled: () => {
+      clearSession()
+      queryClient.clear()
+      window.location.assign('/login')
+    },
   })
 }
 

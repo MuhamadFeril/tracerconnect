@@ -168,10 +168,24 @@ class GoogleAuthController extends Controller
 
             [$user, $isNew] = $result;
 
-            // Send OTP verification for newly registered Google users.
-            if ($isNew) {
-                $code = \App\Services\OtpService::generate($user->email, 'register');
-                $user->notify(new \App\Notifications\SendOtp($code, 'register'));
+            // New Google users (or those who abandoned the flow) must complete
+            // their institution biodata and verify via OTP before they may use
+            // the app. Do NOT issue a usable token yet — carry the verified
+            // email + Google ID token to the frontend so it can finish the
+            // mandatory registration steps instead.
+            if ($isNew || ! $this->isGoogleRegistrationComplete($user)) {
+                $authCode = encrypt(json_encode([
+                    'token' => null,
+                    'new_user' => true,
+                    'email' => $user->email,
+                    'name' => $user->name,
+                    'registration_token' => $this->issueGoogleRegistrationToken($user),
+                    'exp' => now()->addMinutes(5)->timestamp,
+                ]));
+
+                $redirectUrl = $frontendUrl.'/google/callback?auth_code='.rawurlencode($authCode);
+
+                return redirect()->away($redirectUrl);
             }
 
             $user->tokens()->delete();
@@ -231,7 +245,7 @@ class GoogleAuthController extends Controller
             ], 422);
         }
 
-        if (empty($data['token']) || empty($data['exp']) || $data['exp'] < time()) {
+        if (empty($data['exp']) || $data['exp'] < time()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kode otorisasi tidak valid atau sudah kedaluwarsa',
@@ -239,7 +253,7 @@ class GoogleAuthController extends Controller
         }
 
         $isNewUser = (bool) ($data['new_user'] ?? false);
-        $token = $data['token'];
+        $token = $data['token'] ?? null;
 
         return response()->json([
             'success' => true,
@@ -248,6 +262,9 @@ class GoogleAuthController extends Controller
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'new_google_user' => $isNewUser,
+                'email' => $data['email'] ?? null,
+                'name' => $data['name'] ?? null,
+                'registration_token' => $data['registration_token'] ?? null,
             ],
         ]);
     }

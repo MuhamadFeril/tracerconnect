@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ClipboardList,
   Database,
+  Download,
   FileDown,
   FileText,
   Globe,
@@ -33,6 +34,9 @@ import {
   X,
 } from 'lucide-react'
 import { Logo } from '../../components/ui/Logo'
+
+/** Path to the prebuilt Android APK served from /public. */
+const APK_URL = '/downloads/app-release.apk'
 
 /* ------------------------------------------------------------------ */
 /* Small building blocks                                               */
@@ -155,6 +159,14 @@ function Hero() {
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-[15px] font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
               >
                 Lihat Fitur
+              </a>
+              <a
+                href={APK_URL}
+                download
+                className="inline-flex h-12 items-center gap-2 rounded-xl bg-slate-900 px-6 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800"
+              >
+                <Download className="size-4" />
+                Download APK
               </a>
             </div>
           </Reveal>
@@ -685,6 +697,16 @@ function MobilePreview() {
                 aplikasi di ponselnya.
               </p>
             </div>
+          </Reveal>
+          <Reveal delay={360}>
+            <a
+              href={APK_URL}
+              download
+              className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[15px] font-semibold text-white shadow-lg shadow-indigo-600/30 transition-colors hover:bg-indigo-500"
+            >
+              <Download className="size-4" />
+              Download Aplikasi Android (APK)
+            </a>
           </Reveal>
         </div>
       </div>

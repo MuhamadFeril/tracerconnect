@@ -17,6 +17,14 @@ const queryClient = new QueryClient({
   },
 })
 
+function dismissBootSplash() {
+  const splash = document.getElementById('boot-splash')
+  if (!splash) return
+  splash.style.transition = 'opacity 250ms ease'
+  splash.style.opacity = '0'
+  splash.addEventListener('transitionend', () => splash.remove(), { once: true })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
@@ -30,3 +38,5 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+dismissBootSplash()

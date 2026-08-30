@@ -1,16 +1,20 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/region.dart';
 import '../../models/university.dart';
 import '../../shared/widgets/lag_loader.dart';
 import 'auth_controller.dart';
+import 'google_register_page.dart';
 import 'otp_verification_page.dart';
 import 'register_options_providers.dart';
 
@@ -63,6 +67,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   int _step = 0;
   bool _submitting = false;
   String? _error;
+  bool _googleInitialized = false;
 
   // Step 1 — akun (nama dikumpulkan di langkah 2, seperti web)
   final _nameController = TextEditingController();
@@ -401,6 +406,67 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   /// Pilih foto profil opsional — validasi sama seperti web:
   /// harus gambar (PNG/JPG/WebP), maksimal 2 MB.
+  Future<void> _ensureGoogleInitialized() async {
+    if (_googleInitialized) return;
+    String? clientId;
+    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+      const iosId = AppConstants.googleIosClientId;
+      clientId = iosId.isNotEmpty ? iosId : null;
+    }
+    await GoogleSignIn.instance.initialize(
+      clientId: clientId,
+      serverClientId: AppConstants.googleClientId,
+    );
+    _googleInitialized = true;
+  }
+
+  Future<void> _googleRegister() async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await _ensureGoogleInitialized();
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.signOut();
+      final account = await googleSignIn.authenticate();
+      final idToken = account.authentication.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        throw const GoogleSignInException(
+          code: GoogleSignInExceptionCode.unknownError,
+          description: 'Tidak mendapat ID token dari Google',
+        );
+      }
+
+      final result =
+          await ref.read(authControllerProvider.notifier).googleLogin(idToken);
+
+      if (result.registration != null) {
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GoogleRegisterPage(info: result.registration!),
+          ),
+        );
+        return;
+      }
+      // Akun sudah lengkap → redirect otomatis ditangani router.
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = firstValidationMessage(e));
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        if (mounted) setState(() => _submitting = false);
+        return;
+      }
+      if (mounted) setState(() => _error = 'Google Sign-In gagal. Silakan coba lagi.');
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Google Sign-In gagal. Silakan coba lagi.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   Future<void> _pickPhoto() async {
     setState(() => _photoError = null);
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -814,6 +880,54 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 20),
+        const Row(
+          children: [
+            Expanded(child: Divider()),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'atau daftar dengan',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 20),
+        OutlinedButton(
+          onPressed: _submitting ? null : _googleRegister,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            side: const BorderSide(color: AppColors.border),
+            backgroundColor: Colors.white,
+            foregroundColor: AppColors.textPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: _submitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                )
+              : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.g_mobiledata_rounded, size: 22, color: Color(0xFF4285F4)),
+                    SizedBox(width: 10),
+                    Text(
+                      'Daftar dengan Google',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
         ),
       ],
     );

@@ -70,6 +70,37 @@ export function clearSession(): void {
   localStorage.removeItem(EXPIRES_AT_KEY)
 }
 
+/**
+ * Bridge state for a brand-new Google user who has NOT finished registration
+ * yet. Because they get no API token until biodata + OTP are done, we stash
+ * the verified email / name and the Google ID token (needed to authenticate
+ * the `complete-registration` call) here instead of in the normal session.
+ */
+const GOOGLE_REG_KEY = 'tc_google_registration'
+
+export interface GoogleRegistrationDraft {
+  email: string
+  name: string
+  registration_token: string
+}
+
+export function setGoogleRegistration(draft: GoogleRegistrationDraft): void {
+  localStorage.setItem(GOOGLE_REG_KEY, JSON.stringify(draft))
+}
+
+export function getGoogleRegistration(): GoogleRegistrationDraft | null {
+  try {
+    const raw = localStorage.getItem(GOOGLE_REG_KEY)
+    return raw ? (JSON.parse(raw) as GoogleRegistrationDraft) : null
+  } catch {
+    return null
+  }
+}
+
+export function clearGoogleRegistration(): void {
+  localStorage.removeItem(GOOGLE_REG_KEY)
+}
+
 export function isAuthenticated(): boolean {
   if (!getToken()) return false
 

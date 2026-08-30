@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { apiError } from '../lib/api'
 import { getUser, hasAdminRole, setSession } from '../lib/auth'
+import { useLocation } from 'react-router-dom'
 import { useDebounce } from '../hooks/useDebounce'
 import type { LoginResponse } from '../lib/types'
 import {
@@ -58,7 +59,7 @@ import { useToast } from '../components/ui/Toast'
 /* ------------------------------------------------------------------ */
 
 const STEP_LABELS = ['Informasi Akun', 'Informasi lanjut', 'Status Karir', 'Verifikasi']
-const GOOGLE_STEP_LABELS = ['Informasi Biodata', 'Status Karir', 'Verifikasi']
+const GOOGLE_STEP_LABELS = ['Biodata & Institusi', 'Status Karir', 'Verifikasi']
 
 const SKILLS = [
   'JavaScript',
@@ -1778,9 +1779,11 @@ function readRegisterDraft(): RegisterDraft | null {
   const [searchParams] = useSearchParams()
   const isGoogle = searchParams.get('google') === '1'
 
-  // Pre-fill name/email from the Google user when in Google mode. Declared
-  // before the state initializers below that read it.
-  const googleUser = isGoogle ? getUser() : null
+  // New Google users arrive via navigation state (email, name, registration_token).
+  // Existing Google users come from the session.
+  const location = useLocation()
+  const googleState = isGoogle ? (location.state as { email?: string; name?: string; registration_token?: string } | null) : null
+  const googleUser = isGoogle ? (googleState ?? (getUser() ? { name: getUser()!.name, email: getUser()!.email } : null)) : null
 
   const [draft] = useState<RegisterDraft | null>(readRegisterDraft)
 
@@ -2058,6 +2061,7 @@ function readRegisterDraft(): RegisterDraft | null {
         const data = await completeGoogle.mutateAsync({
           name: form.name || undefined,
           institution_id: institutionId,
+          registration_token: googleState?.registration_token,
           gender: form.gender || undefined,
           phone: form.phone || undefined,
           nis: form.nis || undefined,
