@@ -758,8 +758,8 @@ class AuthController extends Controller
             'entry_year' => ['sometimes', 'integer', 'min:1990', "max:{$maxYear}"],
             'graduation_year' => [
                 'sometimes', 'integer', 'min:1990', "max:{$maxYear}", 'gt:entry_year',
-                function (string $attribute, mixed $value, \Closure $fail) {
-                    if ($this->filled('entry_year') && (int) $value - (int) $this->input('entry_year') < 3) {
+                function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                    if ($request->has('entry_year') && (int) $value - (int) $request->input('entry_year') < 3) {
                         $fail('Tahun lulus minimal 3 tahun setelah tahun masuk.');
                     }
                 },
@@ -788,8 +788,8 @@ class AuthController extends Controller
             'study_program' => ['sometimes', 'string', 'max:255'],
             'study_entry_year' => [
                 'sometimes', 'integer', 'min:1990', "max:{$maxYear}",
-                function (string $attribute, mixed $value, \Closure $fail) {
-                    if ($this->filled('graduation_year') && (int) $value < (int) $this->input('graduation_year') + 3) {
+                function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                    if ($request->has('graduation_year') && (int) $value < (int) $request->input('graduation_year') + 3) {
                         $fail('Tahun masuk kuliah minimal 3 tahun setelah tahun lulus.');
                     }
                 },
