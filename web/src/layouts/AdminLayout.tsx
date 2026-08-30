@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarDays,
   ChevronUp,
+  ClipboardList,
   FileText,
   Home,
   LayoutDashboard,
@@ -46,6 +47,7 @@ const ALUMNI_NAV: NavItem[] = [
   { to: '/pengumuman', label: 'Pengumuman', icon: Megaphone },
   { to: '/acara', label: 'Acara', icon: CalendarDays },
   { to: '/lowongan', label: 'Lowongan', icon: Briefcase },
+  { to: '/kuisioner', label: 'Kuisioner', icon: ClipboardList },
   { to: '/applications', label: 'Lamaran', icon: FileText },
   { to: '/jejaring', label: 'Jejaring', icon: Users, end: false },
 ]
@@ -58,6 +60,7 @@ const NAV: NavItem[] = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/alumni', label: 'Alumni', icon: Users, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['super_admin', 'institution_admin'] },
+  { to: '/surveys', label: 'Kuisioner', icon: ClipboardList, roles: ['super_admin', 'institution_admin'] },
   { to: '/reports', label: 'Laporan', icon: FileText, roles: ['super_admin', 'institution_admin'] },
   { to: '/institutions', label: 'Institusi', icon: Building2, roles: ['super_admin'] },
   { to: '/users', label: 'Pengguna', icon: UserCog, roles: ['super_admin', 'institution_admin'] },

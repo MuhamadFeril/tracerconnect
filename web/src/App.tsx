@@ -32,7 +32,12 @@ const Jobs = lazy(() => import('./pages/Jobs').then((m) => ({ default: m.Jobs })
 const JobApplicants = lazy(() => import('./pages/JobApplicants').then((m) => ({ default: m.JobApplicants })))
 const EmployerDashboard = lazy(() => import('./pages/employer/EmployerDashboard').then((m) => ({ default: m.EmployerDashboard })))
 const EmployerApplications = lazy(() => import('./pages/EmployerApplications').then((m) => ({ default: m.EmployerApplications })))
+const SurveyList = lazy(() => import('./pages/SurveyList').then((m) => ({ default: m.SurveyList })))
+const SurveyBuilder = lazy(() => import('./pages/SurveyBuilder').then((m) => ({ default: m.SurveyBuilder })))
 const AlumniHome = lazy(() => import('./pages/alumni/AlumniHome').then((m) => ({ default: m.AlumniHome })))
+const AlumniSurveys = lazy(() => import('./pages/alumni/AlumniSurveys').then((m) => ({ default: m.AlumniSurveys })))
+const AlumniSurveyFill = lazy(() => import('./pages/alumni/AlumniSurveyFill').then((m) => ({ default: m.AlumniSurveyFill })))
+const AlumniSurveyResult = lazy(() => import('./pages/alumni/AlumniSurveyResult').then((m) => ({ default: m.AlumniSurveyResult })))
 const AlumniAnnouncements = lazy(() => import('./pages/alumni/AlumniAnnouncements').then((m) => ({ default: m.AlumniAnnouncements })))
 const AlumniEvents = lazy(() => import('./pages/alumni/AlumniEvents').then((m) => ({ default: m.AlumniEvents })))
 const AlumniJobs = lazy(() => import('./pages/alumni/AlumniJobs').then((m) => ({ default: m.AlumniJobs })))
@@ -78,6 +83,8 @@ export default function App() {
         <Route path="/alumni" element={<Page><AlumniList /></Page>} />
         <Route path="/alumni/:id" element={<Page><AlumniDetail /></Page>} />
         <Route path="/departments" element={<Page><Departments /></Page>} />
+        <Route path="/surveys" element={<Page><SurveyList /></Page>} />
+        <Route path="/surveys/:id/builder" element={<Page><SurveyBuilder /></Page>} />
 
         <Route path="/reports" element={<Page><Reports /></Page>} />
         <Route path="/data-quality" element={<Page><DataQualityCenter /></Page>} />
@@ -100,6 +107,9 @@ export default function App() {
         <Route path="/acara" element={<Page><AlumniEvents /></Page>} />
         <Route path="/lowongan" element={<Page><AlumniJobs /></Page>} />
         <Route path="/lowongan/:id" element={<Page><AlumniJobDetail /></Page>} />
+        <Route path="/kuisioner" element={<Page><AlumniSurveys /></Page>} />
+        <Route path="/kuisioner/:surveyId" element={<Page><AlumniSurveyFill /></Page>} />
+        <Route path="/kuisioner/hasil/:responseId" element={<Page><AlumniSurveyResult /></Page>} />
         <Route path="/applications" element={<Page><MyApplications /></Page>} />
         <Route path="/cv-preview" element={<Page><CvPreviewPage /></Page>} />
         <Route path="/notifikasi" element={<Page><Notifications /></Page>} />
