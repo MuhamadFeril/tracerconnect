@@ -9,9 +9,9 @@ use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\DataQualityController;
-use App\Http\Controllers\Api\V1\EmployerAlumniController;
+use App\Http\Controllers\Api\V1\HrdAlumniController;
 use App\Http\Controllers\Api\V1\InstitutionBrandingController;
-use App\Http\Controllers\Api\V1\EmployerController;
+use App\Http\Controllers\Api\V1\HrdController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Http\Controllers\Api\V1\GraduationYearController;
@@ -129,6 +129,7 @@ Route::prefix('v1')->group(function () {
         Route::get('responses/{response}', [ResponseController::class, 'show'])->middleware('throttle:60,1');
         Route::delete('responses/{response}', [ResponseController::class, 'destroy'])->middleware('throttle:30,1');
         Route::post('surveys/{survey}/start', [ResponseController::class, 'start'])->middleware('throttle:30,1');
+        Route::post('surveys/{survey}/edit', [ResponseController::class, 'edit'])->middleware('throttle:30,1');
         Route::post('surveys/{survey}/responses/save', [ResponseController::class, 'save'])->middleware('throttle:30,1');
         Route::post('surveys/{survey}/responses/submit', [ResponseController::class, 'submit'])->middleware('throttle:30,1');
 
@@ -171,13 +172,13 @@ Route::prefix('v1')->group(function () {
         Route::put('applications/{application}/status', [JobApplicationController::class, 'updateStatus'])->middleware('throttle:30,1');
         Route::put('applications/{application}/acceptance', [JobApplicationController::class, 'saveAcceptance'])->middleware('throttle:30,1');
 
-        // Employer self-service portal (dashboard + unified applicant inbox).
-        Route::prefix('employer')->group(function () {
-            Route::get('dashboard', [EmployerController::class, 'dashboard'])->middleware('throttle:30,1');
-            Route::get('applications', [EmployerController::class, 'applications'])->middleware('throttle:60,1');
-            Route::get('applications/{application}/cv', [EmployerAlumniController::class, 'downloadApplicationCv'])->middleware('throttle:30,1');
-            Route::get('alumni', [EmployerAlumniController::class, 'index'])->middleware('throttle:60,1');
-            Route::get('alumni/{alumniId}', [EmployerAlumniController::class, 'show'])->middleware('throttle:60,1');
+        // HRD self-service portal (dashboard + unified applicant inbox).
+        Route::prefix('hrd')->group(function () {
+            Route::get('dashboard', [HrdController::class, 'dashboard'])->middleware('throttle:30,1');
+            Route::get('applications', [HrdController::class, 'applications'])->middleware('throttle:60,1');
+            Route::get('applications/{application}/cv', [HrdAlumniController::class, 'downloadApplicationCv'])->middleware('throttle:30,1');
+            Route::get('alumni', [HrdAlumniController::class, 'index'])->middleware('throttle:60,1');
+            Route::get('alumni/{alumniId}', [HrdAlumniController::class, 'show'])->middleware('throttle:60,1');
         });
 
         // Notifications (phase 10)

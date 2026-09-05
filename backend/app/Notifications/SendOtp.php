@@ -24,15 +24,15 @@ class SendOtp extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $subject = match ($this->purpose) {
-            'reset' => 'Kode OTP Reset Password TracerConnect',
-            'password_change' => 'Kode OTP Ganti Password TracerConnect',
-            default => 'Kode OTP Verifikasi Akun TracerConnect',
+            'reset' => 'Kode OTP Reset Password TracerAlumni',
+            'password_change' => 'Kode OTP Ganti Password TracerAlumni',
+            default => 'Kode OTP Verifikasi Akun TracerAlumni',
         };
 
         $line = match ($this->purpose) {
             'reset' => 'Anda menerima email ini karena kami menerima permintaan reset password untuk akun Anda.',
             'password_change' => 'Anda menerima email ini karena kami menerima permintaan ganti password untuk akun Anda.',
-            default => 'Terima kasih telah mendaftar di TracerConnect. Gunakan kode berikut untuk memverifikasi akun Anda.',
+            default => 'Terima kasih telah mendaftar di TracerAlumni. Gunakan kode berikut untuk memverifikasi akun Anda.',
         };
 
         return (new MailMessage)

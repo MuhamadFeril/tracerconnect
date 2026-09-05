@@ -10,7 +10,7 @@ class JobVacancy {
   final String status;
   final String? postedAt;
   final String? createdAt;
-  final String? createdBy; // Employer (job creator) user id — untuk chat
+  final String? createdBy; // HRD (job creator) user id — untuk chat
   final bool isBookmarked;
   final int? applicantsCount;
   final bool? hasApplied;

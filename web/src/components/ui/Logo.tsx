@@ -18,7 +18,7 @@ export function Logo({
         className
       )}
       role="img"
-      aria-label={alt || 'TracerConnect Logo'}
+      aria-label={alt || 'TracerAlumni Logo'}
     >
       <svg
         viewBox="0 0 24 24"

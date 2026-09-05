@@ -52,7 +52,7 @@ class NotificationService
 
     /**
      * Notify every active alumni user across ALL schools (used when an
-     * employer publishes a cross-school vacancy announced to every
+     * hrd publishes a cross-school vacancy announced to every
      * institution).
      */
     public static function notifyAllAlumni(

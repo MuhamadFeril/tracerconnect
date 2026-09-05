@@ -15,14 +15,14 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],    'allowed_origins' => [
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],    'allowed_origins' => array_filter([
         env('FRONTEND_URL', 'http://localhost:5173'),
+        env('APP_URL', ''),
         // Mobile apps don't send Origin headers, but include common
         // development origins for completeness.
         'http://localhost:8000',
         'http://127.0.0.1:8000',
-    ],
-
+    ]),
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => [

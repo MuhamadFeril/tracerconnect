@@ -53,7 +53,7 @@ export function AuthLayout({ children, wide = false }: { children: React.ReactNo
           <Link to="/" className="flex min-w-0 items-center gap-3">
             <Logo className="size-10 shrink-0" />
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">TracerConnect</p>
+              <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">TracerAlumni</p>
               <p className="hidden truncate text-[11px] text-slate-400 sm:block">Tracer Study & Alumni</p>
             </div>
           </Link>
@@ -146,7 +146,7 @@ export function AuthLayout({ children, wide = false }: { children: React.ReactNo
                 <div className="relative flex items-center gap-2.5">
                   <Logo className="size-8 shrink-0" />
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-bold tracking-tight">TracerConnect</p>
+                    <p className="truncate text-[13px] font-bold tracking-tight">TracerAlumni</p>
                     <p className="truncate text-[10px] text-indigo-200/80">Tracer Study & Alumni</p>
                   </div>
                 </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { apiError } from '../lib/api'
 import { getUser } from '../lib/auth'
-import { useCreateUser, useDeleteUser, useInstitutions, useRoles, useUpdateUser, useUsers } from '../hooks/queries'
+import { useCreateUser, useDeleteUser, useInstitutionOptions, useRoles, useUpdateUser, useUsers } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
 import type { User } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -22,19 +22,18 @@ const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   institution_admin: 'Admin Institusi',
   alumni: 'Alumni',
-  employer: 'Employer',
+  hrd: 'HRD',
 }
 
 const ROLE_TONES: Record<string, BadgeTone> = {
   super_admin: 'violet',
   institution_admin: 'indigo',
   alumni: 'green',
-  employer: 'amber',
+  hrd: 'amber',
 }
 
-// Roles a platform admin may assign; institution admins get the subset below.
-const ALL_ROLES = ['super_admin', 'institution_admin', 'alumni', 'employer']
-const INSTITUTION_ADMIN_ROLES = ['alumni', 'employer']
+// Roles a platform admin may assign.
+const ALL_ROLES = ['super_admin', 'institution_admin', 'alumni', 'hrd']
 
 function RoleBadge({ role }: { role: string }) {
   return <Badge tone={ROLE_TONES[role] ?? 'slate'}>{ROLE_LABELS[role] ?? role}</Badge>
@@ -44,7 +43,7 @@ function initialForm(user?: User | null) {
   return {
     name: user?.name ?? '',
     email: user?.email ?? '',
-    role: user?.roles?.[0] ?? 'employer',
+    role: user?.roles?.[0] ?? 'hrd',
     institution_id: user?.institution_id ?? '',
     password: '',
     password_confirmation: '',
@@ -64,20 +63,18 @@ function UserFormModal({
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
   const toast = useToast()
-  const currentUser = getUser()
 
-  const isSuperAdmin = currentUser?.roles?.includes('super_admin') ?? false
-  const availableRoles = isSuperAdmin ? ALL_ROLES : INSTITUTION_ADMIN_ROLES
+  // Only the platform (super) admin may assign admin roles; institution
+  // admins can only create alumni/HRD accounts inside their own school.
+  const viewer = getUser()
+  const isPlatformAdmin = viewer?.roles?.includes('super_admin') ?? false
+  const availableRoles = isPlatformAdmin ? ALL_ROLES : ['alumni', 'hrd']
+  const { data: institutionOptions } = useInstitutionOptions()
 
   const [form, setForm] = useState(() => initialForm(user))
   const [error, setError] = useState<string | null>(null)
   const isEditing = Boolean(user)
   const isSaving = createUser.isPending || updateUser.isPending
-  const showInstitutionField = !isEditing && isSuperAdmin && form.role !== 'super_admin' && form.role !== 'employer'
-
-  // The institutions endpoint is super-admin only; institution admins never
-  // render the field, so avoid firing a doomed request for them.
-  const { data: institutionsData } = useInstitutions({ per_page: 100 }, { enabled: showInstitutionField })
 
   useEffect(() => {
     if (open) {
@@ -91,6 +88,15 @@ function UserFormModal({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    // Tenant-scoped accounts (institution admin, HRD, alumni) must belong to
+    // an existing school — the picker offers existing institutions only, it
+    // never creates a new one.
+    const needsInstitution = !isEditing && isPlatformAdmin && form.role !== 'super_admin'
+    if (needsInstitution && !form.institution_id) {
+      setError('Pilih institusi untuk akun ini')
+      return
+    }
 
     if (form.password !== form.password_confirmation) {
       setError('Konfirmasi password tidak cocok')
@@ -119,7 +125,7 @@ function UserFormModal({
           password: form.password,
           password_confirmation: form.password_confirmation,
           role: form.role,
-          institution_id: isSuperAdmin && form.role !== 'super_admin' ? form.institution_id || null : null,
+          institution_id: needsInstitution ? form.institution_id : undefined,
         })
         toast('Pengguna berhasil ditambahkan')
       }
@@ -163,17 +169,19 @@ function UserFormModal({
               ))}
             </Select>
           </Field>
-          {showInstitutionField && (
-            <Field label="Institusi" required hint="Wajib diisi untuk role non-super admin">
+          {!isEditing && isPlatformAdmin && form.role !== 'super_admin' && (
+            <Field label="Institusi" required>
               <Select
-                required
                 name="institution_id"
                 value={form.institution_id}
                 onChange={(e) => set('institution_id', e.target.value)}
               >
-                <option value="">— Pilih Institusi —</option>
-                {institutionsData?.data.map((inst) => (
-                  <option key={inst.id} value={inst.id}>{inst.name}</option>
+                <option value="">Pilih institusi</option>
+                {institutionOptions?.map((inst) => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.name}
+                    {inst.code ? ` (${inst.code})` : ''}
+                  </option>
                 ))}
               </Select>
             </Field>
@@ -219,11 +227,6 @@ function UserFormModal({
             </label>
           )}
         </div>
-        {!isEditing && isSuperAdmin && form.role === 'super_admin' && (
-          <p className="rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
-            Akun super admin bersifat platform-wide dan tidak terikat pada institusi tertentu.
-          </p>
-        )}
       </form>
     </Modal>
   )

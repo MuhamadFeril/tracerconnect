@@ -9,7 +9,7 @@ class SurveyRepository {
   /// Survey tersedia untuk alumni (`/alumni/surveys`).
   Future<List<SurveyItem>> availableSurveys() async {
     final data = await _api.get('/alumni/surveys');
-    final list = data as List;
+    final list = data as List? ?? [];
     return list.whereType<Map<String, dynamic>>().map(SurveyItem.fromJson).toList();
   }
 
@@ -22,20 +22,27 @@ class SurveyRepository {
       'page': page,
       'per_page': perPage,
     });
-    final items = (env.data as List)
-        .whereType<Map<String, dynamic>>()
+    final items = (env.data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(SurveyResponseItem.fromJson)
-        .toList();
+        .toList() ?? [];
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 20, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 
   /// Mulai (atau lanjutkan) mengisi survey.
   Future<SurveyFill> start(String surveyId) async {
     final data = await _api.post('/surveys/$surveyId/start');
+    return SurveyFill.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Buka kembali jawaban yang sudah dikirim untuk diperbarui selama survey
+  /// masih berlangsung (perbaiki kesalahan / dapat kerja baru).
+  Future<SurveyFill> edit(String surveyId) async {
+    final data = await _api.post('/surveys/$surveyId/edit');
     return SurveyFill.fromJson(data as Map<String, dynamic>);
   }
 

@@ -18,9 +18,9 @@ import '../../features/chat/new_conversation_page.dart';
 import '../../features/events/event_detail_page.dart';
 import '../../features/events/events_page.dart';
 import '../../features/home/home_page.dart';
-import '../../features/jobs/employer_applicants_page.dart';
-import '../../features/jobs/employer_job_form_page.dart';
-import '../../features/jobs/employer_jobs_page.dart';
+import '../../features/jobs/hrd_applicants_page.dart';
+import '../../features/jobs/hrd_job_form_page.dart';
+import '../../features/jobs/hrd_jobs_page.dart';
 import '../../features/jobs/job_detail_page.dart';
 import '../../features/jobs/jobs_page.dart';
 import '../../features/jobs/my_applications_page.dart';
@@ -69,31 +69,31 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Sudah login: jangan biarkan mengakses layar auth.
-      // Employer diarahkan ke /jobs (paritas web), admin & alumni ke /home.
+      // HRD diarahkan ke /jobs (paritas web), admin & alumni ke /home.
       if (location == '/splash' ||
           location == '/landing' ||
           location == '/login' ||
           location == '/register' ||
           location == '/forgot-password' ||
           location == '/reset-password') {
-        return RoleUtils.isEmployer(auth.user) && !RoleUtils.isAdmin(auth.user)
+        return RoleUtils.isHrd(auth.user) && !RoleUtils.isAdmin(auth.user)
             ? '/jobs'
             : '/home';
       }
 
-      // Role-based route guards: employer tidak bisa akses fitur alumni/admin.
+      // Role-based route guards: hrd tidak bisa akses fitur alumni/admin.
       final user = auth.user;
-      final isEmployerOnly = RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user);
-      if (isEmployerOnly) {
-        // Employer: larang akses kuisioner, jejaring, tracer history, lamaran.
-        const blockedEmployer = ['/surveys', '/network', '/my-applications', '/my-bookmarks'];
-        if (blockedEmployer.any(location.startsWith)) return '/home';
+      final isHrdOnly = RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user);
+      if (isHrdOnly) {
+        // HRD: larang akses kuisioner, jejaring, tracer history, lamaran.
+        const blockedHrd = ['/surveys', '/network', '/my-applications', '/my-bookmarks'];
+        if (blockedHrd.any(location.startsWith)) return '/home';
       }
 
       final isAlumniOnly = RoleUtils.isAlumniOnly(user);
       if (isAlumniOnly) {
-        // Alumni: larang akses employer job management.
-        if (location.startsWith('/employer-jobs')) return '/home';
+        // Alumni: larang akses hrd job management.
+        if (location.startsWith('/hrd-jobs')) return '/home';
       }
 
       return null;
@@ -258,24 +258,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             SurveyResultPage(responseId: state.pathParameters['responseId']!),
       ),
 
-      // Employer job management
+      // HRD job management
       GoRoute(
-        path: '/employer-jobs',
-        builder: (context, state) => const EmployerJobsPage(),
+        path: '/hrd-jobs',
+        builder: (context, state) => const HrdJobsPage(),
       ),
       GoRoute(
-        path: '/employer-jobs/new',
-        builder: (context, state) => const EmployerJobFormPage(),
+        path: '/hrd-jobs/new',
+        builder: (context, state) => const HrdJobFormPage(),
       ),
       GoRoute(
-        path: '/employer-jobs/:id/edit',
-        builder: (context, state) => EmployerJobFormPage(
+        path: '/hrd-jobs/:id/edit',
+        builder: (context, state) => HrdJobFormPage(
           jobId: state.pathParameters['id'],
         ),
       ),
       GoRoute(
-        path: '/employer-jobs/:id/applicants',
-        builder: (context, state) => EmployerApplicantsPage(
+        path: '/hrd-jobs/:id/applicants',
+        builder: (context, state) => HrdApplicantsPage(
           jobId: state.pathParameters['id']!,
           jobTitle: state.uri.queryParameters['title'],
         ),

@@ -55,7 +55,7 @@ class PengaturanPage extends ConsumerWidget {
           ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
-            title: 'Tentang TracerConnect',
+            title: 'Tentang TracerAlumni',
             subtitle: 'Versi 1.0.0',
             onTap: () => _showAbout(context),
           ),
@@ -117,7 +117,7 @@ class PengaturanPage extends ConsumerWidget {
   void _showAbout(BuildContext context) {
     showAboutDialog(
       context: context,
-      applicationName: 'TracerConnect',
+      applicationName: 'TracerAlumni',
       applicationVersion: '1.0.0',
       applicationIcon: Container(
         width: 48,

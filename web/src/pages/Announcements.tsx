@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Megaphone, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { apiError } from '../lib/api'
-import { useAnnouncementMutations, useAnnouncements, useInstitutionOptions } from '../hooks/queries'
+import { useAnnouncementMutations, useAnnouncements } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
-import { getUser } from '../lib/auth'
-import type { Announcement, InstitutionOption } from '../lib/types'
+import type { Announcement } from '../lib/types'
 import { formatDate } from '../lib/format'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
@@ -24,7 +23,6 @@ function initialForm(announcement?: Announcement | null) {
     body: announcement?.body ?? '',
     status: announcement?.status ?? 'draft',
     published_at: announcement?.published_at ? announcement.published_at.slice(0, 10) : '',
-    institution_id: announcement?.institution_id ?? '',
   }
 }
 
@@ -32,14 +30,10 @@ function AnnouncementFormModal({
   open,
   onClose,
   announcement,
-  institutions,
-  isSuperAdmin,
 }: {
   open: boolean
   onClose: () => void
   announcement?: Announcement | null
-  institutions: InstitutionOption[]
-  isSuperAdmin: boolean
 }) {
   const mutations = useAnnouncementMutations()
   const toast = useToast()
@@ -61,19 +55,9 @@ function AnnouncementFormModal({
     e.preventDefault()
     setError(null)
 
-    // Super admin must pick the target institution (everyone else is
-    // auto-scoped to their own institution on the backend).
-    if (!announcement && isSuperAdmin && !form.institution_id) {
-      setError('Pilih institusi terlebih dahulu')
-      return
-    }
-
     const payload = {
       ...form,
       published_at: form.published_at || null,
-      // institution_id is only sent on create; updates never move an
-      // announcement between institutions.
-      ...(isSuperAdmin && !announcement ? { institution_id: form.institution_id } : {}),
     }
     try {
       if (announcement) {
@@ -109,22 +93,6 @@ function AnnouncementFormModal({
     >
       <form id="announcement-form" onSubmit={onSubmit} className="space-y-4">
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</div>}
-        {isSuperAdmin && !announcement && (
-          <Field label="Institusi" required>
-            <Select
-              name="institution_id"
-              value={form.institution_id}
-              onChange={(e) => set('institution_id', e.target.value)}
-            >
-              <option value="">Pilih institusi…</option>
-              {institutions.map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
         <Field label="Judul" required>
           <Input required name="title" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Judul pengumuman" />
         </Field>
@@ -152,11 +120,6 @@ export function Announcements() {
   const debouncedSearch = useDebounce(search)
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
-
-  const currentUser = getUser()
-  const isSuperAdmin = currentUser?.roles?.includes('super_admin') ?? false
-  const institutionsQuery = useInstitutionOptions()
-  const institutions = institutionsQuery.data ?? []
 
   const { data, isPending, isError, refetch } = useAnnouncements({
     search: debouncedSearch || undefined,
@@ -276,8 +239,6 @@ export function Announcements() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         announcement={editing}
-        institutions={institutions}
-        isSuperAdmin={isSuperAdmin}
       />
 
       <ConfirmDialog

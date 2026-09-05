@@ -18,7 +18,7 @@ class JobApplicationPolicy
 
     /**
      * An application can be viewed by its owner (alumni), by the creator of
-     * the vacancy (employer), or by staff of the vacancy's institution.
+     * the vacancy (hrd), or by staff of the vacancy's institution.
      */
     public function view(User $user, JobApplication $application): bool
     {
@@ -47,7 +47,7 @@ class JobApplicationPolicy
     }
 
     /**
-     * The applicant may withdraw; the job creator (employer) or institution
+     * The applicant may withdraw; the job creator (hrd) or institution
      * staff may update the status.
      */
     public function update(User $user, JobApplication $application): bool

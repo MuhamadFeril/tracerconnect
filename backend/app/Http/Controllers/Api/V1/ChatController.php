@@ -155,7 +155,7 @@ class ChatController extends Controller
         if ($job) {
             // The job creator may always initiate; any alumni may contact the
             // creator of a published vacancy without needing approval first
-            // (cross-school employer vacancies included).
+            // (cross-school hrd vacancies included).
             $isCreator = $job->created_by === $user->id;
             $alumniMayChatJob = $user->hasRole('alumni') && $job->status === 'published';
 

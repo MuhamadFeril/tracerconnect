@@ -17,9 +17,9 @@ class StoreJobVacancyRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // Employers are platform-level: their vacancies are published across
+        // HRDs are platform-level: their vacancies are published across
         // all schools, so they never get scoped into a single institution.
-        if (! $this->user()?->hasRole('employer')) {
+        if (! $this->user()?->hasRole('hrd')) {
             $this->scopeToInstitution();
         }
     }
@@ -29,12 +29,12 @@ class StoreJobVacancyRequest extends FormRequest
      */
     public function rules(): array
     {
-        $isEmployer = $this->user()?->hasRole('employer') ?? false;
+        $isHrd = $this->user()?->hasRole('hrd') ?? false;
 
         return [
-            // Employer vacancies have no institution: they are announced to
+            // HRD vacancies have no institution: they are announced to
             // every school. Everyone else stays tenant-scoped.
-            'institution_id' => $isEmployer
+            'institution_id' => $isHrd
                 ? ['nullable', 'prohibited']
                 : $this->institutionIdRules(),
             'title' => ['required', 'string', 'max:255'],

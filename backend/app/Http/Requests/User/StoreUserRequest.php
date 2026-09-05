@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Models\Institution;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,13 +15,28 @@ class StoreUserRequest extends FormRequest
 
     /**
      * Institution admins can only create users inside their own institution.
+     * In 1-tenant mode (one active school) the school is attached automatically
+     * for super admin too, so the UI does not need an institution picker.
      */
     protected function prepareForValidation(): void
     {
         $user = $this->user();
 
-        if ($user && $user->hasRole('institution_admin')) {
+        if (! $user) {
+            return;
+        }
+
+        if ($user->hasRole('institution_admin')) {
             $this->merge(['institution_id' => $user->institution_id]);
+
+            return;
+        }
+
+        if ($user->hasRole('super_admin') && ! $this->filled('institution_id') && $this->input('role') !== 'super_admin') {
+            $single = Institution::where('status', 'active')->get();
+            if ($single->count() === 1) {
+                $this->merge(['institution_id' => $single->first()->id]);
+            }
         }
     }
 
@@ -32,8 +48,8 @@ class StoreUserRequest extends FormRequest
         $user = $this->user();
 
         $allowedRoles = $user->hasRole('super_admin')
-            ? ['super_admin', 'institution_admin', 'alumni', 'employer']
-            : ['alumni', 'employer'];
+            ? ['super_admin', 'institution_admin', 'alumni', 'hrd']
+            : ['alumni', 'hrd'];
 
         $institutionIdRules = ['nullable', 'uuid', Rule::exists('institutions', 'id')];
 
@@ -43,6 +59,10 @@ class StoreUserRequest extends FormRequest
         } elseif ($this->input('role') === 'super_admin') {
             // Platform-level accounts do not belong to an institution.
             $institutionIdRules = ['nullable'];
+        } elseif (Institution::where('status', 'active')->count() > 1) {
+            // Multi-tenant deployment: every tenant-scoped account (institution
+            // admin, HRD, alumni) must be attached to an existing institution.
+            $institutionIdRules = ['required', 'uuid', Rule::exists('institutions', 'id')];
         }
 
         return [

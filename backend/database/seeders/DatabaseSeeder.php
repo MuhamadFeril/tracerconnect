@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
             SurveySeeder::class,
             ResponseSeeder::class,
             EngagementSeeder::class,
-            EmployerSeeder::class,
+            HrdSeeder::class,
             RegionSeeder::class,
             UniversitySeeder::class,
         ]);

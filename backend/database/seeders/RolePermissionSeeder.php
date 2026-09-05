@@ -61,7 +61,7 @@ class RolePermissionSeeder extends Seeder
             'audit.view',
             'chat.view', 'chat.send', 'chat.report',
         ],
-        'employer' => [
+        'hrd' => [
             'job.view', 'job.create', 'job.update',
             'chat.view', 'chat.send',
         ],

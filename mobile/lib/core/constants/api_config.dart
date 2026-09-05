@@ -10,7 +10,7 @@ Future<String> resolveApiBaseUrl() async {
   const defined = String.fromEnvironment('API_BASE_URL');
   if (defined.isNotEmpty) return defined;
 
-  // 2. Production server (default)
+  // 2. Production default
   return '$_productionHost/api/v1';
 }
 

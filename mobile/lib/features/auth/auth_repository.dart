@@ -136,7 +136,14 @@ class AuthRepository {
   Future<String> exchangeGoogleAuthCode(String authCode) async {
     final data = await _api.post('/auth/google/exchange', data: {'auth_code': authCode});
     final map = data as Map<String, dynamic>;
-    return map['token'] as String;
+    final token = map['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const ApiException(
+        statusCode: null,
+        message: 'Token tidak diterima dari server.',
+      );
+    }
+    return token;
   }
 
   /// Register akun baru. Backend mengembalikan `requires_verification`
@@ -186,8 +193,20 @@ class AuthRepository {
 
   Future<AuthSession> _sessionFromData(dynamic data) async {
     final map = data as Map<String, dynamic>;
-    final token = map['token'] as String;
-    final userJson = map['user'] as Map<String, dynamic>;
+    final token = map['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const ApiException(
+        statusCode: null,
+        message: 'Token tidak diterima dari server.',
+      );
+    }
+    final userJson = map['user'] as Map<String, dynamic>?;
+    if (userJson == null) {
+      throw const ApiException(
+        statusCode: null,
+        message: 'Data user tidak diterima dari server.',
+      );
+    }
     final user = User.fromJson(userJson);
     ApiClient.setToken(token);
 
@@ -303,6 +322,10 @@ class AuthRepository {
 
   Future<User> deleteAvatar() async {
     final data = await _api.delete('/auth/me/avatar');
+    // DELETE response may return null/empty data — fetch fresh user profile.
+    if (data == null || (data is Map && data.isEmpty)) {
+      return me();
+    }
     return _userFromData(data);
   }
 }

@@ -31,11 +31,11 @@ class RoleUtils {
   static bool isAlumni(User? user) =>
       user?.roles.contains('alumni') ?? false;
 
-  /// `true` for employer (post/manage job vacancies).
-  static bool isEmployer(User? user) =>
-      user?.roles.contains('employer') ?? false;
+  /// `true` for hrd (post/manage job vacancies).
+  static bool isHrd(User? user) =>
+      user?.roles.contains('hrd') ?? false;
 
-  /// `true` when the user is *only* alumni (no admin or employer roles).
+  /// `true` when the user is *only* alumni (no admin or hrd roles).
   /// This matches the web `alumniOnly` check.
   static bool isAlumniOnly(User? user) {
     if (user == null || user.roles.isEmpty) return false;
@@ -47,7 +47,7 @@ class RoleUtils {
         'super_admin' => 'Super Admin',
         'institution_admin' => 'Admin Institusi',
         'alumni' => 'Alumni',
-        'employer' => 'Pemberi Kerja',
+        'hrd' => 'HRD',
         _ => role.replaceAll('_', ' ').toUpperCase(),
       };
 }

@@ -127,12 +127,12 @@ class ChatTest extends TestCase
         $this->assertSame(1, Conversation::count());
     }
 
-    public function test_conversation_about_job_between_alumni_and_employer(): void
+    public function test_conversation_about_job_between_alumni_and_hrd(): void
     {
         $institution = Institution::factory()->create();
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
-        $job = JobVacancy::factory()->create(['created_by' => $employer->id, 'institution_id' => $institution->id]);
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
+        $job = JobVacancy::factory()->create(['created_by' => $hrd->id, 'institution_id' => $institution->id]);
 
         $alumni = User::factory()->create(['institution_id' => $institution->id]);
         $alumni->assignRole('alumni');
@@ -140,18 +140,18 @@ class ChatTest extends TestCase
         $this->withToken($this->token($alumni))
             ->postJson('/api/v1/conversations', ['job_vacancy_id' => $job->id])
             ->assertStatus(201)
-            ->assertJsonPath('data.other.id', $employer->id)
+            ->assertJsonPath('data.other.id', $hrd->id)
             ->assertJsonPath('data.job.id', $job->id);
     }
 
-    public function test_alumni_from_other_institution_can_chat_employer_without_approval(): void
+    public function test_alumni_from_other_institution_can_chat_hrd_without_approval(): void
     {
         // Alumni of any school may contact the recruiter of a published
         // vacancy directly — no connection approval required.
         $institution = Institution::factory()->create();
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
-        $job = JobVacancy::factory()->create(['created_by' => $employer->id, 'institution_id' => $institution->id]);
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
+        $job = JobVacancy::factory()->create(['created_by' => $hrd->id, 'institution_id' => $institution->id]);
 
         $stranger = User::factory()->create(); // alumni from another institution
         $stranger->assignRole('alumni');
@@ -159,15 +159,15 @@ class ChatTest extends TestCase
         $this->withToken($this->token($stranger))
             ->postJson('/api/v1/conversations', ['job_vacancy_id' => $job->id])
             ->assertStatus(201)
-            ->assertJsonPath('data.other.id', $employer->id);
+            ->assertJsonPath('data.other.id', $hrd->id);
     }
 
     public function test_job_conversation_denied_for_draft_job(): void
     {
         $institution = Institution::factory()->create();
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
-        $job = JobVacancy::factory()->create(['created_by' => $employer->id, 'institution_id' => $institution->id, 'status' => 'draft']);
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
+        $job = JobVacancy::factory()->create(['created_by' => $hrd->id, 'institution_id' => $institution->id, 'status' => 'draft']);
 
         $alumni = User::factory()->create(['institution_id' => $institution->id]);
         $alumni->assignRole('alumni');

@@ -72,7 +72,6 @@ class TokenStorage {
     } catch (_) {
       // Secure storage tidak tersedia / gagal: lanjut tanpa token daripada
       // membiarkan splash berputar selamanya.
-      _storageAvailable = false;
       return null;
     }
   }
@@ -95,7 +94,7 @@ class TokenStorage {
               value: expiresAt.millisecondsSinceEpoch.toString())
           .timeout(_operationTimeout);
     } catch (_) {
-      _storageAvailable = false;
+      // Keep in-memory state intact even if storage fails.
     }
   }
 
@@ -110,7 +109,7 @@ class TokenStorage {
       await _storage.delete(key: _expiresAtKey).timeout(_operationTimeout);
       await _storage.delete(key: _userKey).timeout(_operationTimeout);
     } catch (_) {
-      _storageAvailable = false;
+      // Best effort: in-memory state already cleared.
     }
   }
 

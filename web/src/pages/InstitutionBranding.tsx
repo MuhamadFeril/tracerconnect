@@ -292,7 +292,7 @@ function ReportBrandingSection({ branding }: { branding: InstitutionBranding }) 
           <Textarea
             value={form.report_footer}
             onChange={(e) => setForm({ ...form, report_footer: e.target.value })}
-            placeholder="Contoh: Dokumen ini digenerate otomatis oleh TracerConnect"
+            placeholder="Contoh: Dokumen ini digenerate otomatis oleh TracerAlumni"
             rows={2}
             className="mt-1"
           />

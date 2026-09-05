@@ -1444,4 +1444,60 @@ class AuthTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.email', 'alumni.google@example.com');
     }
+
+    public function test_profile_update_mirrors_name_and_email_to_linked_alumni(): void
+    {
+        $institution = Institution::factory()->create(['status' => 'active']);
+
+        $token = $this->registerAndVerify([
+            'name' => 'Nama Lama',
+            'email' => 'alumni.sync@example.com',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
+            'institution_id' => $institution->id,
+            'nis' => '1234567890',
+        ]);
+
+        $this->withToken($token)->putJson('/api/v1/auth/profile', [
+            'name' => 'Nama Baru Alumni',
+            'email' => 'alumni.sync.baru@example.com',
+        ])->assertOk()
+            ->assertJsonPath('data.name', 'Nama Baru Alumni');
+
+        $user = User::where('email', 'alumni.sync.baru@example.com')->firstOrFail();
+
+        // The jejaring/alumni record must carry the updated identity too.
+        $this->assertDatabaseHas('alumni', [
+            'user_id' => $user->id,
+            'name' => 'Nama Baru Alumni',
+            'email' => 'alumni.sync.baru@example.com',
+        ]);
+    }
+
+    public function test_admin_user_update_mirrors_name_to_linked_alumni(): void
+    {
+        $institution = Institution::factory()->create(['status' => 'active']);
+
+        $this->registerAndVerify([
+            'name' => 'Alumni Admin Sync',
+            'email' => 'alumni.admin.sync@example.com',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
+            'institution_id' => $institution->id,
+        ]);
+
+        $user = User::where('email', 'alumni.admin.sync@example.com')->firstOrFail();
+        $adminToken = User::where('email', 'superadmin@tracerconnect.test')->firstOrFail()
+            ->createToken('test-token')->plainTextToken;
+
+        $this->withToken($adminToken)->putJson("/api/v1/users/{$user->id}", [
+            'name' => 'Alumni Diedit Admin',
+            'email' => 'alumni.admin.sync@example.com',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('alumni', [
+            'user_id' => $user->id,
+            'name' => 'Alumni Diedit Admin',
+        ]);
+    }
 }

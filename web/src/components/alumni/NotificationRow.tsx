@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, Briefcase, CalendarDays, ClipboardList, Megaphone } from 'lucide-react'
+import { Bell, Briefcase, CalendarDays, ClipboardList, Link2, MessageSquare, Megaphone } from 'lucide-react'
 import { formatDateTime } from '../../lib/format'
 import type { NotificationItem } from '../../lib/types'
 
@@ -9,6 +9,8 @@ const NOTIFICATION_KINDS: Record<string, { icon: typeof Bell; tone: string }> = 
   event: { icon: CalendarDays, tone: 'bg-sky-50 text-sky-600' },
   job: { icon: Briefcase, tone: 'bg-violet-50 text-violet-600' },
   survey: { icon: ClipboardList, tone: 'bg-emerald-50 text-emerald-600' },
+  connection: { icon: Link2, tone: 'bg-amber-50 text-amber-600' },
+  chat: { icon: MessageSquare, tone: 'bg-cyan-50 text-cyan-600' },
   info: { icon: Bell, tone: 'bg-slate-100 text-slate-600' },
 }
 

@@ -15,14 +15,14 @@ class NetworkingRepository {
       'per_page': perPage,
       if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
     });
-    final items = (env.data as List)
-        .whereType<Map<String, dynamic>>()
+    final items = (env.data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(NetworkingAlumni.fromJson)
-        .toList();
+        .toList() ?? [];
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 
@@ -33,18 +33,18 @@ class NetworkingRepository {
 
   Future<List<ConnectionItem>> connections() async {
     final data = await _api.get('/networking/connections');
-    return (data as List)
-        .whereType<Map<String, dynamic>>()
+    return (data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(ConnectionItem.fromJson)
-        .toList();
+        .toList() ?? [];
   }
 
   Future<List<ConnectionItem>> requests() async {
     final data = await _api.get('/networking/requests');
-    return (data as List)
-        .whereType<Map<String, dynamic>>()
+    return (data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(ConnectionItem.fromJson)
-        .toList();
+        .toList() ?? [];
   }
 
   Future<void> sendConnection(String receiverId) async {
@@ -69,10 +69,10 @@ class NetworkingRepository {
 
   Future<List<BlockedUserItem>> blocked() async {
     final data = await _api.get('/networking/blocked');
-    return (data as List)
-        .whereType<Map<String, dynamic>>()
+    return (data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(BlockedUserItem.fromJson)
-        .toList();
+        .toList() ?? [];
   }
 
   Future<void> unblock(String blockedId) async {

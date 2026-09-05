@@ -124,7 +124,7 @@ class _LandingPageState extends State<LandingPage> {
                     bottom: MediaQuery.of(context).padding.bottom + 14,
                   ),
                   child: Text(
-                    'Dengan melanjutkan, kamu menyetujui Syarat & Ketentuan serta Kebijakan Privasi TracerConnect.',
+                    'Dengan melanjutkan, kamu menyetujui Syarat & Ketentuan serta Kebijakan Privasi TracerAlumni.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.55),
@@ -230,7 +230,7 @@ class _BrandBar extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           const Text(
-            'TracerConnect',
+            'TracerAlumni',
             style: TextStyle(
               color: Colors.white,
               fontSize: 17,

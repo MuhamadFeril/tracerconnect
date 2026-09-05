@@ -25,7 +25,7 @@ import '../auth/auth_controller.dart';
 import '../notifications/notifications_providers.dart';
 
 import '../surveys/survey_providers.dart';
-import 'employer_dashboard_page.dart';
+import 'hrd_dashboard_page.dart';
 import 'home_providers.dart';
 
 class HomePage extends ConsumerWidget {
@@ -70,9 +70,9 @@ class HomePage extends ConsumerWidget {
             ],
           ),
           data: (data) {
-          // Employer: show dedicated dashboard instead of generic home.
-          if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) {
-            return const EmployerDashboardPage();
+          // HRD: show dedicated dashboard instead of generic home.
+          if (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) {
+            return const HrdDashboardPage();
           }
           return _HomeLayout(
             user: user,
@@ -113,8 +113,8 @@ class HomePage extends ConsumerWidget {
 
               _AnnouncementsSection(items: data.announcements),
               const SizedBox(height: 16),
-              // Events: not for employer.
-              if (!RoleUtils.isEmployer(user) || RoleUtils.isAdmin(user)) ...[
+              // Events: not for hrd.
+              if (!RoleUtils.isHrd(user) || RoleUtils.isAdmin(user)) ...[
                 _EventsSection(items: data.events),
                 const SizedBox(height: 16),
               ],
@@ -363,15 +363,15 @@ class _ServicesGrid extends StatelessWidget {
           Color(0xFFF0FDFA), '/my-applications'),
     ];
 
-    // Employer: lowongan management + pelamar masuk + alumni directory.
-    if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) {
+    // HRD: lowongan management + pelamar masuk + alumni directory.
+    if (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) {
       services = const [
         _ServiceItem('Lowongan', Icons.work_outline_rounded, Color(0xFFB45309),
             Color(0xFFFEF3C7), '/jobs'),
         _ServiceItem('Kelola Lowongan', Icons.manage_accounts_outlined, AppColors.primary,
-            AppColors.primaryLight, '/employer-jobs'),
+            AppColors.primaryLight, '/hrd-jobs'),
         _ServiceItem('Pelamar', Icons.how_to_reg_outlined, AppColors.violet,
-            AppColors.violetBg, '/employer-jobs'),
+            AppColors.violetBg, '/hrd-jobs'),
         _ServiceItem('Pengumuman', Icons.campaign_outlined, AppColors.danger,
             AppColors.dangerBg, '/announcements'),
         _ServiceItem('Chat', Icons.chat_bubble_outline_rounded, AppColors.success,
@@ -504,7 +504,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
   late final List<Widget> _pages = _buildPages();
 
   List<Widget> _buildPages() {
-    final isEmployer = RoleUtils.isEmployer(widget.user) && !RoleUtils.isAdmin(widget.user);
+    final isHrd = RoleUtils.isHrd(widget.user) && !RoleUtils.isAdmin(widget.user);
     final pages = <Widget>[
       _PromoCard(
         title: 'Temukan pekerjaan impianmu',
@@ -516,7 +516,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
         onTap: () => context.go('/jobs'),
       ),
     ];
-    if (!isEmployer) {
+    if (!isHrd) {
       pages.add(_PromoCard(
         title: 'Kuisioner tracer study tersedia',
         subtitle: 'Isi survey dari institusi Anda dan lengkapi data tracer study',
@@ -534,7 +534,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
         gradient: const [AppColors.primary, AppColors.primaryDark],
         icon: Icons.work_outline_rounded,
         shadowColor: AppColors.primary.withValues(alpha: 0.3),
-        onTap: () => context.push('/employer-jobs'),
+        onTap: () => context.push('/hrd-jobs'),
       ));
     }
     return pages;

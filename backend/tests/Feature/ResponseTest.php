@@ -536,4 +536,89 @@ class ResponseTest extends TestCase
 
         $this->withToken($token)->deleteJson("/api/v1/responses/{$response->id}")->assertStatus(403);
     }
+
+    // --- Updating a submitted response (kuisioner re-edit) --------------------
+
+    public function test_submitted_response_can_be_reopened_and_resubmitted_while_open(): void
+    {
+        $respondent = $this->freshRespondent();
+        $token = $respondent->createToken('test-token')->plainTextToken;
+        $survey = $this->demoSurvey();
+        $companyId = $this->questionId($survey, 'Nama perusahaan tempat Anda bekerja');
+
+        $submitted = $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/responses/submit", [
+            'answers' => $this->workingBranchAnswers($survey),
+        ])->assertStatus(201)->json('data');
+
+        $this->assertSame('submitted', $submitted['status']);
+
+        // Reopen for editing while the survey is still open.
+        $edited = $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/edit")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'in_progress')
+            ->assertJsonPath('data.id', $submitted['id'])
+            ->json('data');
+
+        // Existing answers are kept so the form can be pre-filled.
+        $this->assertSame('PT Teknologi Nusantara', $edited['answers'][$companyId]);
+
+        // Resubmit with the updated hrd -> same response, fresh answer.
+        $answers = $this->workingBranchAnswers($survey);
+        foreach ($answers as &$answer) {
+            if ($answer['question_id'] === $companyId) {
+                $answer['value'] = 'PT Maju Bersama';
+            }
+        }
+
+        $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/responses/submit", [
+            'answers' => $answers,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.status', 'submitted')
+            ->assertJsonPath('data.id', $submitted['id'])
+            ->assertJsonPath("data.answers.{$companyId}", 'PT Maju Bersama');
+    }
+
+    public function test_edit_rejected_when_response_was_never_submitted(): void
+    {
+        $token = $this->freshRespondentToken();
+        $survey = $this->demoSurvey();
+
+        // A draft alone (no submission yet) cannot be "edited".
+        $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/start")->assertOk();
+
+        $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/edit")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('response');
+    }
+
+    public function test_edit_rejected_after_survey_closes(): void
+    {
+        $survey = Survey::factory()->create([
+            'institution_id' => $this->demoInstitution()->id,
+            'status' => 'published',
+            'expires_at' => now()->addDay(),
+        ]);
+
+        Question::factory()->create([
+            'survey_id' => $survey->id,
+            'type' => 'text',
+            'label' => 'Nama',
+            'is_required' => true,
+        ]);
+
+        $respondent = $this->freshRespondent();
+        $token = $respondent->createToken('test-token')->plainTextToken;
+
+        // Submit while the survey is still open.
+        $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/responses/submit", [
+            'answers' => [['question_id' => $this->questionId($survey, 'Nama'), 'value' => 'Budi']],
+        ])->assertStatus(201);
+
+        // The survey closes; the submission can no longer be edited.
+        $survey->update(['expires_at' => now()->subDay()]);
+
+        $this->withToken($token)->postJson("/api/v1/surveys/{$survey->id}/edit")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('survey');
+    }
 }

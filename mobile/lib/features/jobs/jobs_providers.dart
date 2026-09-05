@@ -53,7 +53,7 @@ final bookmarkJobProvider =
 );
 
 // ------------------------------------------------------------------
-// Employer providers
+// HRD providers
 // ------------------------------------------------------------------
 
 typedef ApplicantsQuery = ({String jobId, String status});

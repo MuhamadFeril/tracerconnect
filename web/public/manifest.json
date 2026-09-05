@@ -1,6 +1,6 @@
 {
-  "name": "TracerConnect",
-  "short_name": "TracerConnect",
+  "name": "TracerAlumni",
+  "short_name": "TracerAlumni",
   "description": "Platform Tracer Study & Alumni Engagement",
   "start_url": "/",
   "display": "standalone",

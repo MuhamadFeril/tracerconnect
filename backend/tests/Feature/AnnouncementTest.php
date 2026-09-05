@@ -116,24 +116,24 @@ class AnnouncementTest extends TestCase
         $this->withToken($token)->deleteJson("/api/v1/announcements/{$announcement->id}")->assertOk();
     }
 
-    public function test_employer_without_announcement_permissions_is_rejected(): void
+    public function test_hrd_without_announcement_permissions_is_rejected(): void
     {
-        $employer = User::create([
+        $hrd = User::create([
             'name' => 'HRD',
             'email' => 'hrd-ann@test.test',
             'password' => 'password',
             'institution_id' => $this->demoInstitution()->id,
             'is_active' => true,
         ]);
-        $employer->assignRole('employer');
+        $hrd->assignRole('hrd');
 
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
-        // The employer role has no announcement.* permissions by design.
+        // The hrd role has no announcement.* permissions by design.
         $this->withToken($token)->getJson('/api/v1/announcements')->assertStatus(403);
         $this->withToken($token)->postJson('/api/v1/announcements', [
             'title' => 'Tidak Boleh',
-            'body' => 'Employer tidak punya permission announcement.',
+            'body' => 'HRD tidak punya permission announcement.',
             'status' => 'draft',
         ])->assertStatus(403);
     }

@@ -1,4 +1,4 @@
-// Types mirroring the TracerConnect backend API (api/v1).
+// Types mirroring the TracerAlumni backend API (api/v1).
 
 export interface ApiEnvelope<T> {
   success: boolean
@@ -44,25 +44,6 @@ export interface User {
   birthplace_regency?: string | null
   birthplace_province?: string | null
   address?: string | null
-  created_at?: string
-  updated_at?: string
-}
-
-export type InstitutionStatus = 'active' | 'trial' | 'suspended'
-
-export interface Institution {
-  id: string
-  name: string
-  slug: string
-  code: string | null
-  email: string | null
-  phone: string | null
-  website: string | null
-  address: string | null
-  logo_path: string | null
-  description: string | null
-  status: InstitutionStatus
-  users_count?: number
   created_at?: string
   updated_at?: string
 }
@@ -480,7 +461,7 @@ export interface JobVacancy {
   application_link: string | null
   status: JobStatus
   posted_at: string | null
-  /** Employer (job creator) user id — enables the chat entry point. */
+  /** HRD (job creator) user id — enables the chat entry point. */
   created_by?: string | null
   /** Alumni-facing flags (null for staff). */
   bookmarked?: boolean | null
@@ -501,7 +482,7 @@ export type JobApplicationStatus =
 
 export type AcceptanceContractType = 'permanent' | 'full_time' | 'part_time' | 'contract' | 'internship'
 
-/** Hiring result recorded by the employer when an application is accepted. */
+/** Hiring result recorded by the hrd when an application is accepted. */
 export interface JobAcceptance {
   id: string
   position_offered: string | null
@@ -571,8 +552,8 @@ export interface EventParticipant {
   } | null
 }
 
-/** Employer portal dashboard summary (own vacancies + applicant funnel). */
-export interface EmployerDashboard {
+/** HRD portal dashboard summary (own vacancies + applicant funnel). */
+export interface HrdDashboard {
   vacancies: {
     total: number
     published: number
@@ -713,9 +694,9 @@ export interface TracerReport {
   by_department: ({ department: string } & StatusCounts)[]
 }
 
-// --- Employer Alumni Directory ---
+// --- HRD Alumni Directory ---
 
-export interface EmployerAlumniListItem {
+export interface HrdAlumniListItem {
   id: string
   name: string
   email: string | null
@@ -730,7 +711,7 @@ export interface EmployerAlumniListItem {
   skills: string[] | null
 }
 
-export interface EmployerAlumniDetail {
+export interface HrdAlumniDetail {
   id: string
   name: string
   email: string | null

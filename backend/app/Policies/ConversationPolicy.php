@@ -9,7 +9,7 @@ class ConversationPolicy
 {
     /**
      * Only users holding the chat.view permission (alumni, institution
-     * staff, employers, super admins) can list conversations.
+     * staff, hrd, super admins) can list conversations.
      */
     public function viewAny(User $user): bool
     {

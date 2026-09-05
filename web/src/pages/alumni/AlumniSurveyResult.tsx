@@ -1,22 +1,39 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, ClipboardList } from 'lucide-react'
-import { useMyResponse } from '../../hooks/queries'
+import { ArrowLeft, CheckCircle2, ClipboardList, PencilLine } from 'lucide-react'
+import { useEditSurvey, useMyResponse } from '../../hooks/queries'
+import { apiError } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 import { AlumniAnswerSummary } from './AlumniAnswerSummary'
 import { Card } from '../../components/ui/Card'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ErrorState, LoadingState } from '../../components/ui/StateViews'
+import { useToast } from '../../components/ui/Toast'
+
+/**
+ * Whether the survey a response belongs to is still accepting answers:
+ * published, not started yet in the future, and not expired.
+ */
+function isSurveyOpen(survey: { status: string; starts_at: string | null; expires_at: string | null }): boolean {
+  if (survey.status !== 'published') return false
+  if (survey.starts_at && new Date(survey.starts_at).getTime() > Date.now()) return false
+  if (survey.expires_at && new Date(survey.expires_at).getTime() < Date.now()) return false
+  return true
+}
 
 export function AlumniSurveyResult() {
   const { responseId = '' } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
   const { data: fill, isPending, isError, refetch } = useMyResponse(responseId)
+  const edit = useEditSurvey(fill?.survey_id ?? '')
 
   if (isPending) return <LoadingState label="Memuat jawaban Anda…" />
   if (isError || !fill) {
     return <ErrorState message="Gagal memuat jawaban Anda" onRetry={() => refetch()} />
   }
+
+  const editable = fill.status === 'submitted' && isSurveyOpen(fill.survey)
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -54,6 +71,22 @@ export function AlumniSurveyResult() {
       <AlumniAnswerSummary fill={fill} />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
+        {editable && (
+          <Button
+            loading={edit.isPending}
+            onClick={async () => {
+              try {
+                await edit.mutateAsync()
+                toast('Jawaban dapat diperbarui')
+                navigate(`/kuisioner/${fill.survey_id}`)
+              } catch (err) {
+                toast(apiError(err))
+              }
+            }}
+          >
+            <PencilLine className="size-4" /> Ubah Jawaban
+          </Button>
+        )}
         <Button variant="secondary" onClick={() => navigate('/kuisioner')}>
           <ArrowLeft className="size-4" /> Kembali ke Kuisioner
         </Button>

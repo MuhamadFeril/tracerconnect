@@ -57,7 +57,7 @@ class AuditLogTest extends TestCase
             'email' => 'staf.baru@smkn1tracer.sch.id',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'employer',
+            'role' => 'hrd',
             'institution_id' => $institution->id,
         ])->assertCreated();
 

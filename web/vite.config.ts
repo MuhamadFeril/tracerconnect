@@ -35,15 +35,15 @@ export default defineConfig({
     headers: securityHeaders,
     proxy: {
       '/api': {
-        target: 'https://tracceralumni.freehosting.dev',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
       // Serve uploaded files (avatars, etc.) through the same dev origin.
       '/storage': {
-        target: 'https://tracceralumni.freehosting.dev',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

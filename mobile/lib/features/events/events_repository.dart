@@ -18,7 +18,7 @@ class EventsRepository {
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 

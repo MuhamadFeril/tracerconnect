@@ -22,12 +22,12 @@ class JobAcceptanceTest extends TestCase
         $this->seed();
     }
 
-    private function makeEmployer(): User
+    private function makeHrd(): User
     {
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
 
-        return $employer;
+        return $hrd;
     }
 
     private function makeAlumni(Institution $institution): User
@@ -44,17 +44,17 @@ class JobAcceptanceTest extends TestCase
     }
 
     /**
-     * An employer creates a cross-school vacancy, an alumni applies, and the
-     * employer accepts the application with the full hiring result.
+     * An hrd creates a cross-school vacancy, an alumni applies, and the
+     * hrd accepts the application with the full hiring result.
      */
-    private function acceptedApplication(string $employerId, string $alumniId): JobApplication
+    private function acceptedApplication(string $hrdId, string $alumniId): JobApplication
     {
         $vacancy = JobVacancy::create([
             'institution_id' => null,
             'title' => 'Software Engineer',
             'company_name' => 'PT Test',
             'status' => 'published',
-            'created_by' => $employerId,
+            'created_by' => $hrdId,
         ]);
 
         return JobApplication::create([
@@ -66,13 +66,13 @@ class JobAcceptanceTest extends TestCase
         ]);
     }
 
-    public function test_employer_can_record_hiring_result_for_accepted_application(): void
+    public function test_hrd_can_record_hiring_result_for_accepted_application(): void
     {
-        $employer = $this->makeEmployer();
+        $hrd = $this->makeHrd();
         $alumni = $this->makeAlumni($this->demoInstitution());
-        $application = $this->acceptedApplication($employer->id, $alumni->id);
+        $application = $this->acceptedApplication($hrd->id, $alumni->id);
 
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->putJson("/api/v1/applications/{$application->id}/acceptance", [
             'position_offered' => 'Software Engineer',
@@ -84,7 +84,7 @@ class JobAcceptanceTest extends TestCase
             ->assertJsonPath('data.acceptance.position_offered', 'Software Engineer')
             ->assertJsonPath('data.acceptance.contract_type', 'full_time')
             ->assertJsonPath('data.acceptance.start_date', '2026-09-01')
-            ->assertJsonPath('data.acceptance.decided_by', $employer->id);
+            ->assertJsonPath('data.acceptance.decided_by', $hrd->id);
 
         $this->assertDatabaseHas('job_acceptances', [
             'job_application_id' => $application->id,
@@ -94,19 +94,19 @@ class JobAcceptanceTest extends TestCase
 
     public function test_acceptance_can_be_updated_instead_of_duplicated(): void
     {
-        $employer = $this->makeEmployer();
+        $hrd = $this->makeHrd();
         $alumni = $this->makeAlumni($this->demoInstitution());
-        $application = $this->acceptedApplication($employer->id, $alumni->id);
+        $application = $this->acceptedApplication($hrd->id, $alumni->id);
 
         JobAcceptance::create([
             'job_application_id' => $application->id,
             'job_vacancy_id' => $application->job_vacancy_id,
             'position_offered' => 'Junior Engineer',
-            'decided_by' => $employer->id,
+            'decided_by' => $hrd->id,
             'decided_at' => now(),
         ]);
 
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->putJson("/api/v1/applications/{$application->id}/acceptance", [
             'position_offered' => 'Senior Engineer',
@@ -119,7 +119,7 @@ class JobAcceptanceTest extends TestCase
 
     public function test_acceptance_rejected_when_application_not_accepted(): void
     {
-        $employer = $this->makeEmployer();
+        $hrd = $this->makeHrd();
         $alumni = $this->makeAlumni($this->demoInstitution());
 
         $vacancy = JobVacancy::create([
@@ -127,7 +127,7 @@ class JobAcceptanceTest extends TestCase
             'title' => 'Backend Engineer',
             'company_name' => 'PT Test',
             'status' => 'published',
-            'created_by' => $employer->id,
+            'created_by' => $hrd->id,
         ]);
 
         $application = JobApplication::create([
@@ -137,7 +137,7 @@ class JobAcceptanceTest extends TestCase
             'applied_at' => now(),
         ]);
 
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->putJson("/api/v1/applications/{$application->id}/acceptance", [
             'position_offered' => 'Backend Engineer',
@@ -146,9 +146,9 @@ class JobAcceptanceTest extends TestCase
 
     public function test_alumni_cannot_record_acceptance_result(): void
     {
-        $employer = $this->makeEmployer();
+        $hrd = $this->makeHrd();
         $alumni = $this->makeAlumni($this->demoInstitution());
-        $application = $this->acceptedApplication($employer->id, $alumni->id);
+        $application = $this->acceptedApplication($hrd->id, $alumni->id);
 
         $token = $alumni->createToken('test-token')->plainTextToken;
 
@@ -157,12 +157,12 @@ class JobAcceptanceTest extends TestCase
         ])->assertStatus(403);
     }
 
-    public function test_foreign_employer_cannot_record_acceptance_result(): void
+    public function test_foreign_hrd_cannot_record_acceptance_result(): void
     {
-        $employer = $this->makeEmployer();
-        $foreign = $this->makeEmployer();
+        $hrd = $this->makeHrd();
+        $foreign = $this->makeHrd();
         $alumni = $this->makeAlumni($this->demoInstitution());
-        $application = $this->acceptedApplication($employer->id, $alumni->id);
+        $application = $this->acceptedApplication($hrd->id, $alumni->id);
 
         $token = $foreign->createToken('test-token')->plainTextToken;
 
@@ -173,11 +173,11 @@ class JobAcceptanceTest extends TestCase
 
     public function test_invalid_contract_type_rejected(): void
     {
-        $employer = $this->makeEmployer();
+        $hrd = $this->makeHrd();
         $alumni = $this->makeAlumni($this->demoInstitution());
-        $application = $this->acceptedApplication($employer->id, $alumni->id);
+        $application = $this->acceptedApplication($hrd->id, $alumni->id);
 
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->putJson("/api/v1/applications/{$application->id}/acceptance", [
             'contract_type' => 'unlimited',
@@ -191,8 +191,8 @@ class JobAcceptanceTest extends TestCase
         ]);
 
         $alumni = $this->makeAlumni($other);
-        $employer = $this->makeEmployer();
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $hrd = $this->makeHrd();
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->postJson('/api/v1/job-vacancies', [
             'title' => 'Magang Data Engineer',

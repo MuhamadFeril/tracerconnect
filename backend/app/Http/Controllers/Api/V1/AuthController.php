@@ -17,6 +17,7 @@ use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Alumni;
 use App\Models\Department;
+use App\Models\Institution;
 use App\Models\GraduationYear;
 use App\Models\User;
 use App\Notifications\SendOtp;
@@ -47,6 +48,16 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         $email = mb_strtolower($request->email);
+
+        // 1-tenant deployment: when only one active school exists and the
+        // client did not send an institution, attach that school so alumni
+        // records stay tenant-scoped without asking the user to pick.
+        if (! $request->filled('institution_id')) {
+            $single = Institution::where('status', 'active')->get();
+            if ($single->count() === 1) {
+                $request->merge(['institution_id' => $single->first()->id]);
+            }
+        }
 
         // Check if an active (non-deleted) user already owns this email.
         // Return a generic success to prevent email enumeration.
@@ -80,6 +91,7 @@ class AuthController extends Controller
             $trashedUser->syncRoles(['alumni']);
 
             $this->linkOrCreateAlumni($request, $trashedUser->id);
+            $trashedUser->syncLinkedAlumniIdentity();
 
             AuditService::log('restore', 'user', $trashedUser->id, null, [
                 'email' => $trashedUser->email,
@@ -109,6 +121,7 @@ class AuthController extends Controller
                 $user->assignRole('alumni');
 
                 $this->linkOrCreateAlumni($request, $user->id);
+                $user->syncLinkedAlumniIdentity();
 
                 return $user;
             });
@@ -219,7 +232,7 @@ class AuthController extends Controller
         $alumni = Alumni::query()
             ->whereRaw('lower(email) = ?', [mb_strtolower($request->email)])
             ->whereNull('user_id')
-            ->when($request->filled('institution_id'), fn ($query) => $query->where('institution_id', $request->institution_id))
+            ->when($request->filled('institution_id'), fn($query) => $query->where('institution_id', $request->institution_id))
             ->first();
 
         if ($alumni) {
@@ -288,7 +301,7 @@ class AuthController extends Controller
             'address' => $validated['address'] ?? null,
             'socials' => $validated['socials'] ?? null,
             'skills' => $validated['skills'] ?? null,
-        ], fn ($value) => $value !== null);
+        ], fn($value) => $value !== null);
 
         if (! empty($validated['department'])) {
             $department = Department::query()
@@ -513,38 +526,44 @@ class AuthController extends Controller
         $user = $request->user();
         $user->update($request->safe()->only(['name', 'email']));
 
+        // Keep the linked alumni record (jejaring directory, alumni listings)
+        // in sync with the account's current name/email.
+        $user->syncLinkedAlumniIdentity();
+
         // Only fields actually present in the payload are persisted, so the
         // name/email-only update never touches biodata. Empty strings mean
         // "clear this field" and are stored as null.
         if ($user->alumni) {
             $alumniData = [];
-            foreach ([
-                'nis_nim' => 'nis',
-                'nisn' => 'nisn',
-                'socials' => 'socials',
-                'skills' => 'skills',
-                'gender' => 'gender',
-                'phone' => 'phone',
-                'birth_date' => 'birth_date',
-                'birthplace' => 'birthplace',
-                'birthplace_regency' => 'birthplace_regency',
-                'birthplace_province' => 'birthplace_province',
-                'address' => 'address',
-                'employment_status' => 'employment_status',
-                'company_name' => 'company_name',
-                'position' => 'position',
-                'business_field' => 'business_field',
-                'business_start_year' => 'business_start_year',
-                'work_province' => 'work_province',
-                'work_city' => 'work_city',
-                'study_institution' => 'study_institution',
-                'study_program' => 'study_program',
-                'study_entry_year' => 'study_entry_year',
-                'business_name' => 'business_name',
-                'business_address' => 'business_address',
-                'business_province' => 'business_province',
-                'business_city' => 'business_city',
-            ] as $column => $input) {
+            foreach (
+                [
+                    'nis_nim' => 'nis',
+                    'nisn' => 'nisn',
+                    'socials' => 'socials',
+                    'skills' => 'skills',
+                    'gender' => 'gender',
+                    'phone' => 'phone',
+                    'birth_date' => 'birth_date',
+                    'birthplace' => 'birthplace',
+                    'birthplace_regency' => 'birthplace_regency',
+                    'birthplace_province' => 'birthplace_province',
+                    'address' => 'address',
+                    'employment_status' => 'employment_status',
+                    'company_name' => 'company_name',
+                    'position' => 'position',
+                    'business_field' => 'business_field',
+                    'business_start_year' => 'business_start_year',
+                    'work_province' => 'work_province',
+                    'work_city' => 'work_city',
+                    'study_institution' => 'study_institution',
+                    'study_program' => 'study_program',
+                    'study_entry_year' => 'study_entry_year',
+                    'business_name' => 'business_name',
+                    'business_address' => 'business_address',
+                    'business_province' => 'business_province',
+                    'business_city' => 'business_city',
+                ] as $column => $input
+            ) {
                 if (! $request->has($input)) {
                     continue;
                 }
@@ -748,6 +767,16 @@ class AuthController extends Controller
 
         $maxYear = (int) date('Y') + 10;
 
+        // 1-tenant deployment: when only one active school exists and the
+        // client did not send an institution, attach that school so alumni
+        // records stay tenant-scoped without asking the user to pick.
+        if (! $request->filled('institution_id')) {
+            $single = Institution::where('status', 'active')->get();
+            if ($single->count() === 1) {
+                $request->merge(['institution_id' => $single->first()->id]);
+            }
+        }
+
         $validated = $request->validate([
             'institution_id' => ['required', 'uuid', Rule::exists('institutions', 'id')->where('status', 'active')],
             'name' => ['sometimes', 'string', 'max:255'],
@@ -757,7 +786,11 @@ class AuthController extends Controller
             'nisn' => ['sometimes', 'string', 'size:10'],
             'entry_year' => ['sometimes', 'integer', 'min:1990', "max:{$maxYear}"],
             'graduation_year' => [
-                'sometimes', 'integer', 'min:1990', "max:{$maxYear}", 'gt:entry_year',
+                'sometimes',
+                'integer',
+                'min:1990',
+                "max:{$maxYear}",
+                'gt:entry_year',
                 function (string $attribute, mixed $value, \Closure $fail) use ($request) {
                     if ($request->has('entry_year') && (int) $value - (int) $request->input('entry_year') < 3) {
                         $fail('Tahun lulus minimal 3 tahun setelah tahun masuk.');
@@ -776,7 +809,11 @@ class AuthController extends Controller
             'skills' => ['sometimes', 'array', 'max:20'],
             'skills.*' => ['string', 'max:100'],
             'employment_status' => ['sometimes', 'string', Rule::in([
-                'working', 'unemployed', 'entrepreneur', 'continuing_study', 'active_student',
+                'working',
+                'unemployed',
+                'entrepreneur',
+                'continuing_study',
+                'active_student',
             ])],
             'company_name' => ['sometimes', 'string', 'max:255'],
             'position' => ['sometimes', 'string', 'max:255'],
@@ -787,7 +824,10 @@ class AuthController extends Controller
             'study_institution' => ['sometimes', 'string', 'max:255'],
             'study_program' => ['sometimes', 'string', 'max:255'],
             'study_entry_year' => [
-                'sometimes', 'integer', 'min:1990', "max:{$maxYear}",
+                'sometimes',
+                'integer',
+                'min:1990',
+                "max:{$maxYear}",
                 function (string $attribute, mixed $value, \Closure $fail) use ($request) {
                     if ($request->has('graduation_year') && (int) $value < (int) $request->input('graduation_year') + 3) {
                         $fail('Tahun masuk kuliah minimal 3 tahun setelah tahun lulus.');
@@ -810,6 +850,7 @@ class AuthController extends Controller
 
                 // Link or create alumni record with all profile data.
                 $this->linkOrCreateAlumniForGoogle($validated, $user);
+                $user->syncLinkedAlumniIdentity();
             });
         } catch (ValidationException $e) {
             throw $e;

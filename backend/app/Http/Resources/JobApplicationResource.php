@@ -36,7 +36,7 @@ class JobApplicationResource extends JsonResource
                 'graduation_year' => $this->alumni->graduationYear?->year,
                 'employment_status' => $this->alumni->employment_status,
             ] : null),
-            // Hiring result recorded by the employer when the application is
+            // Hiring result recorded by the hrd when the application is
             // accepted (load with 'acceptance').
             'acceptance' => $this->whenLoaded('acceptance', fn () => $this->acceptance ? [
                 'id' => $this->acceptance->id,

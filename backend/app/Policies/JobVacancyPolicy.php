@@ -13,7 +13,7 @@ class JobVacancyPolicy
     }
 
     /**
-     * A vacancy is visible to its creator (employer), staff of its
+     * A vacancy is visible to its creator (hrd), staff of its
      * institution, and — for cross-school (institution-less) published
      * vacancies — anyone holding the job.view permission (alumni included).
      */
@@ -27,9 +27,9 @@ class JobVacancyPolicy
             return true;
         }
 
-        // Cross-school employer vacancies are announced to every school.
+        // Cross-school hrd vacancies are announced to every school.
         if ($jobVacancy->institution_id === null) {
-            return $jobVacancy->status === 'published' || $user->hasRole('employer');
+            return $jobVacancy->status === 'published' || $user->hasRole('hrd');
         }
 
         return $user->institution_id === $jobVacancy->institution_id;

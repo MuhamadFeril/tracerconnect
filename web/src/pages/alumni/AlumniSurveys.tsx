@@ -1,15 +1,23 @@
-import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarClock, ClipboardList, FileQuestion } from 'lucide-react'
-import { useAlumniSurveys } from '../../hooks/queries'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, CalendarClock, ClipboardList, FileQuestion, PencilLine } from 'lucide-react'
+import { apiError } from '../../lib/api'
+import { useAlumniSurveys, useEditSurvey } from '../../hooks/queries'
 import { formatDate } from '../../lib/format'
 import type { AlumniSurveyItem } from '../../lib/types'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Card } from '../../components/ui/Card'
 import { Badge, StatusBadge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/StateViews'
+import { useToast } from '../../components/ui/Toast'
 
 function SurveyAction({ survey }: { survey: AlumniSurveyItem }) {
   const { status } = survey.response
+  const navigate = useNavigate()
+  const toast = useToast()
+  const edit = useEditSurvey(survey.id)
+  const [busy, setBusy] = useState(false)
 
   if (status === 'expired') {
     return (
@@ -20,15 +28,37 @@ function SurveyAction({ survey }: { survey: AlumniSurveyItem }) {
   }
 
   if (status === 'submitted') {
-    // Open the read-only summary of the collected answers.
+    // The survey is still open (only open surveys are listed), so the
+    // respondent may update their submitted answers or view them read-only.
     return (
-      <Link
-        to={survey.response.id ? `/kuisioner/hasil/${survey.response.id}` : '/kuisioner'}
-        className="inline-flex h-8 items-center gap-2 rounded-lg bg-white px-3 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-50"
-      >
-        Lihat Jawaban
-        <ArrowRight className="size-3.5" />
-      </Link>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          loading={busy || edit.isPending}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await edit.mutateAsync()
+              toast('Jawaban dapat diperbarui')
+              navigate(`/kuisioner/${survey.id}`)
+            } catch (err) {
+              setBusy(false)
+              toast(apiError(err))
+            }
+          }}
+        >
+          <PencilLine className="size-4" /> Perbarui Jawaban
+        </Button>
+        {survey.response.id && (
+          <Link
+            to={`/kuisioner/hasil/${survey.response.id}`}
+            className="inline-flex h-8 items-center gap-2 rounded-lg bg-white px-3 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-50"
+          >
+            Lihat Jawaban
+            <ArrowRight className="size-3.5" />
+          </Link>
+        )}
+      </div>
     )
   }
 

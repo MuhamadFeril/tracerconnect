@@ -297,6 +297,7 @@ function AccountStep({
 }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const single = institutions.length === 1
 
   const strength = passwordStrength(password)
 
@@ -410,36 +411,40 @@ function AccountStep({
           </div>
         </div>
 
-          <div>
-            <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
-            <div className="relative mt-2">
-              <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-              <select
-                id="reg-institution"
-                name="institution_id"
-                value={institutionId}
-                onChange={(e) => setInstitutionId(e.target.value)}
-                className={clsx(
-                  'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
-                  'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
-                  errors.institution ? 'border-rose-400' : 'border-slate-300',
-                )}
-              >
-                <option value="">
-                  {institutions.length > 0 ? 'Pilih institusi Anda…' : 'Memuat daftar institusi…'}
-                </option>
-                {institutions.map((institution) => (
-                  <option key={institution.id} value={institution.id}>
-                    {institution.name}
-                    {institution.code ? ` (${institution.code})` : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+          {/* 1-tenant mode: single active school, so no picker is shown —
+              the school is attached server-side on registration. */}
+          {!single && (
+            <div>
+              <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
+              <div className="relative mt-2">
+                <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  id="reg-institution"
+                  name="institution_id"
+                  value={institutionId}
+                  onChange={(e) => setInstitutionId(e.target.value)}
+                  className={clsx(
+                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
+                    errors.institution ? 'border-rose-400' : 'border-slate-300',
+                  )}
+                >
+                  {institutions.length === 0 && (
+                    <option value="">Memuat daftar institusi…</option>
+                  )}
+                  {institutions.map((institution) => (
+                    <option key={institution.id} value={institution.id}>
+                      {institution.name}
+                      {institution.code ? ` (${institution.code})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
+              <FieldError message={errors.institution} />
             </div>
-            <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
-            <FieldError message={errors.institution} />
-          </div>
+          )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -488,6 +493,8 @@ function InfoStep({
   onRegionRetry,
   departments,
   departmentsLoading,
+  institutionId,
+  onDepartmentRetry,
 }: {
   form: {
     name: string
@@ -525,9 +532,27 @@ function InfoStep({
   onRegionRetry: (key: 'provinces' | 'regencies' | 'districts') => void
   departments: { id: string; name: string; code: string | null }[]
   departmentsLoading: boolean
+  institutionId: string
+  onDepartmentRetry: () => void
 }) {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const autoRetriedDepartments = useRef(false)
+
+  // Self-heal: if the school already has majors but the first fetch came back
+  // empty/failed (e.g. stale draft or a transient error), retry once — then
+  // fall back to the manual "muat ulang" link.
+  useEffect(() => {
+    if (
+      institutionId &&
+      !departmentsLoading &&
+      departments.length === 0 &&
+      !autoRetriedDepartments.current
+    ) {
+      autoRetriedDepartments.current = true
+      onDepartmentRetry()
+    }
+  }, [institutionId, departmentsLoading, departments.length, onDepartmentRetry])
 
   // Entry years: 1990 (matching the backend validation floor) up to the
   // current year — older alumni can pick their real entry year.
@@ -626,7 +651,9 @@ function InfoStep({
                 {departmentsLoading
                   ? 'Memuat jurusan…'
                   : departments.length === 0
-                    ? 'Pilih institusi terlebih dahulu'
+                    ? institutionId
+                      ? 'Jurusan belum tersedia'
+                      : 'Pilih institusi terlebih dahulu'
                     : 'Pilih jurusan'}
               </option>
               {departments.map((d) => (
@@ -636,6 +663,15 @@ function InfoStep({
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
           </div>
           <FieldError message={errors.department} />
+          {!departmentsLoading && departments.length === 0 && institutionId && (
+            <button
+              type="button"
+              onClick={onDepartmentRetry}
+              className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
+            >
+              Jurusan belum tampil — ketuk untuk memuat ulang
+            </button>
+          )}
         </div>
 
         <div>
@@ -1806,6 +1842,18 @@ function readRegisterDraft(): RegisterDraft | null {
   const [institutionId, setInstitutionId] = useState(draft?.institutionId ?? '')
   const [pendingOtp, setPendingOtp] = useState<{ email: string } | null>(null)
 
+  // Single-school deployment: when the platform only has one active school,
+  // always pin it so alumni never have to pick (1-tenant mode). Overriding
+  // unconditionally also repairs drafts that kept a stale/old school id,
+  // which otherwise left the Jurusan dropdown empty.
+  const singleInstitution = (institutionsQuery.data ?? []).length === 1
+  useEffect(() => {
+    const list = institutionsQuery.data ?? []
+    if (singleInstitution && list[0] && institutionId !== list[0].id) {
+      setInstitutionId(list[0].id)
+    }
+  }, [institutionsQuery.data, singleInstitution, institutionId])
+
   const departmentsQuery = useDepartmentOptions(institutionId || null)
 
   const [form, setForm] = useState(draft?.form ?? {
@@ -2128,6 +2176,7 @@ function readRegisterDraft(): RegisterDraft | null {
         email,
         password,
         password_confirmation: confirmation,
+        institution_id: institutionId || undefined,
         gender: form.gender || undefined,
         phone: form.phone || undefined,
         nis: form.nis || undefined,
@@ -2202,7 +2251,12 @@ function readRegisterDraft(): RegisterDraft | null {
 
   const institutions = institutionsQuery.data ?? []
 
-  const stepLabels = isGoogle ? GOOGLE_STEP_LABELS : STEP_LABELS
+  // 1-tenant mode: no institution step, so drop "& Institusi" from the label.
+  const stepLabels = isGoogle
+    ? singleInstitution
+      ? ['Biodata', 'Status Karir', 'Verifikasi']
+      : GOOGLE_STEP_LABELS
+    : STEP_LABELS
   const maxStep = isGoogle ? 2 : 3
 
   return (
@@ -2298,6 +2352,8 @@ function readRegisterDraft(): RegisterDraft | null {
               }}
               departments={departmentsQuery.data ?? []}
               departmentsLoading={departmentsQuery.isLoading}
+              institutionId={institutionId}
+              onDepartmentRetry={() => departmentsQuery.refetch()}
             />
           )}
 
@@ -2313,7 +2369,9 @@ function readRegisterDraft(): RegisterDraft | null {
           )}
 
           {/* Google mode: 2 steps (Info+Institution, Career) */}
-          {isGoogle && step === 1 && (
+          {/* 1-tenant mode: hide the institution picker entirely when there
+              is only one active school — it is attached server-side. */}
+          {isGoogle && step === 1 && !singleInstitution && (
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
               <CardHeader icon={<Building2 className="size-5" />} title="Institusi & Biodata" step={1} />
               <div className="space-y-5 px-6 py-6">
@@ -2332,9 +2390,9 @@ function readRegisterDraft(): RegisterDraft | null {
                         errors.institution ? 'border-rose-400' : 'border-slate-300',
                       )}
                     >
-                      <option value="">
-                        {institutions.length > 0 ? 'Pilih institusi Anda…' : 'Memuat daftar institusi…'}
-                      </option>
+                      {institutions.length === 0 && (
+                        <option value="">Memuat daftar institusi…</option>
+                      )}
                       {institutions.map((institution) => (
                         <option key={institution.id} value={institution.id}>
                           {institution.name}
@@ -2379,6 +2437,8 @@ function readRegisterDraft(): RegisterDraft | null {
               }}
               departments={departmentsQuery.data ?? []}
               departmentsLoading={departmentsQuery.isLoading}
+              institutionId={institutionId}
+              onDepartmentRetry={() => departmentsQuery.refetch()}
             />
           )}
 
@@ -2413,7 +2473,7 @@ function readRegisterDraft(): RegisterDraft | null {
           <p className="text-center text-xs text-slate-400">
             Dengan mendaftar, Anda menyetujui{' '}
             <a href="#syarat" className="underline hover:text-slate-600">Syarat &amp; Ketentuan</a> dan{' '}
-            <a href="#privasi" className="underline hover:text-slate-600">Kebijakan Privasi</a> TracerConnect.
+            <a href="#privasi" className="underline hover:text-slate-600">Kebijakan Privasi</a> TracerAlumni.
           </p>
 
           <p className="text-center text-sm text-slate-500">

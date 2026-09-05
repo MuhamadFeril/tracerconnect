@@ -3,7 +3,7 @@
     <!-- usesCleartextTraffic: hanya untuk development dengan API http:// local.
          Hapus / gunakan HTTPS di production. -->
     <application
-        android:label="TracerConnect"
+        android:label="TracerAlumni"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"

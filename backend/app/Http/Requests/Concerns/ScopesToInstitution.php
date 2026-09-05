@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Concerns;
 
+use App\Models\Institution;
 use Illuminate\Validation\Rule;
 
 /**
@@ -21,7 +22,21 @@ trait ScopesToInstitution
     {
         $user = $this->user();
 
-        if ($user && ! $user->hasRole('super_admin') && ! $this->filled('institution_id')) {
+        if (! $user || $this->filled('institution_id')) {
+            return;
+        }
+
+        // 1-tenant deployment: when exactly one active school exists, everyone
+        // (including super admin) is attached to it automatically so resources
+        // stay tenant-scoped without asking the user to pick a school.
+        $single = Institution::where('status', 'active')->get();
+        if ($single->count() === 1) {
+            $this->merge(['institution_id' => $single->first()->id]);
+
+            return;
+        }
+
+        if (! $user->hasRole('super_admin')) {
             $this->merge(['institution_id' => $user->institution_id]);
         }
     }

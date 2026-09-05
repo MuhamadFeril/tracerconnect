@@ -4,12 +4,19 @@ import axios from 'axios'
 import {
   ArrowLeft,
   CheckCircle2,
+  PencilLine,
   Save,
   Send,
   Star,
 } from 'lucide-react'
 import { apiError } from '../../lib/api'
-import { useMyResponses, useSaveAnswers, useStartSurvey, useSubmitAnswers } from '../../hooks/queries'
+import {
+  useEditSurvey,
+  useMyResponses,
+  useSaveAnswers,
+  useStartSurvey,
+  useSubmitAnswers,
+} from '../../hooks/queries'
 import type { Question, QuestionOption } from '../../lib/types'
 import { formatDateTime } from '../../lib/format'
 import { Button } from '../../components/ui/Button'
@@ -321,8 +328,11 @@ export function AlumniSurveyFill() {
   )
   const history = useMyResponses({ page: 1, per_page: 100 }, { enabled: alreadySubmitted })
   const submittedResponse = history.data?.data.find((r) => r.survey?.id === surveyId)
+  const edit = useEditSurvey(surveyId)
 
   if (alreadySubmitted) {
+    // Direct navigation to a survey the user already submitted while it is
+    // still open: they can reopen it and update their answers.
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <Card className="p-8 text-center">
@@ -333,16 +343,32 @@ export function AlumniSurveyFill() {
             Anda sudah mengisi survey ini
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            Jawaban Anda telah terkumpul dan tidak dapat diubah lagi. Anda dapat melihat
-            kembali jawaban yang sudah dikirim kapan saja.
+            Jawaban Anda telah terkumpul. Selama kuisioner masih terbuka, Anda dapat
+            memperbarui jawaban (misalnya jika ada kesalahan atau Anda mendapat pekerjaan baru).
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <Button
+              loading={edit.isPending}
+              onClick={async () => {
+                try {
+                  await edit.mutateAsync()
+                  // The response is back to in_progress — reload the form
+                  // pre-filled with the saved answers.
+                  await start.refetch()
+                } catch {
+                  // fall through: form stays on this screen and the error is
+                  // surfaced by refetching history below.
+                }
+              }}
+            >
+              <PencilLine className="size-4" /> Perbarui Jawaban
+            </Button>
             {submittedResponse && (
-              <Button onClick={() => navigate(`/kuisioner/hasil/${submittedResponse.id}`)}>
+              <Button variant="secondary" onClick={() => navigate(`/kuisioner/hasil/${submittedResponse.id}`)}>
                 <CheckCircle2 className="size-4" /> Lihat Jawaban Saya
               </Button>
             )}
-            <Button variant="secondary" onClick={() => navigate('/kuisioner')}>
+            <Button variant="ghost" onClick={() => navigate('/kuisioner')}>
               <ArrowLeft className="size-4" /> Kembali ke Kuisioner
             </Button>
           </div>

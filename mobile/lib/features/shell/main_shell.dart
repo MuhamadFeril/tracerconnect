@@ -9,7 +9,7 @@ import '../auth/auth_controller.dart';
 /// Shell scaffold with adaptive bottom navigation.
 ///
 /// Alumni see:   Beranda | Kuisioner | Lowongan | Jejaring | Profil
-/// Employer see: Beranda | Lowongan | Profil
+/// HRD see: Beranda | Lowongan | Profil
 /// Admin see:    Beranda | Kuisioner | Lowongan | Profil
 ///
 /// The tab list is driven by the current user role from [authControllerProvider].
@@ -78,8 +78,8 @@ class _NavTab {
 
 /// Returns the visible tabs for the given [user] role.
 List<_NavTab> _tabsFor(dynamic user) {
-  // Employer: Beranda | Lowongan | Profil
-  if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) {
+  // HRD: Beranda | Lowongan | Profil
+  if (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) {
     return const [
       _NavTab(Icons.home_outlined, Icons.home_rounded, 'Beranda', 0),
       _NavTab(Icons.work_outline_rounded, Icons.work_rounded, 'Lowongan', 2),

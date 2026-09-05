@@ -10,14 +10,14 @@ class NotificationsRepository {
       'page': page,
       'per_page': perPage,
     });
-    final items = (env.data as List)
-        .whereType<Map<String, dynamic>>()
+    final items = (env.data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(NotificationItem.fromJson)
-        .toList();
+        .toList() ?? [];
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 

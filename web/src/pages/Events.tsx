@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, MapPin, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
 import { apiError } from '../lib/api'
-import { useEventMutations, useEventParticipants, useEvents, useInstitutionOptions, useMarkAttended } from '../hooks/queries'
+import { useEventMutations, useEventParticipants, useEvents, useMarkAttended } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
-import { getUser } from '../lib/auth'
-import type { EventItem, EventParticipant, InstitutionOption } from '../lib/types'
+import type { EventItem, EventParticipant } from '../lib/types'
 import { formatDateTime } from '../lib/format'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
@@ -31,7 +30,6 @@ function initialForm(event?: EventItem | null) {
     starts_at: toDatetimeLocal(event?.starts_at ?? null),
     ends_at: toDatetimeLocal(event?.ends_at ?? null),
     status: event?.status ?? 'draft',
-    institution_id: event?.institution_id ?? '',
   }
 }
 
@@ -39,14 +37,10 @@ function EventFormModal({
   open,
   onClose,
   event,
-  institutions,
-  isSuperAdmin,
 }: {
   open: boolean
   onClose: () => void
   event?: EventItem | null
-  institutions: InstitutionOption[]
-  isSuperAdmin: boolean
 }) {
   const mutations = useEventMutations()
   const toast = useToast()
@@ -68,21 +62,11 @@ function EventFormModal({
     e.preventDefault()
     setError(null)
 
-    // Super admin must pick the target institution (everyone else is
-    // auto-scoped to their own institution on the backend).
-    if (!event && isSuperAdmin && !form.institution_id) {
-      setError('Pilih institusi terlebih dahulu')
-      return
-    }
-
     const payload = {
       ...form,
       description: form.description || null,
       location: form.location || null,
       ends_at: form.ends_at || null,
-      // institution_id is only sent on create; updates never move an
-      // event between institutions.
-      ...(isSuperAdmin && !event ? { institution_id: form.institution_id } : {}),
     }
     try {
       if (event) {
@@ -118,22 +102,6 @@ function EventFormModal({
     >
       <form id="event-form" onSubmit={onSubmit} className="space-y-4">
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</div>}
-        {isSuperAdmin && !event && (
-          <Field label="Institusi" required>
-            <Select
-              name="institution_id"
-              value={form.institution_id}
-              onChange={(e) => set('institution_id', e.target.value)}
-            >
-              <option value="">Pilih institusi…</option>
-              {institutions.map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
         <Field label="Nama Acara" required>
           <Input required name="title" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Contoh: Career Day 2026" />
         </Field>
@@ -243,11 +211,6 @@ export function Events() {
   const [status, setStatus] = useState('')
   const [upcoming, setUpcoming] = useState(false)
   const [page, setPage] = useState(1)
-
-  const currentUser = getUser()
-  const isSuperAdmin = currentUser?.roles?.includes('super_admin') ?? false
-  const institutionsQuery = useInstitutionOptions()
-  const institutions = institutionsQuery.data ?? []
 
   const { data, isPending, isError, refetch } = useEvents({
     search: debouncedSearch || undefined,
@@ -397,8 +360,6 @@ export function Events() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         event={editing}
-        institutions={institutions}
-        isSuperAdmin={isSuperAdmin}
       />
 
       <ParticipantsModal event={viewingParticipants} onClose={() => setViewingParticipants(null)} />

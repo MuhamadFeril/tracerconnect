@@ -74,15 +74,29 @@ class AntiBotInterceptor extends Interceptor {
   ) {
     // Must be on the pending-future path.
     if (_pendingChallenge != null) {
-      _pendingChallenge!.then((_) => _retry(handler, response));
+      _pendingChallenge!.then(
+        (_) => _retry(handler, response),
+        onError: (_) => handler.reject(DioException(
+          requestOptions: response.requestOptions,
+          error: 'Gagal menyelesaikan tantangan anti-bot.',
+        )),
+      );
       return;
     }
 
     _pendingChallenge = _solve(response).then((_) {
       _pendingChallenge = null;
+    }).catchError((_) {
+      _pendingChallenge = null;
     });
 
-    _pendingChallenge!.then((_) => _retry(handler, response));
+    _pendingChallenge!.then(
+      (_) => _retry(handler, response),
+      onError: (_) => handler.reject(DioException(
+        requestOptions: response.requestOptions,
+        error: 'Gagal menyelesaikan tantangan anti-bot.',
+      )),
+    );
   }
 
   Future<void> _solve(Response response) async {
@@ -107,7 +121,8 @@ class AntiBotInterceptor extends Interceptor {
     final opts = originalResponse.requestOptions;
     opts.headers['Cookie'] = '$_cookieName=$_cachedCookie';
     try {
-      // Clone options and retry without re-creating Dio.
+      // Clone options and retry without re-creating Dio — preserve the
+      // original Dio instance's interceptors and adapters.
       final dio = Dio(BaseOptions(
         baseUrl: opts.baseUrl,
         connectTimeout: opts.connectTimeout,

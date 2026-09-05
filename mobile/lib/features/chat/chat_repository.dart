@@ -12,7 +12,12 @@ import '../../models/chat.dart';
 
 class ChatRepository {
   final ApiClient _api = ApiClient.instance;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
 
   // ── Local Cache ─────────────────────────────────────────────────────────
 

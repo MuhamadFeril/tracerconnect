@@ -65,7 +65,7 @@ class _SplashPageState extends State<SplashPage>
                 const SizedBox(height: 24),
                 // App name
                 const Text(
-                  'TracerConnect',
+                  'TracerAlumni',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,

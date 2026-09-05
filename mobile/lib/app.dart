@@ -12,7 +12,7 @@ class TracerConnectApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'TracerConnect',
+      title: 'TracerAlumni',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       routerConfig: router,

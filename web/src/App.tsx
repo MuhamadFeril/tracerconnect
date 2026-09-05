@@ -23,15 +23,14 @@ const Departments = lazy(() => import('./pages/Departments').then((m) => ({ defa
 const Reports = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })))
 const DataQualityCenter = lazy(() => import('./pages/DataQualityCenter').then((m) => ({ default: m.DataQualityCenter })))
 const InstitutionBrandingPage = lazy(() => import('./pages/InstitutionBranding').then((m) => ({ default: m.InstitutionBranding })))
-const Institutions = lazy(() => import('./pages/Institutions').then((m) => ({ default: m.Institutions })))
 const Users = lazy(() => import('./pages/Users').then((m) => ({ default: m.Users })))
 const Roles = lazy(() => import('./pages/Roles').then((m) => ({ default: m.Roles })))
 const Announcements = lazy(() => import('./pages/Announcements').then((m) => ({ default: m.Announcements })))
 const Events = lazy(() => import('./pages/Events').then((m) => ({ default: m.Events })))
 const Jobs = lazy(() => import('./pages/Jobs').then((m) => ({ default: m.Jobs })))
 const JobApplicants = lazy(() => import('./pages/JobApplicants').then((m) => ({ default: m.JobApplicants })))
-const EmployerDashboard = lazy(() => import('./pages/employer/EmployerDashboard').then((m) => ({ default: m.EmployerDashboard })))
-const EmployerApplications = lazy(() => import('./pages/EmployerApplications').then((m) => ({ default: m.EmployerApplications })))
+const HrdDashboard = lazy(() => import('./pages/hrd/HrdDashboard').then((m) => ({ default: m.HrdDashboard })))
+const HrdApplications = lazy(() => import('./pages/HrdApplications').then((m) => ({ default: m.HrdApplications })))
 const SurveyList = lazy(() => import('./pages/SurveyList').then((m) => ({ default: m.SurveyList })))
 const SurveyBuilder = lazy(() => import('./pages/SurveyBuilder').then((m) => ({ default: m.SurveyBuilder })))
 const AlumniHome = lazy(() => import('./pages/alumni/AlumniHome').then((m) => ({ default: m.AlumniHome })))
@@ -89,17 +88,16 @@ export default function App() {
         <Route path="/reports" element={<Page><Reports /></Page>} />
         <Route path="/data-quality" element={<Page><DataQualityCenter /></Page>} />
         <Route path="/branding" element={<Page><InstitutionBrandingPage /></Page>} />
-        <Route path="/institutions" element={<Page><Institutions /></Page>} />
         <Route path="/users" element={<Page><Users /></Page>} />
         <Route path="/roles" element={<Page><Roles /></Page>} />
         <Route path="/announcements" element={<Page><Announcements /></Page>} />
         <Route path="/events" element={<Page><Events /></Page>} />
         <Route path="/jobs" element={<Page><Jobs /></Page>} />
         <Route path="/jobs/:id/applicants" element={<Page><JobApplicants /></Page>} />
-        {/* Employer portal */}
-        <Route path="/employer" element={<Page><EmployerDashboard /></Page>} />
-        <Route path="/employer/lowongan" element={<Page><Jobs /></Page>} />
-        <Route path="/employer/lamaran" element={<Page><EmployerApplications /></Page>} />
+        {/* HRD portal */}
+        <Route path="/hrd" element={<Page><HrdDashboard /></Page>} />
+        <Route path="/hrd/lowongan" element={<Page><Jobs /></Page>} />
+        <Route path="/hrd/lamaran" element={<Page><HrdApplications /></Page>} />
         <Route path="/notifications" element={<Page><Notifications /></Page>} />
         {/* Alumni portal */}
         <Route path="/home" element={<Page><AlumniHome /></Page>} />

@@ -73,7 +73,7 @@ export function GoogleCallback() {
           setSession(token, user)
 
           // Existing fully-registered Google users go straight to the app.
-          const target = user.roles?.includes('employer') ? '/employer' : hasAdminRole(user) ? '/dashboard' : '/home'
+          const target = user.roles?.includes('hrd') ? '/hrd' : hasAdminRole(user) ? '/dashboard' : '/home'
           navigate(target, { replace: true })
         })
       })

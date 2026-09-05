@@ -7,7 +7,7 @@ import '../../models/api_envelope.dart';
 import '../../models/job_application.dart';
 import '../../models/job_vacancy.dart';
 
-/// Model ringkas untuk applicant yang dilihat employer.
+/// Model ringkas untuk applicant yang dilihat hrd.
 class JobApplicant {
   final String id;
   final String userId;
@@ -113,14 +113,14 @@ class JobsRepository {
       'page': page,
       'per_page': perPage,
     });
-    final items = (env.data as List)
-        .whereType<Map<String, dynamic>>()
+    final items = (env.data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(JobApplication.fromJson)
-        .toList();
+        .toList() ?? [];
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 
@@ -136,14 +136,14 @@ class JobsRepository {
       'per_page': perPage,
       if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
     });
-    final items = (env.data as List)
-        .whereType<Map<String, dynamic>>()
+    final items = (env.data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(JobVacancy.fromJson)
-        .toList();
+        .toList() ?? [];
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 
@@ -163,10 +163,10 @@ class JobsRepository {
   }
 
   // ------------------------------------------------------------------
-  // Employer CRUD
+  // HRD CRUD
   // ------------------------------------------------------------------
 
-  /// Buat lowongan baru (employer / admin).
+  /// Buat lowongan baru (hrd / admin).
   Future<JobVacancy> createJob(Map<String, dynamic> payload) async {
     final data = await _api.post('/job-vacancies', data: payload);
     return JobVacancy.fromJson(data as Map<String, dynamic>);
@@ -184,7 +184,7 @@ class JobsRepository {
     await _api.delete('/job-vacancies/$id');
   }
 
-  /// Daftar pelamar untuk lowongan tertentu (employer / admin).
+  /// Daftar pelamar untuk lowongan tertentu (hrd / admin).
   Future<Paged<JobApplicant>> applicants(
     String jobId, {
     int page = 1,
@@ -199,18 +199,18 @@ class JobsRepository {
         if (status != null && status.isNotEmpty) 'status': status,
       },
     );
-    final items = (env.data as List)
-        .whereType<Map<String, dynamic>>()
+    final items = (env.data as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(JobApplicant.fromJson)
-        .toList();
+        .toList() ?? [];
     return Paged(
       items: items,
       meta: env.meta ??
-          PaginationMeta(currentPage: 1, lastPage: 1, perPage: 15, total: items.length),
+          PaginationMeta(currentPage: 1, lastPage: 1, perPage: perPage, total: items.length),
     );
   }
 
-  /// Ubah status lamaran (employer / admin).
+  /// Ubah status lamaran (hrd / admin).
   Future<void> updateApplicationStatus(
       String applicationId, String status) async {
     await _api.put('/applications/$applicationId/status', data: {

@@ -112,6 +112,10 @@ class UserController extends Controller
             $user->tokens()->delete();
         }
 
+        // Mirror an admin-edited name/email onto the linked alumni record so
+        // jejaring/alumni surfaces never show a stale identity.
+        $user->syncLinkedAlumniIdentity();
+
         AuditService::log('update', 'user', $user->id, null, ['name' => $user->name, 'email' => $user->email, 'is_active' => $user->is_active, 'role' => $data['role'] ?? null], $request);
 
         return ApiResponse::success(

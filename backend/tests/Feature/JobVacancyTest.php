@@ -84,7 +84,7 @@ class JobVacancyTest extends TestCase
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
-        // Internships come from both EngagementSeeder and EmployerSeeder.
+        // Internships come from both EngagementSeeder and HrdSeeder.
         $this->withToken($token)->getJson('/api/v1/job-vacancies?employment_type=internship')
             ->assertOk()
             ->assertJsonPath('meta.total', 2)
@@ -95,7 +95,7 @@ class JobVacancyTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.total', 0);
 
-        // The employer seeder posts several vacancies for PT Teknologi Nusantara.
+        // The hrd seeder posts several vacancies for PT Teknologi Nusantara.
         $this->withToken($token)->getJson('/api/v1/job-vacancies?search=Nusantara')
             ->assertOk()
             ->assertJsonPath('meta.total', 3);
@@ -105,24 +105,24 @@ class JobVacancyTest extends TestCase
     {
         $token = $this->loginAs('andi.pratama@example.com');
 
-        // 3 vacancies from EngagementSeeder + 4 new ones from EmployerSeeder.
+        // 3 vacancies from EngagementSeeder + 4 new ones from HrdSeeder.
         $this->withToken($token)->getJson('/api/v1/job-vacancies')
             ->assertOk()
             ->assertJsonPath('meta.total', 7);
     }
 
-    public function test_employer_role_can_create_job_vacancy(): void
+    public function test_hrd_role_can_create_job_vacancy(): void
     {
-        $employer = User::create([
+        $hrd = User::create([
             'name' => 'HR Teknologi',
             'email' => 'hr@teknologi.test',
             'password' => 'password',
             'institution_id' => $this->demoInstitution()->id,
             'is_active' => true,
         ]);
-        $employer->assignRole('employer');
+        $hrd->assignRole('hrd');
 
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->postJson('/api/v1/job-vacancies', [
             'title' => 'UI/UX Designer',
@@ -131,13 +131,13 @@ class JobVacancyTest extends TestCase
         ])->assertCreated();
     }
 
-    public function test_employer_job_is_cross_school_without_institution(): void
+    public function test_hrd_job_is_cross_school_without_institution(): void
     {
-        // Employers are platform-level: their vacancies are announced to
+        // HRDs are platform-level: their vacancies are announced to
         // every school, so institution_id stays null.
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->postJson('/api/v1/job-vacancies', [
             'title' => 'Magang Data Analyst',
@@ -146,14 +146,14 @@ class JobVacancyTest extends TestCase
             'status' => 'published',
         ])->assertCreated()
             ->assertJsonPath('data.institution_id', null)
-            ->assertJsonPath('data.created_by', $employer->id);
+            ->assertJsonPath('data.created_by', $hrd->id);
     }
 
-    public function test_employer_index_lists_only_own_vacancies(): void
+    public function test_hrd_index_lists_only_own_vacancies(): void
     {
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
-        $token = $employer->createToken('test-token')->plainTextToken;
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
+        $token = $hrd->createToken('test-token')->plainTextToken;
 
         $mine = $this->withToken($token)->postJson('/api/v1/job-vacancies', [
             'title' => 'Lowongan Saya',
@@ -178,17 +178,17 @@ class JobVacancyTest extends TestCase
         $this->assertNotSame($mine, $foreign->id);
     }
 
-    public function test_alumni_from_other_school_sees_cross_school_employer_job(): void
+    public function test_alumni_from_other_school_sees_cross_school_hrd_job(): void
     {
         $other = Institution::create([
             'name' => 'SMK Lain', 'slug' => 'smk-lain-job', 'code' => 'SMK99', 'status' => 'active',
         ]);
 
-        $employer = User::factory()->create();
-        $employer->assignRole('employer');
-        $employerToken = $employer->createToken('test-token')->plainTextToken;
+        $hrd = User::factory()->create();
+        $hrd->assignRole('hrd');
+        $hrdToken = $hrd->createToken('test-token')->plainTextToken;
 
-        $this->withToken($employerToken)->postJson('/api/v1/job-vacancies', [
+        $this->withToken($hrdToken)->postJson('/api/v1/job-vacancies', [
             'title' => 'Lowongan Lintas Sekolah',
             'company_name' => 'PT Sejahtera',
             'status' => 'published',

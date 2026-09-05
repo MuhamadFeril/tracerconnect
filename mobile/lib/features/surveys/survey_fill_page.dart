@@ -157,6 +157,25 @@ class _SurveyFillPageState extends State<SurveyFillPage> {
     return ((_answeredCount / total) * 100).round();
   }
 
+  /// Buka kembali jawaban terkirim untuk diperbarui selama survey masih
+  /// terbuka. Setelah berhasil, halaman diisi ulang dalam mode in_progress
+  /// sehingga jawaban lama tampil dan bisa diedit lalu dikumpulkan lagi.
+  Future<void> _openForEdit() async {
+    final fill = _fill;
+    if (fill == null) return;
+    try {
+      await _repo.edit(fill.surveyId);
+      if (!mounted) return;
+      context.pushReplacement('/survey/${fill.surveyId}');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _showSnack(firstValidationMessage(e));
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Gagal membuka jawaban untuk diperbarui.');
+    }
+  }
+
   Future<void> _saveDraft() async {
     final fill = _fill;
     if (fill == null) return;
@@ -256,7 +275,11 @@ class _SurveyFillPageState extends State<SurveyFillPage> {
     }
 
     if (fill.isSubmitted) {
-      return _SubmittedView(fill: fill, onBack: () => context.pop());
+      return _SubmittedView(
+        fill: fill,
+        onBack: () => context.pop(),
+        onEdit: () => _openForEdit(),
+      );
     }
 
     final visible = _visibleQuestions;
@@ -590,8 +613,9 @@ extension _FirstOrNull<T> on Iterable<T> {
 class _SubmittedView extends StatelessWidget {
   final SurveyFill fill;
   final VoidCallback onBack;
+  final VoidCallback? onEdit;
 
-  const _SubmittedView({required this.fill, required this.onBack});
+  const _SubmittedView({required this.fill, required this.onBack, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -650,6 +674,17 @@ class _SubmittedView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
+                  if (onEdit != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Perbarui Jawaban'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   Row(
                     children: [
                       Expanded(

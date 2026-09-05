@@ -57,6 +57,23 @@ class User extends Authenticatable
     }
 
     /**
+     * Mirror this account's name/email onto the linked alumni record.
+     *
+     * Jejaring directories, alumni listings, and survey responses read the
+     * display name/email from the alumni row, so every identity edit on the
+     * users table must be mirrored there — otherwise the old name/email
+     * resurfaces in those surfaces after a profile update.
+     */
+    public function syncLinkedAlumniIdentity(): void
+    {
+        $this->loadMissing('alumni');
+
+        if ($this->alumni && ($this->alumni->name !== $this->name || $this->alumni->email !== $this->email)) {
+            $this->alumni()->update(['name' => $this->name, 'email' => $this->email]);
+        }
+    }
+
+    /**
      * Job applications submitted by this user.
      */
     public function jobApplications(): HasMany

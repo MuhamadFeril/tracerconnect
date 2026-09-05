@@ -46,7 +46,7 @@ function LandingNavbar() {
         <a href="#beranda" className="flex min-w-0 items-center gap-3">
           <Logo className="size-10 shrink-0" />
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">TracerConnect</p>
+            <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">TracerAlumni</p>
             <p className="hidden truncate text-[11px] text-slate-400 sm:block">Tracer Study & Alumni</p>
           </div>
         </a>
@@ -169,7 +169,7 @@ function LandingFooter() {
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-3">
               <Logo className="size-10" />
-              <p className="text-[15px] font-bold text-white">TracerConnect</p>
+              <p className="text-[15px] font-bold text-white">TracerAlumni</p>
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed">
               Platform tracer study &amp; alumni engagement untuk sekolah, kampus, dan lembaga
@@ -229,7 +229,7 @@ function LandingFooter() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-xs sm:flex-row">
-          <p>© {year} TracerConnect. Semua hak dilindungi.</p>
+          <p>© {year} TracerAlumni. Semua hak dilindungi.</p>
           <p className="flex items-center gap-1.5">
             Dibuat untuk institusi pendidikan di Indonesia
             <span className="text-indigo-400">♥</span>

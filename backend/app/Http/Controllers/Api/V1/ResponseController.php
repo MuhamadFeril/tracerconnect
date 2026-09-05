@@ -98,6 +98,24 @@ class ResponseController extends Controller
     }
 
     /**
+     * Reopen an already-submitted response for updating while the survey is
+     * still open (fix mistakes / report a new job). The response is switched
+     * back to in_progress with its saved answers intact; the respondent then
+     * edits and re-submits through the normal save/submit endpoints.
+     */
+    public function edit(Request $request, Survey $survey)
+    {
+        $this->authorize('submit', $survey);
+
+        $response = app(ResponseService::class)->edit($request->user(), $survey);
+
+        return ApiResponse::success(
+            new SurveyFillResource($response->loadMissing(['survey', 'answers'])),
+            'Jawaban dapat diperbarui, silakan periksa kembali jawaban Anda'
+        );
+    }
+
+    /**
      * Save a draft (partial answers, required not enforced).
      */
     public function save(SaveAnswersRequest $request, Survey $survey)

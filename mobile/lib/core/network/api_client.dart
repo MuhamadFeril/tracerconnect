@@ -28,7 +28,7 @@ class ApiClient {
   ///
   /// Nilai yang lebih besar (30 detik) mengakomodasi koneksi seluler yang
   /// lambat atau server shared hosting yang butuh waktu startup.
-  static const Duration _requestTimeout = Duration(seconds: 30);
+  static const Duration _requestTimeout = Duration(seconds: 60);
 
   static String? _token;
   static void Function()? onUnauthorized;
@@ -42,8 +42,8 @@ class ApiClient {
     final dio = Dio(
       BaseOptions(
         baseUrl: AppConstants.apiBaseUrl,
-        connectTimeout: const Duration(seconds: 20),
-        receiveTimeout: const Duration(seconds: 25),
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 55),
         headers: {
           'Accept': 'application/json',
           // Penanda platform agar backend bisa memberi perlakuan khusus
@@ -103,7 +103,8 @@ class ApiClient {
               path.startsWith('/auth/forgot-password') ||
               path.startsWith('/auth/reset-password') ||
               path.startsWith('/auth/verify-otp') ||
-              path.startsWith('/auth/resend-otp');
+              path.startsWith('/auth/resend-otp') ||
+              path.startsWith('/auth/password/otp');
           if (status == 401 && !isPublicAuth) {
             onUnauthorized?.call();
           }
@@ -196,7 +197,7 @@ class ApiClient {
   ApiException _timeoutException() => const ApiException(
         statusCode: null,
         message:
-            'Waktu koneksi habis. Periksa koneksi internet Anda dan pastikan server TracerConnect berjalan.',
+            'Waktu koneksi habis. Periksa koneksi internet Anda dan pastikan server TracerAlumni berjalan.',
       );
 
   /// Pesan 429 dari header `Retry-After` — paritas dengan web.

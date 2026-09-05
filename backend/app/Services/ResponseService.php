@@ -59,6 +59,30 @@ class ResponseService
     }
 
     /**
+     * Open an already-submitted response for updating while the survey is
+     * still open (fix a mistake, or report a new job). The response becomes
+     * in_progress so the saved answers stay intact until the respondent
+     * re-submits; answers are kept so the form can be pre-filled.
+     */
+    public function edit(User $user, Survey $survey): SurveyResponse
+    {
+        $this->ensureFillable($survey);
+
+        $response = SurveyResponse::query()
+            ->where('survey_id', $survey->id)
+            ->where('respondent_id', $user->id)
+            ->first();
+
+        if (! $response || $response->status !== 'submitted') {
+            throw ValidationException::withMessages(['response' => 'Belum ada jawaban terkirim yang bisa diperbarui']);
+        }
+
+        $response->update(['status' => 'in_progress']);
+
+        return $response;
+    }
+
+    /**
      * Save a draft (answers stored without enforcing required fields).
      *
      * @param  array<int, array{question_id: string, value?: mixed}>  $answers

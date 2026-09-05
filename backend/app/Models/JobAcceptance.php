@@ -75,7 +75,7 @@ class JobAcceptance extends Model
     }
 
     /**
-     * The employer/staff user who recorded the result.
+     * The hrd/staff user who recorded the result.
      */
     public function decider(): BelongsTo
     {

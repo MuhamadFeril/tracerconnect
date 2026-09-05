@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/network/api_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/survey.dart';
@@ -100,13 +101,43 @@ class _AvailableSurveysTab extends ConsumerWidget {
   }
 }
 
-class _SurveyCard extends StatelessWidget {
+class _SurveyCard extends ConsumerStatefulWidget {
   final SurveyItem item;
 
   const _SurveyCard({required this.item});
 
   @override
+  ConsumerState<_SurveyCard> createState() => _SurveyCardState();
+}
+
+class _SurveyCardState extends ConsumerState<_SurveyCard> {
+  bool _editing = false;
+
+  Future<void> _updateAnswers() async {
+    setState(() => _editing = true);
+    try {
+      await ref.read(surveyRepositoryProvider).edit(widget.item.id);
+      ref.invalidate(availableSurveysProvider);
+      ref.invalidate(myResponsesProvider);
+      if (!mounted) return;
+      context.push('/survey/${widget.item.id}');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(firstValidationMessage(e))));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal membuka jawaban untuk diperbarui.')),
+      );
+    } finally {
+      if (mounted) setState(() => _editing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final status = item.responseStatus ?? 'not_started';
     final isDone = status == 'submitted';
     final isInProgress = status == 'in_progress';
@@ -203,15 +234,39 @@ class _SurveyCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () => context.push(
-                isDone ? '/response/${item.responseId}' : '/survey/${item.id}',
+          if (isDone)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Kuisioner masih terbuka (daftar hanya menampilkan survey
+                // yang aktif): alumni bisa memperbarui jawaban yang terkirim.
+                OutlinedButton(
+                  onPressed: _editing ? null : _updateAnswers,
+                  child: _editing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Perbarui'),
+                ),
+                const SizedBox(width: 10),
+                FilledButton(
+                  onPressed: () => context.push(
+                    '/response/${item.responseId}',
+                  ),
+                  child: const Text('Lihat Jawaban'),
+                ),
+              ],
+            )
+          else
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: () => context.push('/survey/${item.id}'),
+                child: Text(isInProgress ? 'Lanjutkan' : 'Mulai'),
               ),
-              child: Text(isDone ? 'Lihat Jawaban' : (isInProgress ? 'Lanjutkan' : 'Mulai')),
             ),
-          ),
         ],
       ),
     );

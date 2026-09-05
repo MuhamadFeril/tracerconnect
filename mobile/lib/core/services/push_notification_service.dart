@@ -131,8 +131,8 @@ class PushNotificationService {
 
       const androidDetails = AndroidNotificationDetails(
         'tracerconnect_default',
-        'TracerConnect Notifications',
-        channelDescription: 'Notifikasi dari TracerConnect',
+        'TracerAlumni Notifications',
+        channelDescription: 'Notifikasi dari TracerAlumni',
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',

@@ -24,18 +24,18 @@ class JobVacancyController extends Controller
             ->when($currentUser->hasRole('super_admin'), function ($query) use ($request) {
                 $query->when($request->filled('institution_id'), fn ($q) => $q->where('institution_id', $request->institution_id));
             })
-            // Employers see the vacancies they created, wherever they are
+            // HRDs see the vacancies they created, wherever they are
             // announced (their own are cross-school).
-            ->when($currentUser->hasRole('employer'), fn ($query) => $query->where('created_by', $currentUser->id))
+            ->when($currentUser->hasRole('hrd'), fn ($query) => $query->where('created_by', $currentUser->id))
             // Alumni see published vacancies from their own school plus the
-            // cross-school vacancies posted by employers.
+            // cross-school vacancies posted by hrd.
             ->when($currentUser->hasRole('alumni'), function ($query) use ($currentUser) {
                 $query->where('status', 'published')
                     ->where(fn ($q) => $q->whereNull('institution_id')->orWhere('institution_id', $currentUser->institution_id));
             })
             // Institution staff see their own vacancies plus the published
             // cross-school ones announced to their alumni.
-            ->when(! $currentUser->hasAnyRole(['super_admin', 'employer', 'alumni']), function ($query) use ($currentUser) {
+            ->when(! $currentUser->hasAnyRole(['super_admin', 'hrd', 'alumni']), function ($query) use ($currentUser) {
                 $query->where(fn ($q) => $q->where('institution_id', $currentUser->institution_id)
                     ->orWhere(fn ($q2) => $q2->whereNull('institution_id')->where('status', 'published')));
             })
@@ -102,7 +102,7 @@ class JobVacancyController extends Controller
 
     /**
      * Broadcast a newly published vacancy: to every school when it is
-     * cross-school (employer-posted), otherwise to the owning institution.
+     * cross-school (hrd-posted), otherwise to the owning institution.
      */
     private function notifyAboutVacancy(JobVacancy $vacancy): void
     {

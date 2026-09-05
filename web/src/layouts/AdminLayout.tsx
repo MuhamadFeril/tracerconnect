@@ -5,7 +5,6 @@ import {
   Bell,
   BookOpen,
   Briefcase,
-  Building2,
   CalendarDays,
   ChevronUp,
   ClipboardList,
@@ -53,27 +52,28 @@ const ALUMNI_NAV: NavItem[] = [
 ]
 
 const NAV: NavItem[] = [
-  // Employer role is intentionally excluded from every data-management menu
-  // (alumni, surveys, analytics, …): employers only manage their own
-  // vacancies and applicants, never the school's alumni data.
+  // Menus are shared by the platform owner (super_admin) and each school's
+  // institution_admin — both operate the school data (alumni, surveys,
+  // analytics, …). HRD is intentionally excluded from every data-management
+  // menu: HRD only manage their own vacancies and applicants, never the
+  // school's alumni data. Only platform-level items (Roles) stay super-only.
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: ['super_admin', 'institution_admin'] },
   { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/alumni', label: 'Alumni', icon: Users, end: false, roles: ['super_admin', 'institution_admin'] },
   { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['super_admin', 'institution_admin'] },
   { to: '/surveys', label: 'Kuisioner', icon: ClipboardList, roles: ['super_admin', 'institution_admin'] },
   { to: '/reports', label: 'Laporan', icon: FileText, roles: ['super_admin', 'institution_admin'] },
-  { to: '/institutions', label: 'Institusi', icon: Building2, roles: ['super_admin'] },
   { to: '/users', label: 'Pengguna', icon: UserCog, roles: ['super_admin', 'institution_admin'] },
-  { to: '/roles', label: 'Roles', icon: ShieldCheck, roles: ['super_admin', 'institution_admin'] },
+  { to: '/roles', label: 'Roles', icon: ShieldCheck, roles: ['super_admin'] },
   { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
   { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
   { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin'] },
 ]
 
-const EMPLOYER_NAV: NavItem[] = [
-  { to: '/employer', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/employer/lowongan', label: 'Lowongan Saya', icon: Briefcase, end: false },
-  { to: '/employer/lamaran', label: 'Lamaran', icon: FileText, badge: true },
+const HRD_NAV: NavItem[] = [
+  { to: '/hrd', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/hrd/lowongan', label: 'Lowongan Saya', icon: Briefcase, end: false },
+  { to: '/hrd/lamaran', label: 'Lamaran', icon: FileText, badge: true },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -81,11 +81,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   // Alumni see the alumni portal (home, news, events, jobs, profile) instead
   // of the admin navigation.
   const alumniOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'alumni')
-  const employerOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'employer')
+  const hrdOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'hrd')
   const items = alumniOnly
     ? ALUMNI_NAV
-    : employerOnly
-      ? EMPLOYER_NAV
+    : hrdOnly
+      ? HRD_NAV
       : NAV.filter((item) => !item.roles || user?.roles?.some((role) => item.roles!.includes(role)))
 
   const unreadCount = useUnreadNotificationsCount().data?.count ?? 0
@@ -96,8 +96,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex items-center gap-3 px-5 py-5">
         <Logo className="size-10" />
         <div>
-          <p className="text-[15px] font-bold tracking-tight text-white">TracerConnect</p>
-          <p className="text-[11px] text-slate-400">{employerOnly ? 'Portal Employer' : 'Admin Panel'}</p>
+          <p className="text-[15px] font-bold tracking-tight text-white">TracerAlumni</p>
+          <p className="text-[11px] text-slate-400">{hrdOnly ? 'Portal HRD' : 'Admin Panel'}</p>
         </div>
       </div>
       <nav className="mt-2 flex-1 space-y-1 px-3">
@@ -119,9 +119,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <Icon className="size-4.5" />
             {label}
             {badge && (() => {
-              // Employer "Lamaran" badge shows new application count;
+              // HRD "Lamaran" badge shows new application count;
               // other badges show the notification count.
-              const count = to === '/employer/lamaran' ? newAppsCount : unreadCount
+              const count = to === '/hrd/lamaran' ? newAppsCount : unreadCount
               if (count <= 0) return null
               return (
                 <span
@@ -303,7 +303,7 @@ export function AdminLayout() {
             <Menu className="size-5" />
           </button>
           <div className="hidden text-[15px] text-slate-500 lg:block">
-            Selamat datang di <span className="font-medium text-slate-700">TracerConnect</span>
+            Selamat datang di <span className="font-medium text-slate-700">TracerAlumni</span>
           </div>
           <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
             <ChatBell />

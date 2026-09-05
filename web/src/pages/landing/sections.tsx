@@ -141,7 +141,7 @@ function Hero() {
           </Reveal>
           <Reveal delay={160}>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600">
-              TracerConnect membantu institusi mengelola data alumni, membuat kuisioner, memantau
+              TracerAlumni membantu institusi mengelola data alumni, membuat kuisioner, memantau
               respons, menganalisis hasil, dan menghasilkan laporan — semua dalam satu platform.
             </p>
           </Reveal>
@@ -192,7 +192,7 @@ function Hero() {
               <span className="size-2.5 rounded-full bg-amber-400" />
               <span className="size-2.5 rounded-full bg-emerald-400" />
               <span className="ml-3 hidden rounded-md bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-400 sm:block">
-                tracerconnect.app/dashboard
+                traceralumni.app/dashboard
               </span>
             </div>
 
@@ -384,7 +384,7 @@ function Solution() {
         <SectionHeading
           eyebrow="Solusi"
           title="Satu Platform untuk Seluruh Proses Tracer Study"
-          description="Dari pengumpulan data hingga laporan akhir — TracerConnect menyatukan seluruh alur kerja tracer study Anda."
+          description="Dari pengumpulan data hingga laporan akhir — TracerAlumni menyatukan seluruh alur kerja tracer study Anda."
         />
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {SOLUTIONS.map((item, i) => (
@@ -886,12 +886,12 @@ function AlumniNetworking() {
 
 const FAQS = [
   {
-    q: 'Apa itu TracerConnect?',
-    a: 'TracerConnect adalah platform tracer study dan alumni engagement untuk sekolah, kampus, dan lembaga pendidikan — dari pengelolaan data alumni, pembuatan kuisioner, hingga analisis dan laporan.',
+    q: 'Apa itu TracerAlumni?',
+    a: 'TracerAlumni adalah platform tracer study dan alumni engagement untuk sekolah, kampus, dan lembaga pendidikan — dari pengelolaan data alumni, pembuatan kuisioner, hingga analisis dan laporan.',
   },
   {
     q: 'Siapa yang dapat menggunakan?',
-    a: 'SMK, SMA, universitas, politeknik, lembaga pendidikan, dan organisasi alumni dapat menggunakan TracerConnect untuk mengelola tracer study mereka.',
+    a: 'SMK, SMA, universitas, politeknik, lembaga pendidikan, dan organisasi alumni dapat menggunakan TracerAlumni untuk mengelola tracer study mereka.',
   },
   {
     q: 'Apakah alumni perlu aplikasi mobile?',
@@ -911,7 +911,7 @@ const FAQS = [
   },
   {
     q: 'Apakah dapat di-deploy ke shared hosting?',
-    a: 'Ya. TracerConnect dirancang kompatibel dengan shared hosting tanpa membutuhkan VPS, Docker, atau infrastruktur khusus.',
+    a: 'Ya. TracerAlumni dirancang kompatibel dengan shared hosting tanpa membutuhkan VPS, Docker, atau infrastruktur khusus.',
   },
 ]
 
@@ -984,13 +984,13 @@ function FinalCta() {
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-indigo-800 px-6 py-14 text-center shadow-2xl shadow-indigo-600/30 sm:px-16">
             <div className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-white/10 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-24 -left-16 size-72 rounded-full bg-indigo-400/20 blur-2xl" />
-            <Logo className="mx-auto size-10" alt="Logo TracerConnect" />
+            <Logo className="mx-auto size-10" alt="Logo TracerAlumni" />
             <h2 className="mx-auto mt-5 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Mulai Kelola Tracer Study dengan Lebih Terstruktur.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-indigo-100">
               Bergabunglah dengan institusi lain yang telah merapikan proses tracer study mereka
-              bersama TracerConnect.
+              bersama TracerAlumni.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link

@@ -1,11 +1,11 @@
 {
-    "name": "TracerConnect",
-    "short_name": "TracerConnect",
+    "name": "TracerAlumni",
+    "short_name": "TracerAlumni",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1e3a8a",
     "theme_color": "#3b82f6",
-    "description": "TracerConnect — Platform Tracer Study Alumni",
+    "description": "TracerAlumni — Platform Tracer Study Alumni",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

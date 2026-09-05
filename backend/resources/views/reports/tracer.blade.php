@@ -34,7 +34,7 @@
 <body>
     <div class="header">
         <div>
-            <div class="brand">TracerConnect</div>
+            <div class="brand">TracerAlumni</div>
             <div class="subtitle">Laporan Tracer Study</div>
         </div>
         <div class="meta">
@@ -114,6 +114,6 @@
         @endforelse
     </table>
 
-    <div class="footer">Dokumen ini dibuat otomatis oleh TracerConnect pada {{ \Illuminate\Support\Carbon::parse($data['generated_at'])->format('d M Y H:i') }}</div>
+    <div class="footer">Dokumen ini dibuat otomatis oleh TracerAlumni pada {{ \Illuminate\Support\Carbon::parse($data['generated_at'])->format('d M Y H:i') }}</div>
 </body>
 </html>

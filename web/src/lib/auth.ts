@@ -19,7 +19,7 @@ export const SESSION_TTL_MS = 60 * 60 * 1000
 export const ADMIN_ROLES = [
   'super_admin',
   'institution_admin',
-  'employer',
+  'hrd',
 ]
 
 export function hasAdminRole(user: User | null | undefined): boolean {

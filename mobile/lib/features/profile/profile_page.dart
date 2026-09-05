@@ -97,7 +97,7 @@ class ProfilePage extends ConsumerWidget {
       builder: (context) => AlertDialog(
         title: const Text('Keluar dari Akun?'),
         content: const Text(
-          'Anda akan keluar dari TracerConnect. Token login akan dihapus dari perangkat.',
+          'Anda akan keluar dari TracerAlumni. Token login akan dihapus dari perangkat.',
           style: TextStyle(fontSize: 14),
         ),
         actions: [
@@ -424,12 +424,12 @@ class ProfilePage extends ConsumerWidget {
                 ),
 
               ],
-              // Employer-only items.
-              if (RoleUtils.isEmployer(user) && !RoleUtils.isAdmin(user)) ...[
+              // HRD-only items.
+              if (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) ...[
                 _MenuTile(
                   icon: Icons.work_outline_rounded,
                   title: 'Kelola Lowongan',
-                  onTap: () => context.push('/employer-jobs'),
+                  onTap: () => context.push('/hrd-jobs'),
                 ),
               ],
               // Admin-only items.

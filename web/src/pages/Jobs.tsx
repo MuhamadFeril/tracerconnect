@@ -43,7 +43,7 @@ function JobFormModal({
 }) {
   const mutations = useJobVacancyMutations()
   const toast = useToast()
-  const isEmployer = getUser()?.roles?.includes('employer')
+  const isHrd = getUser()?.roles?.includes('hrd')
   const [form, setForm] = useState(() => initialForm(job))
   const [error, setError] = useState<string | null>(null)
   const isEditing = Boolean(job)
@@ -103,7 +103,7 @@ function JobFormModal({
     >
       <form id="job-form" onSubmit={onSubmit} className="space-y-4">
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</div>}
-        {isEmployer && (
+        {isHrd && (
           <div className="flex items-start gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-800">
             <Building2 className="mt-0.5 size-4 shrink-0" />
             <p>

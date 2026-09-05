@@ -102,7 +102,7 @@ class AlumniPortalTest extends TestCase
             ->assertJsonPath('data.0.id', $myEvent->id);
 
         // Alumni see their own school's published jobs PLUS cross-school
-        // employer vacancies (announced to every school). Other schools'
+        // hrd vacancies (announced to every school). Other schools'
         // tenant-scoped vacancies stay hidden.
         $this->withToken($token)->getJson('/api/v1/job-vacancies')
             ->assertOk()

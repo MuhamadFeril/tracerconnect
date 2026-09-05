@@ -25,7 +25,7 @@ class JobVacancyResource extends JsonResource
             'application_link' => $this->application_link,
             'status' => $this->status,
             'posted_at' => $this->posted_at,
-            // Employer user id — used by the chat entry point to start a
+            // HRD user id — used by the chat entry point to start a
             // conversation with the job creator.
             'created_by' => $this->created_by,
             'created_at' => $this->created_at,

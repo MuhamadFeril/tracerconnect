@@ -17,7 +17,7 @@ class ResetPassword extends BaseResetPassword
         $url = $frontendUrl.'/reset-password?token='.$this->token.'&email='.$notifiable->getEmailForPasswordReset();
 
         return (new MailMessage)
-            ->subject('Reset Password Akun TracerConnect')
+            ->subject('Reset Password Akun TracerAlumni')
             ->greeting('Halo!')
             ->line('Anda menerima email ini karena kami menerima permintaan reset password untuk akun Anda.')
             ->action('Reset Password', $url)

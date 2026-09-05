@@ -41,13 +41,13 @@ class JobApplicationController extends Controller
     }
 
     /**
-     * Applications for a vacancy (institution staff / employer view).
+     * Applications for a vacancy (institution staff / hrd view).
      */
     public function index(Request $request, JobVacancy $jobVacancy)
     {
         $this->authorize('viewAny', JobApplication::class);
 
-        // Only the job creator (employer), staff of the vacancy's
+        // Only the job creator (hrd), staff of the vacancy's
         // institution, or a super admin may list its applicants.
         $currentUser = $request->user();
         $isCreator = $jobVacancy->created_by === $currentUser->id;
@@ -90,7 +90,7 @@ class JobApplicationController extends Controller
         $user = $request->user();
 
         // Only active, published vacancies may be applied to: tenant-scoped
-        // ones by alumni of that school, and cross-school employer vacancies
+        // ones by alumni of that school, and cross-school hrd vacancies
         // by alumni of any school.
         $institutionMatches = $jobVacancy->institution_id === null || $jobVacancy->institution_id === $user->institution_id;
         if ($jobVacancy->status !== 'published' || ! $institutionMatches) {
@@ -147,13 +147,13 @@ class JobApplicationController extends Controller
     }
 
     /**
-     * Update application status (institution staff / employer).
+     * Update application status (institution staff / hrd).
      */
     public function updateStatus(UpdateApplicationStatusRequest $request, JobApplication $application)
     {
         $this->authorize('update', $application);
 
-        // Only the job creator (employer), staff of the vacancy's
+        // Only the job creator (hrd), staff of the vacancy's
         // institution, or a super admin may change the status.
         $currentUser = $request->user();
         $vacancy = $application->vacancy;
@@ -186,7 +186,7 @@ class JobApplicationController extends Controller
     /**
      * Record (or update) the hiring result of an accepted application — the
      * "hasil penerimaan lowongan": offered position, contract type, start
-     * date, salary, and notes. Only the job creator (employer), staff of the
+     * date, salary, and notes. Only the job creator (hrd), staff of the
      * vacancy's institution, or a super admin may fill it, and only while the
      * application is accepted.
      */
@@ -194,7 +194,7 @@ class JobApplicationController extends Controller
     {
         $this->authorize('update', $application);
 
-        // Only the job creator (employer), staff of the vacancy's
+        // Only the job creator (hrd), staff of the vacancy's
         // institution, or a super admin may record the result.
         $currentUser = $request->user();
         $vacancy = $application->vacancy;
