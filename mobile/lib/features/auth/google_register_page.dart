@@ -26,7 +26,7 @@ class GoogleRegisterPage extends ConsumerStatefulWidget {
 }
 
 class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
-  static const _stepTitles = ['Biodata & Institusi', 'Status Karir'];
+  static const _stepTitles = ['Biodata', 'Status Karir'];
 
   final _formKey = GlobalKey<FormState>();
   int _step = 0;
@@ -101,9 +101,6 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
   /* ---------------------------------------------------------------- */
 
   String? _validateBiodata() {
-    if (_institutionId == null || _institutionId!.isEmpty) {
-      return 'Pilih institusi Anda';
-    }
     if (_nameController.text.trim().isEmpty) return 'Nama lengkap wajib diisi';
     if (_department == null || _department!.isEmpty) return 'Pilih jurusan';
     if (_gender == null || _gender!.isEmpty) return 'Pilih jenis kelamin';
@@ -416,10 +413,13 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
   }
 
   Widget _buildStepper() {
+    // Langkah pemilihan institusi dihapus — label tanpa "& Institusi".
+    const titles = _stepTitles;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
       child: Row(
-        children: List.generate(_stepTitles.length, (i) {
+        children: List.generate(titles.length, (i) {
           final isActive = i == _step;
           final isDone = i < _step;
           return Expanded(
@@ -469,7 +469,7 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _stepTitles[i],
+                  titles[i],
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -496,6 +496,15 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
     final currentYear = DateTime.now().year;
     final years =
         List.generate(currentYear - 1989, (i) => (1990 + i).toString());
+    // Langkah pemilihan institusi dihapus dari registrasi mobile: institusi
+    // pertama (satu-satunya yang aktif di deployment tenan tunggal) dipilih
+    // otomatis agar dropdown jurusan & scoping data tetap bekerja.
+    ref.listen(institutionOptionsProvider, (previous, next) {
+      final list = next.valueOrNull;
+      if (list != null && list.isNotEmpty && _institutionId == null) {
+        setState(() => _institutionId = list.first.id);
+      }
+    });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -539,7 +548,7 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
         ),
         const SizedBox(height: 18),
         const Text(
-          'Lengkapi biodata & institusi',
+          'Lengkapi biodata Anda',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 18,
@@ -552,8 +561,6 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 18),
-        _buildInstitutionField(),
-        const SizedBox(height: 14),
         TextFormField(
           controller: _nameController,
           textInputAction: TextInputAction.next,
@@ -670,81 +677,6 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildInstitutionField() {
-    final institutions = ref.watch(institutionOptionsProvider);
-    return institutions.when(
-      data: (list) => DropdownButtonFormField<String>(
-        initialValue: _institutionId,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Institusi *',
-          prefixIcon: Icon(Icons.school_outlined, size: 20),
-        ),
-        hint: const Text('Pilih institusi'),
-        items: list
-            .map((e) => DropdownMenuItem(
-                  value: e.id,
-                  child: Text(e.name, overflow: TextOverflow.ellipsis),
-                ))
-            .toList(),
-        onChanged: _submitting
-            ? null
-            : (v) => setState(() {
-                  _institutionId = v;
-                  _department = null;
-                  _error = null;
-                }),
-      ),
-      loading: () => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 12),
-            Text('Memuat daftar institusi…',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
-          ],
-        ),
-      ),
-      error: (e, _) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.dangerBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Gagal memuat institusi',
-                style: TextStyle(
-                    color: AppColors.danger,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => ref.invalidate(institutionOptionsProvider),
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Muat Ulang'),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

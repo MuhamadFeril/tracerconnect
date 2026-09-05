@@ -145,12 +145,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   bool _validateStep() {
     if (_step == 0) {
-      final valid = _formKey.currentState!.validate();
-      if (valid && _institutionId == null) {
-        setState(() => _error = 'Pilih institusi Anda');
-        return false;
-      }
-      return valid;
+      return _formKey.currentState!.validate();
     }
     if (_step == 1) {
       final msg = _validateBiodata();
@@ -689,7 +684,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   // Step 1 — akun & institusi
   // ------------------------------------------------------------------
   Widget _buildStep1() {
-    final institutions = ref.watch(institutionOptionsProvider);
+    // Langkah pemilihan institusi dihapus dari registrasi mobile: institusi
+    // pertama (satu-satunya yang aktif di deployment tenan tunggal) dipilih
+    // otomatis agar dropdown jurusan & scoping data tetap bekerja.
+    ref.listen(institutionOptionsProvider, (previous, next) {
+      final list = next.valueOrNull;
+      if (list != null && list.isNotEmpty && _institutionId == null) {
+        setState(() => _institutionId = list.first.id);
+      }
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -703,7 +707,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Lengkapi data akun dan pilih institusi Anda.',
+          'Lengkapi data akun Anda.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 20),
@@ -799,88 +803,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               : null,
         ),
         const SizedBox(height: 14),
-        institutions.when(
-          data: (list) => DropdownButtonFormField<String>(
-            initialValue: _institutionId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Institusi',
-              prefixIcon: Icon(Icons.school_outlined, size: 20),
-            ),
-            hint: const Text('Pilih institusi'),
-            items: list
-                .map((e) => DropdownMenuItem(
-                      value: e.id,
-                      child: Text(
-                        e.name,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ))
-                .toList(),
-            onChanged: _submitting
-                ? null
-                : (v) {
-                    setState(() {
-                      _institutionId = v;
-                      _department = null; // Reset department when institution changes
-                      _error = null;
-                    });
-                  },
-          ),
-          loading: () => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: const Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                SizedBox(width: 12),
-                Text('Memuat daftar institusi…',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
-              ],
-            ),
-          ),
-          error: (e, _) => Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.dangerBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.error_outline_rounded, color: Theme.of(context).colorScheme.error, size: 18),
-                    const SizedBox(width: 8),
-                    Text('Gagal memuat institusi',
-                        style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text('Periksa koneksi internet Anda, lalu coba lagi.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => ref.invalidate(institutionOptionsProvider),
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Muat Ulang'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
         const SizedBox(height: 20),
         const Row(
           children: [

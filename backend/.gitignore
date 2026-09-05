@@ -12,7 +12,7 @@
 /.phpunit.cache
 /.vscode
 /.zed
-/auth.json
+auth.json
 /node_modules
 /public/build
 /public/fonts-manifest.dev.json
@@ -20,6 +20,7 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/tools
 /vendor
 _ide_helper.php
 Homestead.json
