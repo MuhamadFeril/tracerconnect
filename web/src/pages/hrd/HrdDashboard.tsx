@@ -12,7 +12,8 @@ import {
 } from 'lucide-react'
 import { useHrdDashboard } from '../../hooks/queries'
 import type { JobApplicationStatus } from '../../lib/types'
-import { EMPLOYMENT_TYPE_LABELS, formatDate } from '../../lib/format'
+import { EMPLOYMENT_TYPE_LABELS, formatDate, initials } from '../../lib/format'
+import { getUser } from '../../lib/auth'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
 import { LoadingState, ErrorState, EmptyState } from '../../components/ui/StateViews'
@@ -38,8 +39,18 @@ export const APPLICATION_STATUS_TONES: Record<JobApplicationStatus, 'slate' | 's
   withdrawn: 'amber',
 }
 
+function greeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 11) return 'Selamat pagi'
+  if (hour < 15) return 'Selamat siang'
+  if (hour < 19) return 'Selamat sore'
+  return 'Selamat malam'
+}
+
 export function HrdDashboard() {
   const { data, isPending, isError, refetch } = useHrdDashboard()
+  const user = getUser()
+  const name = user?.name?.trim().split(/\s+/)[0] ?? 'HRD'
 
   if (isPending) return <LoadingState label="Memuat dashboard hrd…" />
   if (isError || !data) {
@@ -50,9 +61,57 @@ export function HrdDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Dashboard HRD</h1>
-        <p className="mt-1 text-sm text-slate-500">Kelola lowongan dan pantau lamaran yang masuk</p>
+      {/* Hero banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 p-6 text-white shadow-lg sm:p-8">
+        <div className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-indigo-500/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 size-56 rounded-full bg-violet-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute top-6 right-1/4 hidden size-3 rounded-full bg-white/20 sm:block" />
+        <div className="pointer-events-none absolute right-10 bottom-8 hidden size-2 rounded-full bg-white/30 sm:block" />
+
+        <div className="relative">
+          <p className="text-xs font-medium tracking-widest text-indigo-200 uppercase">Portal HRD</p>
+          <h1 className="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">
+            {greeting()}, {name}! 👋
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-indigo-100/90">
+            Kelola lowongan dan review lamaran dari alumni terbaik untuk perusahaan Anda — semuanya dalam satu tempat.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              to="/hrd/lowongan"
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-indigo-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <PlusCircle className="size-4" /> Buat Lowongan
+            </Link>
+            <Link
+              to="/hrd/lamaran"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white/20"
+            >
+              <ClipboardCheck className="size-4" /> Review Lamaran
+              {apps.new > 0 && (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                  {apps.new > 99 ? '99+' : apps.new}
+                </span>
+              )}
+            </Link>
+          </div>
+
+          <div className="mt-7 grid max-w-lg grid-cols-3 gap-4">
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur">
+              <p className="text-2xl font-bold tracking-tight">{data.vacancies.published}</p>
+              <p className="mt-0.5 text-xs text-indigo-100/80">Lowongan Aktif</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur">
+              <p className="text-2xl font-bold tracking-tight">{apps.total.toLocaleString('id-ID')}</p>
+              <p className="mt-0.5 text-xs text-indigo-100/80">Total Pelamar</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur">
+              <p className="text-2xl font-bold tracking-tight">{apps.accepted.toLocaleString('id-ID')}</p>
+              <p className="mt-0.5 text-xs text-indigo-100/80">Diterima</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -85,8 +144,8 @@ export function HrdDashboard() {
                     className="flex animate-fade-in items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-slate-50"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">
-                        {(app.alumni?.name ?? '?').charAt(0).toUpperCase()}
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-800 text-xs font-bold text-white">
+                        {initials(app.alumni?.name)}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-800">{app.alumni?.name ?? 'Alumni'}</p>
@@ -94,6 +153,11 @@ export function HrdDashboard() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                      {app.status === 'submitted' && (
+                        <span className="hidden rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 sm:block">
+                          Baru
+                        </span>
+                      )}
                       <Badge tone={APPLICATION_STATUS_TONES[app.status]}>{APPLICATION_STATUS_LABELS[app.status]}</Badge>
                       <span className="hidden text-xs text-slate-400 sm:block">{formatDate(app.applied_at)}</span>
                     </div>
@@ -135,23 +199,39 @@ export function HrdDashboard() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              to="/hrd/lowongan"
-              className="animate-fade-in-up group flex flex-col gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <PlusCircle className="size-5 text-indigo-600" />
-              <p className="text-sm font-semibold text-slate-800">Buat Lowongan</p>
-              <p className="text-xs text-slate-500">Sebarkan ke seluruh sekolah</p>
-            </Link>
-            <Link
-              to="/hrd/lamaran"
-              className="animate-fade-in-up group flex flex-col gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <ClipboardCheck className="size-5 text-emerald-600" />
-              <p className="text-sm font-semibold text-slate-800">Review Lamaran</p>
-              <p className="text-xs text-slate-500">{apps.new} menunggu tindakan</p>
-            </Link>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h3 className="text-sm font-semibold text-slate-900">Aksi Cepat</h3>
+              <p className="mt-0.5 text-xs text-slate-500">Langkah yang paling sering dilakukan</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              <Link
+                to="/hrd/lowongan"
+                className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-indigo-50/60"
+              >
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <PlusCircle className="size-4.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800">Buat Lowongan</p>
+                  <p className="text-xs text-slate-400">Sebarkan ke seluruh sekolah</p>
+                </div>
+                <ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+              </Link>
+              <Link
+                to="/hrd/lamaran"
+                className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-amber-50/60"
+              >
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                  <ClipboardCheck className="size-4.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800">Review Lamaran</p>
+                  <p className="text-xs text-slate-400">{apps.new} menunggu tindakan</p>
+                </div>
+                <ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-amber-500" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>

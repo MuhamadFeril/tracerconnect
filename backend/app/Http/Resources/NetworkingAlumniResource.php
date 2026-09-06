@@ -29,7 +29,7 @@ class NetworkingAlumniResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'name' => $this->name,
-            'avatar_url' => $this->user?->avatar_path ? url('storage/'.$this->user->avatar_path) : null,
+            'avatar_url' => $this->user?->avatar_path ? '/storage/'.$this->user->avatar_path : null,
             'department' => $this->department?->name,
             'graduation_year' => $this->graduationYear?->year,
             'employment_status' => $this->employment_status,

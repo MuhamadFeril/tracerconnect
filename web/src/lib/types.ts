@@ -28,6 +28,8 @@ export interface User {
   name: string
   email: string
   institution_id: string | null
+  /** Company (PT) name — HRD accounts post vacancies under this name. */
+  company_name?: string | null
   institution?: { id: string; name: string } | null
   roles: string[]
   has_password: boolean
@@ -533,6 +535,8 @@ export interface JobApplication {
     department: string | null
     graduation_year: number | null
     employment_status: string | null
+    position?: string | null
+    company_name?: string | null
   } | null
   acceptance?: JobAcceptance | null
   created_at?: string
@@ -695,48 +699,6 @@ export interface TracerReport {
 }
 
 // --- HRD Alumni Directory ---
-
-export interface HrdAlumniListItem {
-  id: string
-  name: string
-  email: string | null
-  phone: string | null
-  gender: 'male' | 'female' | null
-  department: string | null
-  graduation_year: number | null
-  employment_status: string | null
-  company_name: string | null
-  position: string | null
-  location: string | null
-  skills: string[] | null
-}
-
-export interface HrdAlumniDetail {
-  id: string
-  name: string
-  email: string | null
-  phone: string | null
-  gender: 'male' | 'female' | null
-  birth_date: string | null
-  birthplace_label: string | null
-  address: string | null
-  department: string | null
-  graduation_year: number | null
-  employment_status: string | null
-  company_name: string | null
-  position: string | null
-  location: string | null
-  work_city: string | null
-  work_province: string | null
-  business_name: string | null
-  business_field: string | null
-  business_address: string | null
-  study_institution: string | null
-  study_program: string | null
-  skills: string[] | null
-  socials: SocialLink[] | null
-  avatar_url: string | null
-}
 
 export interface InstitutionBranding {
   id: string

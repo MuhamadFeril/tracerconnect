@@ -77,24 +77,26 @@ export function formatAnswerValue(value: unknown): string {
  */
 export function avatarUrl(url: string | null | undefined): string | null {
   if (!url) return null
-  
-  // Allow absolute HTTPS URLs (from trusted CDN/storage)
-  if (/^https:\/\//i.test(url)) {
+
+  // Allow absolute HTTP(S) URLs. The backend resolves avatar paths with
+  // Laravel's url() helper, which is http:// during local development and
+  // https:// in production — both must be accepted or the photo never shows.
+  if (/^https?:\/\//i.test(url)) {
     try {
       const parsed = new URL(url)
-      // Only allow HTTPS protocol
-      if (parsed.protocol !== 'https:') return null
+      // Only allow http/https protocols (blocks javascript:, data:, etc.)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
       return url
     } catch {
       return null
     }
   }
-  
+
   // Relative URLs - resolve against current origin
   if (url.startsWith('/')) {
     return `${window.location.origin}${url}`
   }
-  
+
   // Block any other URL formats (javascript:, data:, etc.)
   return null
 }

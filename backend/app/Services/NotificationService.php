@@ -21,6 +21,9 @@ class NotificationService
         string $kind = 'info',
     ): void {
         $user->notify(new InAppNotification($title, $body, $url, $kind));
+
+        // Push the same notification to the user's devices via FCM.
+        FcmService::notify($user, $title, $body, $url, $kind);
     }
 
     /**
@@ -48,6 +51,7 @@ class NotificationService
             ->pluck('id');
 
         self::insertRows($userIds, $title, $body, $url, $kind);
+        FcmService::notifyUserIds($userIds, $title, $body, $url, $kind);
     }
 
     /**
@@ -68,6 +72,7 @@ class NotificationService
             ->pluck('id');
 
         self::insertRows($userIds, $title, $body, $url, $kind);
+        FcmService::notifyUserIds($userIds, $title, $body, $url, $kind);
     }
 
     /**

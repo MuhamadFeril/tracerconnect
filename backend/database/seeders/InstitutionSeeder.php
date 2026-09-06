@@ -10,7 +10,7 @@ class InstitutionSeeder extends Seeder
 {
     public function run(): void
     {
-        $institution = Institution::updateOrCreate(
+        $institution1 = Institution::updateOrCreate(
             ['slug' => 'smk-negeri-1-tracer'],
             [
                 'name' => 'SMK Negeri 1 Tracer',
@@ -18,6 +18,18 @@ class InstitutionSeeder extends Seeder
                 'email' => 'info@smkn1tracer.sch.id',
                 'phone' => '(021) 555-0123',
                 'address' => 'Jl. Pendidikan No. 1, Jakarta',
+                'status' => 'active',
+            ]
+        );
+
+        $institution2 = Institution::updateOrCreate(
+            ['slug' => 'smkn-11-malang'],
+            [
+                'name' => 'SMKN 11 Malang',
+                'code' => 'SMK11',
+                'email' => 'info@smkn11malang.sch.id',
+                'phone' => '(0341) 555-0123',
+                'address' => 'Jl. A. Yani No. 1, Malang',
                 'status' => 'active',
             ]
         );
@@ -36,18 +48,32 @@ class InstitutionSeeder extends Seeder
             $superAdmin->assignRole('super_admin');
         }
 
-        $institutionAdmin = User::updateOrCreate(
+        $institutionAdmin1 = User::updateOrCreate(
             ['email' => 'admin@smkn1tracer.sch.id'],
             [
                 'name' => 'Admin SMK Negeri 1 Tracer',
                 'password' => 'password',
-                'institution_id' => $institution->id,
+                'institution_id' => $institution1->id,
                 'is_active' => true,
             ]
         );
 
-        if (! $institutionAdmin->hasRole('institution_admin')) {
-            $institutionAdmin->assignRole('institution_admin');
+        if (! $institutionAdmin1->hasRole('admin_institusi')) {
+            $institutionAdmin1->assignRole('admin_institusi');
+        }
+
+        $institutionAdmin2 = User::updateOrCreate(
+            ['email' => 'admin@smkn11malang.sch.id'],
+            [
+                'name' => 'Admin SMKN 11 Malang',
+                'password' => 'password',
+                'institution_id' => $institution2->id,
+                'is_active' => true,
+            ]
+        );
+
+        if (! $institutionAdmin2->hasRole('admin_institusi')) {
+            $institutionAdmin2->assignRole('admin_institusi');
         }
     }
 }

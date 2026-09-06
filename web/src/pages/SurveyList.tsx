@@ -1,14 +1,23 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CalendarDays, Layers, MessageSquareText, Pencil, Plus, Rocket, Trash2, Undo2 } from 'lucide-react'
+import {
+  CalendarDays,
+  Layers,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Rocket,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
 import { apiError } from '../lib/api'
-import { useCreateSurvey, useDeleteSurvey, usePublishSurvey, useSurveys } from '../hooks/queries'
+import { useCreateSurvey, useDeleteSurvey, usePublishSurvey, useSurveys, useInstitutionOptions } from '../hooks/queries'
 import { formatDate } from '../lib/format'
 import type { Survey } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { Field, Input, Textarea } from '../components/ui/Field'
+import { Field, Input, Select, Textarea } from '../components/ui/Field'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { StatusBadge, Badge } from '../components/ui/Badge'
@@ -19,10 +28,12 @@ function CreateSurveyModal({ open, onClose }: { open: boolean; onClose: () => vo
   const create = useCreateSurvey()
   const toast = useToast()
   const navigate = useNavigate()
+  const { data: institutions, isLoading } = useInstitutionOptions()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [startsAt, setStartsAt] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
+  const [institutionId, setInstitutionId] = useState<string | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -34,6 +45,7 @@ function CreateSurveyModal({ open, onClose }: { open: boolean; onClose: () => vo
         description: description || null,
         starts_at: startsAt ? new Date(startsAt).toISOString() : null,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        institution_id: institutionId,
       })
       toast('Survey berhasil dibuat')
       onClose()
@@ -63,6 +75,20 @@ function CreateSurveyModal({ open, onClose }: { open: boolean; onClose: () => vo
         </Field>
         <Field label="Deskripsi">
           <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Penjelasan singkat untuk alumni" />
+        </Field>
+        <Field label="Institusi">
+          <Select
+            value={institutionId ?? ''}
+            onChange={(e) => setInstitutionId(e.target.value === '' ? undefined : e.target.value)}
+            disabled={isLoading}
+          >
+            <option value="">—Pilih institusi—</option>
+            {institutions?.map((inst) => (
+              <option key={inst.id} value={inst.id}>
+                {inst.name}
+              </option>
+            ))}
+          </Select>
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Mulai Aktif">

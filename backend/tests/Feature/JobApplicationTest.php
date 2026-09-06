@@ -56,6 +56,24 @@ class JobApplicationTest extends TestCase
         ]);
     }
 
+    public function test_apply_is_not_throttled_by_unrelated_request_activity(): void
+    {
+        $token = $this->loginAs('andi.pratama@example.com');
+        $vacancy = $this->publishedVacancy();
+
+        // Simulate a busy minute of page loads/polling on other throttled
+        // endpoints. Rate-limit keys are scoped per route, so this read
+        // traffic must NOT drain the 10/min quota of the apply endpoint.
+        for ($i = 0; $i < 11; $i++) {
+            $this->withToken($token)->getJson('/api/v1/auth/me')->assertOk();
+        }
+
+        $this->withToken($token)->postJson("/api/v1/job-vacancies/{$vacancy->id}/apply", [
+            'cover_letter' => 'Saya tertarik dengan posisi ini.',
+        ])->assertCreated()
+            ->assertJsonPath('data.status', 'submitted');
+    }
+
     public function test_alumni_cannot_apply_twice(): void
     {
         $token = $this->loginAs('andi.pratama@example.com');

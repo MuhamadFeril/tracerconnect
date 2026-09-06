@@ -300,7 +300,7 @@ class NetworkingController extends Controller
             'user' => $block->blocked ? [
                 'id' => $block->blocked->id,
                 'name' => $block->blocked->name,
-                'avatar_url' => $block->blocked->avatar_path ? url('storage/'.$block->blocked->avatar_path) : null,
+                'avatar_url' => $block->blocked->avatar_path ? '/storage/'.$block->blocked->avatar_path : null,
             ] : null,
         ])->values();
 

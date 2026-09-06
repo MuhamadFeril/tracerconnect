@@ -20,8 +20,6 @@
     District,
     Announcement,
     Department,
-    HrdAlumniDetail,
-    HrdAlumniListItem,
     EmploymentAnalytics,
     EventItem,
     EventParticipant,
@@ -472,6 +470,7 @@
         password_confirmation: string
         role: string
         institution_id?: string
+        company_name?: string
       }) => unwrap<User>(api.post('/users', payload)),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['users'] })
@@ -778,30 +777,6 @@
         return { count: data.applications.new }
       },
       refetchInterval: 15_000,
-    })
-  }
-
-  // --- HRD Alumni Directory ---
-
-  export function useHrdAlumni(params: {
-    search?: string
-    department_id?: string
-    graduation_year_id?: string
-    employment_status?: string
-    page?: number
-  }) {
-    return useQuery({
-      queryKey: ['hrd', 'alumni', params],
-      queryFn: () => unwrapPage<HrdAlumniListItem>(api.get('/hrd/alumni', { params })),
-      placeholderData: keepPreviousData,
-    })
-  }
-
-  export function useHrdAlumniDetail(alumniId: string | null) {
-    return useQuery({
-      queryKey: ['hrd', 'alumni', alumniId],
-      queryFn: () => unwrap<HrdAlumniDetail>(api.get(`/hrd/alumni/${alumniId}`)),
-      enabled: Boolean(alumniId),
     })
   }
 

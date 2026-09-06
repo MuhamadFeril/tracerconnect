@@ -34,7 +34,7 @@ class ConnectionResource extends JsonResource
             'user' => $otherUser ? [
                 'id' => $otherUser->id,
                 'name' => $otherUser->name,
-                'avatar_url' => $otherUser->avatar_path ? url('storage/'.$otherUser->avatar_path) : null,
+                'avatar_url' => $otherUser->avatar_path ? '/storage/'.$otherUser->avatar_path : null,
             ] : null,
             'alumni' => $alumni ? [
                 'id' => $alumni->id,

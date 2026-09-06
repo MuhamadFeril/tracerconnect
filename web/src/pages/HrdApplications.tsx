@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Briefcase, Building2, ClipboardCheck, Download, FileText, Search } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Building2, ClipboardCheck, Eye, Inbox, Search } from 'lucide-react'
 import { useHrdApplications, useJobVacancies, useSaveAcceptance, useUpdateApplicationStatus } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
 import type { JobApplication, JobApplicationStatus } from '../lib/types'
 import { apiError } from '../lib/api'
-import { EMPLOYMENT_LABELS, formatDate } from '../lib/format'
+import { EMPLOYMENT_LABELS, formatDate, initials } from '../lib/format'
+import { CvDataContent } from '../components/CvDataModal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -43,12 +45,6 @@ function initialAcceptance(app: JobApplication): AcceptanceForm {
   }
 }
 
-/** Public storage URL for an application attachment. */
-function storageUrl(path: string | null): string | null {
-  if (!path) return null
-  return `${window.location.origin}/storage/${path}`
-}
-
 function StatusSelect({ app }: { app: JobApplication }) {
   const toast = useToast()
   const updateStatus = useUpdateApplicationStatus(app.id)
@@ -81,6 +77,7 @@ function StatusSelect({ app }: { app: JobApplication }) {
 
 export function HrdApplications() {
   const toast = useToast()
+  const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search)
@@ -137,6 +134,12 @@ export function HrdApplications() {
       <PageHeader
         title="Kelola Lamaran"
         subtitle="Semua pelamar dari seluruh lowongan Anda dalam satu tempat"
+        actions={
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm">
+            <Inbox className="size-3.5 text-indigo-500" />
+            {data?.meta?.total?.toLocaleString('id-ID') ?? 0} pelamar
+          </span>
+        }
       />
 
       <Card>
@@ -213,8 +216,8 @@ export function HrdApplications() {
                   <TRow key={app.id}>
                     <Td>
                       <button onClick={() => setDetail(app)} className="flex items-center gap-3 text-left">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                          <Briefcase className="size-4" />
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-800 text-[11px] font-bold text-white">
+                          {initials(app.alumni?.name)}
                         </div>
                         <div className="min-w-0">
                           <p className="max-w-[12rem] truncate font-medium text-slate-900 hover:text-indigo-600">
@@ -271,6 +274,18 @@ export function HrdApplications() {
         size="lg"
         footer={
           <>
+            {detail?.cv_data && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  navigate('/cv-preview', {
+                    state: { cvData: detail.cv_data, coverLetter: detail.cover_letter, alumniName: detail.alumni?.name },
+                  })
+                }
+              >
+                <Eye className="size-4" /> Preview CV
+              </Button>
+            )}
             {detail && detail.status !== 'withdrawn' && (
               <StatusSelect app={{ ...detail }} />
             )}
@@ -322,40 +337,8 @@ export function HrdApplications() {
             </div>
 
             <div>
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">Surat lamaran</p>
-              {detail.cover_letter ? (
-                <p className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-3 text-sm whitespace-pre-wrap text-slate-600">
-                  {detail.cover_letter}
-                </p>
-              ) : (
-                <p className="text-sm text-slate-400">Tidak ada surat lamaran.</p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {storageUrl(detail.cv_path) && (
-                <a
-                  href={storageUrl(detail.cv_path)!}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
-                >
-                  <Download className="size-3.5" /> Unduh CV
-                </a>
-              )}
-              {storageUrl(detail.portfolio_path) && (
-                <a
-                  href={storageUrl(detail.portfolio_path)!}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
-                >
-                  <FileText className="size-3.5" /> Unduh Portfolio
-                </a>
-              )}
-              {!detail.cv_path && !detail.portfolio_path && (
-                <p className="text-sm text-slate-400">Tidak ada lampiran.</p>
-              )}
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">Data CV</p>
+              <CvDataContent app={detail} />
             </div>
 
             {detail.acceptance && (

@@ -163,7 +163,7 @@ export function NetworkingDetail() {
         <div className="px-5 pb-5 sm:px-6">
           <div className="-mt-10 flex flex-wrap items-end justify-between gap-4">
             <div className="flex items-end gap-4">
-              <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-800 font-bold text-white shadow-lg ring-4 ring-white">
+              <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-indigo-800 font-bold text-white shadow-lg ring-4 ring-white">
                 {avatarSrc ? (
                   <img src={avatarSrc} alt="" className="size-full object-cover" />
                 ) : (

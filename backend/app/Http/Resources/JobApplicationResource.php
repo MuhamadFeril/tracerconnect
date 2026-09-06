@@ -35,6 +35,9 @@ class JobApplicationResource extends JsonResource
                 'department' => $this->alumni->department?->name,
                 'graduation_year' => $this->alumni->graduationYear?->year,
                 'employment_status' => $this->alumni->employment_status,
+                // Current workplace so reviewers see where the applicant works now.
+                'position' => $this->alumni->position,
+                'company_name' => $this->alumni->company_name,
             ] : null),
             // Hiring result recorded by the hrd when the application is
             // accepted (load with 'acceptance').

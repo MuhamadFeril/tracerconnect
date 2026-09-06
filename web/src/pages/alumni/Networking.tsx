@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Ban,
@@ -98,6 +98,13 @@ const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
 function Avatar({ name, url, size = 'size-11', text = 'text-sm' }: { name: string; url?: string | null; size?: string; text?: string }) {
   const src = avatarUrl(url)
   const [failed, setFailed] = useState(false)
+
+  // Reset the failure flag whenever the URL changes, so a newly-valid avatar
+  // (e.g. after re-uploading the profile photo) is retried instead of being
+  // stuck on the initials fallback forever.
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
 
   if (src && !failed) {
     return (

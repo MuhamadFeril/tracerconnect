@@ -63,6 +63,14 @@ function messagePreview(message: ChatMessage | null | undefined): string {
 function Avatar({ name, src, size = 'size-10', text = 'text-sm' }: { name?: string | null; src?: string | null; size?: string; text?: string }) {
   const [failed, setFailed] = useState(false)
   const url = src ? avatarUrl(src) : null
+
+  // Reset the failure flag whenever the URL changes, so a newly-valid avatar
+  // (e.g. after re-uploading the profile photo) is retried instead of being
+  // stuck on the initials fallback forever.
+  useEffect(() => {
+    setFailed(false)
+  }, [url])
+
   if (url && !failed) {
     return <img src={url} alt="" onError={() => setFailed(true)} className={clsx('shrink-0 rounded-full object-cover', size)} />
   }

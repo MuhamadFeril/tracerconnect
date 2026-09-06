@@ -30,7 +30,6 @@ class UserTest extends TestCase
     public function test_super_admin_can_create_user_with_role(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
-        $institution = $this->demoInstitution();
 
         $response = $this->withToken($token)->postJson('/api/v1/users', [
             'name' => 'Operator Satu',
@@ -38,13 +37,17 @@ class UserTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
-            'institution_id' => $institution->id,
+            'company_name' => 'PT Operator Satu',
+            // HRD is a cross-school recruiter — even when an institution is
+            // sent, the platform admin's HRD account is stored without one.
+            'institution_id' => $this->demoInstitution()->id,
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.email', 'operator@smkn1tracer.sch.id')
-            ->assertJsonPath('data.institution_id', $institution->id)
+            ->assertJsonPath('data.institution_id', null)
+            ->assertJsonPath('data.company_name', 'PT Operator Satu')
             ->assertJsonPath('data.roles.0', 'hrd');
 
         $this->assertDatabaseHas('users', ['email' => 'operator@smkn1tracer.sch.id']);
@@ -61,10 +64,12 @@ class UserTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT Operator Dua',
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.institution_id', $institution->id);
+            ->assertJsonPath('data.institution_id', $institution->id)
+            ->assertJsonPath('data.company_name', 'PT Operator Dua');
     }
 
     public function test_institution_admin_cannot_assign_super_admin_role(): void
@@ -110,13 +115,35 @@ class UserTest extends TestCase
 
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
-        // Tenant-scoped accounts without an institution are rejected…
+        // HRD is a cross-school recruiter — no institution required even in
+        // multi-tenant mode, but the company (PT) name stays mandatory.
         $this->withToken($token)->postJson('/api/v1/users', [
             'name' => 'HRD Tanpa Sekolah',
             'email' => 'hrd-noschool@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT Tanpa Sekolah',
+        ])->assertCreated()
+            ->assertJsonPath('data.institution_id', null)
+            ->assertJsonPath('data.company_name', 'PT Tanpa Sekolah');
+
+        // …and an HRD without a PT name is rejected.
+        $this->withToken($token)->postJson('/api/v1/users', [
+            'name' => 'HRD Tanpa PT',
+            'email' => 'hrd-tanpa-pt@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role' => 'hrd',
+        ])->assertStatus(422);
+
+        // Tenant-scoped accounts without an institution are rejected…
+        $this->withToken($token)->postJson('/api/v1/users', [
+            'name' => 'Alumni Tanpa Sekolah',
+            'email' => 'alumni-noschool@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role' => 'alumni',
         ])->assertStatus(422);
 
         // …but the super admin can still attach them to an existing school.
@@ -160,6 +187,7 @@ class UserTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT Duplikat',
             'institution_id' => $this->demoInstitution()->id,
         ])->assertStatus(422);
     }
@@ -180,6 +208,7 @@ class UserTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT User B',
             'institution_id' => $otherInstitution->id,
         ])->assertCreated();
 
@@ -209,6 +238,7 @@ class UserTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT User B',
             'institution_id' => $otherInstitution->id,
         ])->assertCreated();
 
@@ -294,6 +324,7 @@ class UserTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT Akan Dihapus',
             'institution_id' => $institution->id,
         ])->assertCreated()->json('data');
 

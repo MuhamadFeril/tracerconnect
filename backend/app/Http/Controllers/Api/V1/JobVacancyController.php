@@ -59,7 +59,7 @@ class JobVacancyController extends Controller
     {
         $this->authorize('create', JobVacancy::class);
 
-        $data = $request->validated();
+        $data = $this->withHrdCompany($request, $request->validated());
 
         $vacancy = JobVacancy::create([...$data, 'created_by' => $request->user()->id]);
 
@@ -81,8 +81,10 @@ class JobVacancyController extends Controller
     {
         $this->authorize('update', $jobVacancy);
 
+        $data = $this->withHrdCompany($request, $request->validated());
+
         $wasPublished = $jobVacancy->status === 'published';
-        $jobVacancy->update($request->validated());
+        $jobVacancy->update($data);
 
         if ($jobVacancy->status === 'published' && ! $wasPublished) {
             $this->notifyAboutVacancy($jobVacancy);
@@ -98,6 +100,32 @@ class JobVacancyController extends Controller
         $jobVacancy->delete();
 
         return ApiResponse::success([], 'Lowongan kerja berhasil dihapus');
+    }
+
+    /**
+     * HRD vacancies always carry the HRD account's company (PT) name, so the
+     * company shown on a vacancy can never drift from the recruiter's own
+     * company. The form only lets HRD type a company when their account has
+     * none yet (legacy accounts); once set, it is enforced here server-side
+     * and the submitted name is adopted as the account's PT.
+     */
+    private function withHrdCompany(Request $request, array $data): array
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('hrd')) {
+            return $data;
+        }
+
+        if ($user->company_name) {
+            $data['company_name'] = $user->company_name;
+        } elseif (! empty($data['company_name'])) {
+            // Legacy HRD accounts without a PT yet: adopt the first
+            // submitted name so the account is bound from then on.
+            $user->update(['company_name' => $data['company_name']]);
+        }
+
+        return $data;
     }
 
     /**

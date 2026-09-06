@@ -17,7 +17,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'institution_id' => $this->institution_id,
-            'avatar_url' => $this->avatar_path ? url('storage/'.$this->avatar_path) : null,
+            'company_name' => $this->company_name,
+            'avatar_url' => $this->avatar_path ? '/storage/'.$this->avatar_path : null,
             'institution' => $this->whenLoaded('institution', fn () => [
                 'id' => $this->institution->id,
                 'name' => $this->institution->name,

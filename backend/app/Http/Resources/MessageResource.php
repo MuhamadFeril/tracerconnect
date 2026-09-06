@@ -31,7 +31,7 @@ class MessageResource extends JsonResource
                 'name' => $this->attachment_name,
                 'mime' => $this->attachment_mime,
                 'size' => $this->attachment_size,
-                'url' => url('storage/'.$this->attachment_path),
+                'url' => '/storage/'.$this->attachment_path,
             ],
             'is_deleted' => $deleted,
             'is_mine' => $this->sender_id === $this->viewerId,

@@ -81,6 +81,14 @@ class PushNotificationService {
     } catch (_) {}
 
     try {
+      // Android 13+ memerlukan izin runtime untuk menampilkan notifikasi.
+      final android = FlutterLocalNotificationsPlugin()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await android?.requestNotificationsPermission();
+    } catch (_) {}
+
+    try {
       // Listen for foreground messages.
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
       // Handle notification tap when app was in background.
@@ -108,6 +116,12 @@ class PushNotificationService {
       debugPrint('FCM token registration failed: $e');
     }
   }
+
+  /// (Re)register the device token with the backend. Dipanggil setelah
+  /// login berhasil / sesi dipulihkan — init() berjalan sebelum user login,
+  /// jadi tanpa panggilan ini token tidak akan terdaftar untuk akun yang
+  /// baru masuk (request 401 saat belum ada Authorization header).
+  Future<void> registerToken() => _sendToken();
 
   /// Send the token to the backend so the server can push notifications.
   Future<void> _registerToken(String token) async {

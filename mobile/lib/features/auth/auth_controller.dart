@@ -68,7 +68,7 @@ class AuthController extends StateNotifier<AuthState> {
     ApiClient.setToken(token);
     try {
       final user = await _repo.me().timeout(const Duration(seconds: 15));
-      state = AuthState.authenticated(user);
+      _setAuthenticated(user);
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
         // Token basi: bersihkan agar tidak dipakai lagi.
@@ -81,6 +81,7 @@ class AuthController extends StateNotifier<AuthState> {
       state = cached != null
           ? AuthState.authenticated(cached)
           : AuthState.unauthenticated;
+      if (cached != null) _registerPushToken();
     } catch (_) {
       // Timeout / koneksi gagal / parse error: tetap masuk aplikasi dengan
       // profil terakhir yang tersimpan sehingga user tidak diminta login
@@ -89,12 +90,25 @@ class AuthController extends StateNotifier<AuthState> {
       state = cached != null
           ? AuthState.authenticated(cached)
           : AuthState.unauthenticated;
+      if (cached != null) _registerPushToken();
     }
+  }
+
+  /// Terapkan state authenticated + daftarkan token FCM perangkat ini ke
+  /// backend (token API sudah tersedia saat sesi aktif).
+  void _setAuthenticated(User user) {
+    state = AuthState.authenticated(user);
+    _registerPushToken();
+  }
+
+  /// Best-effort: daftarkan/segarkan token FCM untuk akun yang baru masuk.
+  void _registerPushToken() {
+    PushNotificationService.instance.registerToken();
   }
 
   Future<void> login(String email, String password) async {
     final session = await _repo.login(email, password);
-    state = AuthState.authenticated(session.user);
+    _setAuthenticated(session.user);
   }
 
   /// Login dengan Google menggunakan ID token dari `google_sign_in`.
@@ -103,7 +117,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<GoogleLoginResult> googleLogin(String idToken) async {
     final result = await _repo.googleLogin(idToken);
     if (result.session != null) {
-      state = AuthState.authenticated(result.session!.user);
+      _setAuthenticated(result.session!.user);
     }
     return result;
   }
@@ -118,7 +132,7 @@ class AuthController extends StateNotifier<AuthState> {
       payload,
     );
     if (result.session != null) {
-      state = AuthState.authenticated(result.session!.user);
+      _setAuthenticated(result.session!.user);
     }
     return result;
   }
@@ -126,7 +140,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<RegisterResult> register(Map<String, dynamic> payload) async {
     final result = await _repo.register(payload);
     if (result.session != null) {
-      state = AuthState.authenticated(result.session!.user);
+      _setAuthenticated(result.session!.user);
     }
     return result;
   }
@@ -134,7 +148,7 @@ class AuthController extends StateNotifier<AuthState> {
   /// Verifikasi OTP registrasi, lalu masuk.
   Future<void> verifyOtp(String email, String otp) async {
     final session = await _repo.verifyOtp(email, otp);
-    state = AuthState.authenticated(session.user);
+    _setAuthenticated(session.user);
   }
 
   /// Kirim ulang OTP registrasi.

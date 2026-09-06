@@ -57,11 +57,19 @@ class UserController extends Controller
             ? null
             : ($data['institution_id'] ?? null);
 
+        // HRD accounts created by the platform admin are cross-school
+        // recruiters, so they are not bound to any institution either.
+        // Institution admins still attach their HRD staff to their own school.
+        if ($data['role'] === 'hrd' && $request->user()->hasRole('super_admin')) {
+            $institutionId = null;
+        }
+
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
             'institution_id' => $institutionId,
+            'company_name' => $data['company_name'] ?? null,
             'is_active' => true,
         ]);
 
@@ -93,7 +101,7 @@ class UserController extends Controller
 
         $data = $request->validated();
 
-        $updates = collect($data)->only(['name', 'email', 'is_active'])->all();
+        $updates = collect($data)->only(['name', 'email', 'is_active', 'company_name'])->all();
 
         if ($updates !== []) {
             $user->update($updates);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Briefcase, Building2, Pencil, Plus, Search, Trash2, UsersRound } from 'lucide-react'
-import { getUser } from '../lib/auth'
+import { getUser, setUser } from '../lib/auth'
 import { apiError } from '../lib/api'
 import { useJobVacancies, useJobVacancyMutations } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
@@ -43,7 +43,8 @@ function JobFormModal({
 }) {
   const mutations = useJobVacancyMutations()
   const toast = useToast()
-  const isHrd = getUser()?.roles?.includes('hrd')
+  const currentUser = getUser()
+  const isHrd = currentUser?.roles?.includes('hrd')
   const [form, setForm] = useState(() => initialForm(job))
   const [error, setError] = useState<string | null>(null)
   const isEditing = Boolean(job)
@@ -51,7 +52,11 @@ function JobFormModal({
 
   useEffect(() => {
     if (open) {
-      setForm(initialForm(job))
+      const base = initialForm(job)
+      // HRD vacancies always carry the account's PT name — prefill and lock it.
+      const user = getUser()
+      const pt = user?.roles?.includes('hrd') ? user.company_name : null
+      setForm(pt ? { ...base, company_name: pt } : base)
       setError(null)
     }
   }, [open, job])
@@ -63,6 +68,8 @@ function JobFormModal({
     setError(null)
     const payload: Partial<JobVacancy> = {
       ...form,
+      // HRD vacancies always use the account's company (PT) name.
+      company_name: isHrd && currentUser?.company_name ? currentUser.company_name : form.company_name,
       description: form.description || null,
       location: form.location || null,
       employment_type: (form.employment_type || null) as JobVacancy['employment_type'],
@@ -76,6 +83,11 @@ function JobFormModal({
       } else {
         await mutations.create.mutateAsync(payload)
         toast('Lowongan berhasil dibuat')
+      }
+      // A legacy HRD account that just set its PT the first time gets it
+      // stored on the account — mirror it into the local session too.
+      if (isHrd && currentUser && !currentUser.company_name && payload.company_name) {
+        setUser({ ...currentUser, company_name: payload.company_name })
       }
       onClose()
     } catch (err) {
@@ -116,8 +128,24 @@ function JobFormModal({
           <Field label="Posisi" required>
             <Input required name="title" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Contoh: Software Engineer" />
           </Field>
-          <Field label="Perusahaan" required>
-            <Input required name="company_name" value={form.company_name} onChange={(e) => set('company_name', e.target.value)} placeholder="Nama perusahaan" />
+          <Field
+            label="Perusahaan"
+            required
+            hint={
+              isHrd
+                ? (currentUser?.company_name ? 'Mengikuti nama PT akun Anda' : 'Nama PT Anda — dipakai untuk semua lowongan')
+                : undefined
+            }
+          >
+            <Input
+              required
+              name="company_name"
+              value={form.company_name}
+              onChange={(e) => set('company_name', e.target.value)}
+              placeholder="Nama perusahaan"
+              disabled={Boolean(isHrd && currentUser?.company_name)}
+              className={isHrd && currentUser?.company_name ? 'bg-slate-50 text-slate-500' : ''}
+            />
           </Field>
         </div>
         <Field label="Deskripsi">
@@ -157,6 +185,7 @@ function JobFormModal({
 }
 
 export function Jobs() {
+  const isHrd = getUser()?.roles?.includes('hrd')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search)
   const [status, setStatus] = useState('')
@@ -181,8 +210,8 @@ export function Jobs() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Lowongan Kerja"
-        subtitle="Kelola lowongan yang tersedia untuk alumni"
+        title={isHrd ? 'Lowongan Saya' : 'Lowongan Kerja'}
+        subtitle={isHrd ? 'Kelola lowongan yang Anda pasang untuk alumni' : 'Kelola lowongan yang tersedia untuk alumni'}
         actions={
           <Button
             onClick={() => {
@@ -231,7 +260,10 @@ export function Jobs() {
         ) : isError ? (
           <ErrorState message="Gagal memuat data lowongan" onRetry={() => refetch()} />
         ) : rows.length === 0 ? (
-          <EmptyState title="Tidak ada lowongan" description="Tambahkan lowongan kerja untuk alumni." />
+          <EmptyState
+            title="Tidak ada lowongan"
+            description={isHrd ? 'Anda belum memasang lowongan — buat satu agar terlihat oleh alumni.' : 'Tambahkan lowongan kerja untuk alumni.'}
+          />
         ) : (
           <>
             <Table>

@@ -9,7 +9,6 @@ use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\DataQualityController;
-use App\Http\Controllers\Api\V1\HrdAlumniController;
 use App\Http\Controllers\Api\V1\InstitutionBrandingController;
 use App\Http\Controllers\Api\V1\HrdController;
 use App\Http\Controllers\Api\V1\EventController;
@@ -176,17 +175,16 @@ Route::prefix('v1')->group(function () {
         Route::prefix('hrd')->group(function () {
             Route::get('dashboard', [HrdController::class, 'dashboard'])->middleware('throttle:30,1');
             Route::get('applications', [HrdController::class, 'applications'])->middleware('throttle:60,1');
-            Route::get('applications/{application}/cv', [HrdAlumniController::class, 'downloadApplicationCv'])->middleware('throttle:30,1');
-            Route::get('alumni', [HrdAlumniController::class, 'index'])->middleware('throttle:60,1');
-            Route::get('alumni/{alumniId}', [HrdAlumniController::class, 'show'])->middleware('throttle:60,1');
         });
 
-        // Notifications (phase 10)
+        // Notifications (phase 10) + FCM device-token registration.
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotificationController::class, 'index'])->middleware('throttle:60,1');
             Route::get('unread-count', [NotificationController::class, 'unreadCount'])->middleware('throttle:60,1');
             Route::post('read-all', [NotificationController::class, 'markAllRead'])->middleware('throttle:30,1');
             Route::post('{notification}/read', [NotificationController::class, 'markRead'])->middleware('throttle:30,1');
+            Route::post('fcm-token', [NotificationController::class, 'storeToken'])->middleware('throttle:30,1');
+            Route::delete('fcm-token', [NotificationController::class, 'deleteToken'])->middleware('throttle:30,1');
         });
 
         // Chat (career chat, phase 9 — REST polling transport)

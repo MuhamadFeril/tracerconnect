@@ -45,6 +45,7 @@ function initialForm(user?: User | null) {
     email: user?.email ?? '',
     role: user?.roles?.[0] ?? 'hrd',
     institution_id: user?.institution_id ?? '',
+    company_name: user?.company_name ?? '',
     password: '',
     password_confirmation: '',
     is_active: user?.is_active ?? true,
@@ -89,12 +90,21 @@ function UserFormModal({
     e.preventDefault()
     setError(null)
 
-    // Tenant-scoped accounts (institution admin, HRD, alumni) must belong to
-    // an existing school — the picker offers existing institutions only, it
-    // never creates a new one.
-    const needsInstitution = !isEditing && isPlatformAdmin && form.role !== 'super_admin'
+    // Tenant-scoped accounts (institution admin, alumni) must belong to an
+    // existing school — the picker offers existing institutions only, it
+    // never creates a new one. Super admin and HRD are platform-level /
+    // cross-school, so they never need an institution.
+    const needsInstitution = !isEditing && isPlatformAdmin && form.role !== 'super_admin' && form.role !== 'hrd'
     if (needsInstitution && !form.institution_id) {
       setError('Pilih institusi untuk akun ini')
+      return
+    }
+
+    // HRD accounts are companies — their PT name is mandatory so vacancies
+    // posted by them always carry the right company.
+    const isHrd = form.role === 'hrd'
+    if (isHrd && !form.company_name.trim()) {
+      setError('Nama perusahaan (PT) wajib diisi untuk akun HRD')
       return
     }
 
@@ -113,6 +123,9 @@ function UserFormModal({
         if (form.role !== user.roles?.[0]) {
           payload.role = form.role
         }
+        if ((form.company_name ?? '') !== (user.company_name ?? '')) {
+          payload.company_name = form.company_name.trim() || null
+        }
         if (form.is_active !== user.is_active) {
           payload.is_active = form.is_active
         }
@@ -126,6 +139,7 @@ function UserFormModal({
           password_confirmation: form.password_confirmation,
           role: form.role,
           institution_id: needsInstitution ? form.institution_id : undefined,
+          company_name: isHrd ? form.company_name.trim() : undefined,
         })
         toast('Pengguna berhasil ditambahkan')
       }
@@ -169,7 +183,17 @@ function UserFormModal({
               ))}
             </Select>
           </Field>
-          {!isEditing && isPlatformAdmin && form.role !== 'super_admin' && (
+          {form.role === 'hrd' && (
+            <Field label="Nama Perusahaan (PT)" required={!isEditing} hint="Nama ini dipakai di semua lowongan akun ini">
+              <Input
+                name="company_name"
+                value={form.company_name}
+                onChange={(e) => set('company_name', e.target.value)}
+                placeholder="Contoh: PT Maju Jaya"
+              />
+            </Field>
+          )}
+          {!isEditing && isPlatformAdmin && form.role !== 'super_admin' && form.role !== 'hrd' && (
             <Field label="Institusi" required>
               <Select
                 name="institution_id"

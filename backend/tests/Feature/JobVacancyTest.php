@@ -131,6 +131,37 @@ class JobVacancyTest extends TestCase
         ])->assertCreated();
     }
 
+    public function test_hrd_vacancy_company_is_forced_to_account_pt_name(): void
+    {
+        // HRD account carries the company (PT) name…
+        $hrd = User::factory()->create(['company_name' => 'PT Teknologi Nusantara']);
+        $hrd->assignRole('hrd');
+        $token = $hrd->createToken('test-token')->plainTextToken;
+
+        // …so a different submitted company is overridden server-side.
+        $this->withToken($token)->postJson('/api/v1/job-vacancies', [
+            'title' => 'Software Engineer',
+            'company_name' => 'PT Salah Ketik',
+            'status' => 'draft',
+        ])->assertCreated()
+            ->assertJsonPath('data.company_name', 'PT Teknologi Nusantara');
+
+        // Legacy HRD account without a PT yet: the first submitted name is
+        // adopted and stored on the account from then on.
+        $legacy = User::factory()->create();
+        $legacy->assignRole('hrd');
+        $legacyToken = $legacy->createToken('test-token')->plainTextToken;
+
+        $this->withToken($legacyToken)->postJson('/api/v1/job-vacancies', [
+            'title' => 'Data Analyst',
+            'company_name' => 'PT Analytics Nusantara',
+            'status' => 'draft',
+        ])->assertCreated()
+            ->assertJsonPath('data.company_name', 'PT Analytics Nusantara');
+
+        $this->assertSame('PT Analytics Nusantara', $legacy->fresh()->company_name);
+    }
+
     public function test_hrd_job_is_cross_school_without_institution(): void
     {
         // HRDs are platform-level: their vacancies are announced to

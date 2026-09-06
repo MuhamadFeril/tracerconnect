@@ -30,6 +30,7 @@ class UpdateUserRequest extends FormRequest
             'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
             'is_active' => ['sometimes', 'boolean'],
             'role' => ['sometimes', 'string', Rule::in($allowedRoles)],
+            'company_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             // Moving users between institutions is not allowed in this phase.
             'institution_id' => ['prohibited'],
         ];

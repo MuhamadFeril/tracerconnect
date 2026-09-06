@@ -182,5 +182,77 @@ class NotificationTest extends TestCase
         $this->getJson('/api/v1/notifications')->assertStatus(401);
         $this->getJson('/api/v1/notifications/unread-count')->assertStatus(401);
         $this->postJson('/api/v1/notifications/read-all')->assertStatus(401);
+        $this->postJson('/api/v1/notifications/fcm-token', ['token' => 'x'])->assertStatus(401);
+        $this->deleteJson('/api/v1/notifications/fcm-token', ['token' => 'x'])->assertStatus(401);
+    }
+
+    public function test_user_can_register_and_remove_fcm_token(): void
+    {
+        $institution = Institution::factory()->create();
+        $alumni = $this->makeAlumni($institution);
+        $token = $alumni->createToken('test-token')->plainTextToken;
+
+        $this->withToken($token)->postJson('/api/v1/notifications/fcm-token', [
+            'token' => 'fcm-token-abc-123',
+            'platform' => 'android',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('fcm_tokens', [
+            'user_id' => $alumni->id,
+            'token' => 'fcm-token-abc-123',
+            'platform' => 'android',
+        ]);
+
+        // Re-registering the same token is idempotent (no duplicate row).
+        $this->withToken($token)->postJson('/api/v1/notifications/fcm-token', [
+            'token' => 'fcm-token-abc-123',
+            'platform' => 'ios',
+        ])->assertOk();
+        $this->assertSame(1, $alumni->fcmTokens()->count());
+        $this->assertSame('ios', $alumni->fcmTokens()->first()->platform);
+
+        $this->withToken($token)->deleteJson('/api/v1/notifications/fcm-token', [
+            'token' => 'fcm-token-abc-123',
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('fcm_tokens', ['token' => 'fcm-token-abc-123']);
+    }
+
+    public function test_fcm_token_follows_the_latest_owner(): void
+    {
+        $institution = Institution::factory()->create();
+        $alumniA = $this->makeAlumni($institution);
+        $alumniB = $this->makeAlumni($institution);
+
+        $this->withToken($alumniA->createToken('t')->plainTextToken)
+            ->postJson('/api/v1/notifications/fcm-token', ['token' => 'shared-token'])
+            ->assertOk();
+
+        // The same device signs into another account → token moves with it.
+        $this->withToken($alumniB->createToken('t')->plainTextToken)
+            ->postJson('/api/v1/notifications/fcm-token', ['token' => 'shared-token'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('fcm_tokens', ['user_id' => $alumniB->id, 'token' => 'shared-token']);
+        $this->assertDatabaseMissing('fcm_tokens', ['user_id' => $alumniA->id, 'token' => 'shared-token']);
+    }
+
+    public function test_fcm_token_list_is_bounded_per_user(): void
+    {
+        $institution = Institution::factory()->create();
+        $alumni = $this->makeAlumni($institution);
+        $token = $alumni->createToken('test-token')->plainTextToken;
+
+        for ($i = 1; $i <= 7; $i++) {
+            $this->withToken($token)->postJson('/api/v1/notifications/fcm-token', [
+                'token' => "fcm-token-{$i}",
+            ])->assertOk();
+        }
+
+        // Only the 5 newest tokens are kept.
+        $this->assertSame(5, $alumni->fcmTokens()->count());
+        $this->assertDatabaseMissing('fcm_tokens', ['token' => 'fcm-token-1']);
+        $this->assertDatabaseMissing('fcm_tokens', ['token' => 'fcm-token-2']);
+        $this->assertDatabaseHas('fcm_tokens', ['token' => 'fcm-token-7']);
     }
 }

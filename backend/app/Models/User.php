@@ -17,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'institution_id', 'is_active', 'avatar_path', 'gender', 'phone', 'birth_date', 'birthplace', 'birthplace_regency', 'birthplace_province', 'address', 'google_id', 'email_verified_at'])]
+#[Fillable(['name', 'email', 'password', 'institution_id', 'company_name', 'is_active', 'avatar_path', 'gender', 'phone', 'birth_date', 'birthplace', 'birthplace_regency', 'birthplace_province', 'address', 'google_id', 'email_verified_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -87,6 +87,14 @@ class User extends Authenticatable
     public function jobBookmarks(): HasMany
     {
         return $this->hasMany(JobBookmark::class);
+    }
+
+    /**
+     * Firebase device tokens registered for this user (push notifications).
+     */
+    public function fcmTokens(): HasMany
+    {
+        return $this->hasMany(FcmToken::class);
     }
 
     /**

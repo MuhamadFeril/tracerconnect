@@ -246,6 +246,6 @@ class InstitutionBrandingController extends Controller
             return null;
         }
 
-        return url('storage/'.$path);
+        return '/storage/'.$path;
     }
 }

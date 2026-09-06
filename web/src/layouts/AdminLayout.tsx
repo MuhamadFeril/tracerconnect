@@ -76,12 +76,16 @@ const HRD_NAV: NavItem[] = [
   { to: '/hrd/lamaran', label: 'Lamaran', icon: FileText, badge: true },
 ]
 
+function isHrdOnly(user: ReturnType<typeof getUser>): boolean {
+  return Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'hrd')
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const user = getUser()
   // Alumni see the alumni portal (home, news, events, jobs, profile) instead
   // of the admin navigation.
   const alumniOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'alumni')
-  const hrdOnly = Boolean(user?.roles?.length) && user!.roles.every((role) => role === 'hrd')
+  const hrdOnly = isHrdOnly(user)
   const items = alumniOnly
     ? ALUMNI_NAV
     : hrdOnly
@@ -97,10 +101,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Logo className="size-10" />
         <div>
           <p className="text-[15px] font-bold tracking-tight text-white">TracerAlumni</p>
-          <p className="text-[11px] text-slate-400">{hrdOnly ? 'Portal HRD' : 'Admin Panel'}</p>
+          <p className="flex items-center gap-1 text-[11px] text-slate-400">
+            {hrdOnly ? (
+              <>
+                <Briefcase className="size-3" /> Portal HRD
+              </>
+            ) : (
+              'Admin Panel'
+            )}
+          </p>
         </div>
       </div>
       <nav className="mt-2 flex-1 space-y-1 px-3">
+        {hrdOnly && (
+          <p className="px-3 pt-1 pb-2 text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Menu HRD</p>
+        )}
         {items.map(({ to, label, icon: Icon, end, badge }) => (
           <NavLink
             key={to}
@@ -145,6 +160,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 function Avatar({ user, size = 'size-8', text = 'text-xs' }: { user?: { name?: string; avatar_url?: string | null } | null; size?: string; text?: string }) {
   const src = avatarUrl(user?.avatar_url)
   const [failed, setFailed] = useState(false)
+
+  // Reset the failure flag whenever the URL changes, so a newly-valid avatar
+  // (e.g. after re-uploading the profile photo) is retried instead of being
+  // stuck on the initials fallback forever.
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
 
   if (src && !failed) {
     return (
@@ -267,11 +289,17 @@ function UserBox() {
 
 export function AdminLayout() {
   const [open, setOpen] = useState(false)
+  const hrdOnly = isHrdOnly(getUser())
 
   return (
     <div className="min-h-screen">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 bg-slate-900 lg:block">
+      {/* Desktop sidebar — HRD portal gets its own navy gradient identity */}
+      <aside
+        className={clsx(
+          'fixed inset-y-0 left-0 z-30 hidden w-60 lg:block',
+          hrdOnly ? 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900' : 'bg-slate-900',
+        )}
+      >
         <SidebarContent />
       </aside>
 
@@ -279,7 +307,7 @@ export function AdminLayout() {
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-slate-950/50" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-slate-900 shadow-xl">
+          <aside className={clsx('absolute inset-y-0 left-0 w-64 shadow-xl', hrdOnly ? 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900' : 'bg-slate-900')}>
             <button
               onClick={() => setOpen(false)}
               className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"

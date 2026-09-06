@@ -280,7 +280,9 @@ export function Profile() {
     }))
   }
 
-  const avatarSrc = pendingFile && preview ? preview : avatarUrl(user?.avatar_url)
+  // Prefer the freshest /auth/me payload (may carry a newer avatar or a
+  // different URL scheme) and fall back to the stored session.
+  const avatarSrc = pendingFile && preview ? preview : avatarUrl(me.data?.avatar_url ?? user?.avatar_url)
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

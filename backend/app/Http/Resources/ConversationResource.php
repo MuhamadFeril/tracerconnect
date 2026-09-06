@@ -39,7 +39,7 @@ class ConversationResource extends JsonResource
             'other' => $other?->user ? [
                 'id' => $other->user->id,
                 'name' => $other->user->name,
-                'avatar_url' => $other->user->avatar_path ? url('storage/'.$other->user->avatar_path) : null,
+                'avatar_url' => $other->user->avatar_path ? '/storage/'.$other->user->avatar_path : null,
             ] : null,
             'job' => $this->whenLoaded('jobVacancy', fn () => $this->jobVacancy ? [
                 'id' => $this->jobVacancy->id,
