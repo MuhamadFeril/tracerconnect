@@ -1,14 +1,14 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:encrypt/encrypt.dart';
+import 'package:pointycastle/export.dart';
 
 /// Dio interceptor that bypasses the InfinityFree / FreeHosting anti-bot
 /// JavaScript challenge.
 ///
 /// When the server returns the JS challenge page (instead of JSON), this
 /// interceptor:
-/// 1. Parses the AES-CTR ciphertext, key, and IV from the inline JS.
+/// 1. Parses the AES-CBC ciphertext, key, and IV from the inline JS.
 /// 2. Decrypts to obtain the `__test` cookie value.
 /// 3. Stores the cookie and retries the original request.
 class AntiBotInterceptor extends Interceptor {
@@ -112,31 +112,40 @@ class AntiBotInterceptor extends Interceptor {
     final iv = _hexToBytes(ivHex);
     final ct = _hexToBytes(ctHex);
 
-    // AES-128-CTR decryption  (same as slowAES.decrypt(c, 2, a, b))
-    final plainBytes = _aesCtrDecrypt(key, iv, ct);
+    // AES-128-CBC decryption  (same as slowAES.decrypt(c, 2, a, b))
+    // mode constant 2 = CBC in slowAES
+    final plainBytes = _aesCbcDecrypt(key, iv, ct);
     _cachedCookie = _bytesToHex(plainBytes);
   }
 
   void _retry(dynamic handler, Response originalResponse) async {
     final opts = originalResponse.requestOptions;
-    opts.headers['Cookie'] = '$_cookieName=$_cachedCookie';
     try {
-      // Clone options and retry without re-creating Dio — preserve the
-      // original Dio instance's interceptors and adapters.
-      final dio = Dio(BaseOptions(
+      // Mark this request so we don't recurse into solving the challenge
+      // again if the retry also returns HTML (shouldn't happen with valid
+      // cookie, but guard against infinite loops).
+      final retriedOpts = RequestOptions(
+        path: opts.path,
+        method: opts.method,
+        baseUrl: opts.baseUrl,
+        data: opts.data,
+        queryParameters: Map<String, dynamic>.from(opts.queryParameters),
+        headers: Map<String, dynamic>.from(opts.headers)
+          ..['Cookie'] = '$_cookieName=$_cachedCookie',
+        connectTimeout: opts.connectTimeout,
+        receiveTimeout: opts.receiveTimeout,
+        extra: {'_antiBotRetried': true},
+      );
+
+      // Use a fresh Dio that does NOT include AntiBotInterceptor to
+      // avoid infinite recursion. This Dio only carries the auth
+      // interceptor (via the headers we copied).
+      final freshDio = Dio(BaseOptions(
         baseUrl: opts.baseUrl,
         connectTimeout: opts.connectTimeout,
         receiveTimeout: opts.receiveTimeout,
-        headers: Map<String, dynamic>.from(opts.headers),
       ));
-      final res = await dio.fetch<void>(RequestOptions(
-        path: opts.path,
-        method: opts.method,
-        data: opts.data,
-        queryParameters: opts.queryParameters,
-        headers: Map<String, dynamic>.from(opts.headers)
-          ..['Cookie'] = '$_cookieName=$_cachedCookie',
-      ));
+      final res = await freshDio.fetch<void>(retriedOpts);
       handler.resolve(res);
     } on DioException catch (e) {
       handler.reject(e);
@@ -167,20 +176,45 @@ class AntiBotInterceptor extends Interceptor {
     return sb.toString();
   }
 
-  /// AES-128-CTR decryption.
+  /// Raw AES-128-CBC decryption without PKCS7 unpadding.
   ///
-  /// CTR mode: for each block we encrypt `counter` (big-endian) to get the
-  /// keystream, then XOR with ciphertext.
-  static List<int> _aesCtrDecrypt(
+  /// slowAES.decrypt(c, 2, a, b) uses CBC mode (mode constant 2).
+  /// CBC: decrypt each block with AES, then XOR with previous ciphertext
+  /// block (or IV for the first block).
+  ///
+  /// Note: slowAES only unpadBytesOut when output > 16 bytes, so for the
+  /// single-block challenges used by FreeHosting, no PKCS7 unpadding is
+  /// applied. We use raw pointycastle AES-ECB + manual CBC XOR to avoid
+  /// the `encrypt` package always trying to unpad.
+  static List<int> _aesCbcDecrypt(
     List<int> key,
     List<int> iv,
     List<int> ciphertext,
   ) {
-    final keyBytes = Uint8List.fromList(key);
-    final ivBytes = Uint8List.fromList(iv);
-    final ctBytes = Uint8List.fromList(ciphertext);
-    final encrypter = Encrypter(AES(Key(keyBytes), mode: AESMode.ctr, padding: ''));
-    final decrypted = encrypter.decryptBytes(Encrypted(ctBytes), iv: IV(ivBytes));
-    return decrypted;
+    const blockSize = 16;
+    final numBlocks = ciphertext.length ~/ blockSize;
+    final plaintext = <int>[];
+
+    var prevBlock = Uint8List.fromList(iv);
+
+    for (var i = 0; i < numBlocks; i++) {
+      final start = i * blockSize;
+      final ctBlock = ciphertext.sublist(start, start + blockSize);
+
+      // AES-ECB decrypt the ciphertext block
+      final cipher = AESEngine();
+      cipher.init(false, KeyParameter(Uint8List.fromList(key)));
+      final decrypted = Uint8List(blockSize);
+      cipher.processBlock(Uint8List.fromList(ctBlock), 0, decrypted, 0);
+
+      // XOR with previous ciphertext block (or IV for first block)
+      for (var j = 0; j < blockSize; j++) {
+        plaintext.add(prevBlock[j] ^ decrypted[j]);
+      }
+
+      prevBlock = Uint8List.fromList(ctBlock);
+    }
+
+    return plaintext;
   }
 }
