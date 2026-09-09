@@ -8,6 +8,7 @@ use App\Models\FcmToken;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class NotificationController extends Controller
@@ -81,33 +82,57 @@ class NotificationController extends Controller
         ]);
 
         $user = $request->user();
+        $tokenPreview = substr($data['token'], 0, 16).'…';
 
-        // A token always belongs to the newest sign-in that owns it: remove
-        // any rows for this token under another account first.
-        FcmToken::query()
-            ->where('token', $data['token'])
-            ->where('user_id', '!=', $user->id)
-            ->delete();
+        Log::info('FCM: storeToken invoked', [
+            'user_id' => $user->id,
+            'platform' => $data['platform'] ?? 'null',
+            'token_preview' => $tokenPreview,
+            'token_length' => strlen($data['token']),
+        ]);
 
-        FcmToken::query()->updateOrCreate(
-            ['token' => $data['token']],
-            ['user_id' => $user->id, 'platform' => $data['platform'] ?? null]
-        );
+        try {
+            // A token always belongs to the newest sign-in that owns it: remove
+            // any rows for this token under another account first.
+            FcmToken::query()
+                ->where('token', $data['token'])
+                ->where('user_id', '!=', $user->id)
+                ->delete();
 
-        // Keep the token list bounded (old devices / re-installs accumulate).
-        // Primary keys are time-ordered UUIDv7, so id order == registration
-        // order even for rows created within the same second.
-        $keepIds = FcmToken::query()
-            ->where('user_id', $user->id)
-            ->orderByDesc('id')
-            ->limit(5)
-            ->pluck('id');
-        FcmToken::query()
-            ->where('user_id', $user->id)
-            ->whereNotIn('id', $keepIds)
-            ->delete();
+            FcmToken::query()->updateOrCreate(
+                ['token' => $data['token']],
+                ['user_id' => $user->id, 'platform' => $data['platform'] ?? null]
+            );
 
-        return ApiResponse::success([], 'Token perangkat berhasil didaftarkan');
+            // Keep the token list bounded (old devices / re-installs accumulate).
+            // Primary keys are time-ordered UUIDv7, so id order == registration
+            // order even for rows created within the same second.
+            $keepIds = FcmToken::query()
+                ->where('user_id', $user->id)
+                ->orderByDesc('id')
+                ->limit(5)
+                ->pluck('id');
+            FcmToken::query()
+                ->where('user_id', $user->id)
+                ->whereNotIn('id', $keepIds)
+                ->delete();
+
+            Log::info('FCM: token stored successfully', [
+                'user_id' => $user->id,
+                'token_preview' => $tokenPreview,
+                'total_tokens' => FcmToken::where('user_id', $user->id)->count(),
+            ]);
+
+            return ApiResponse::success([], 'Token perangkat berhasil didaftarkan');
+        } catch (\Throwable $e) {
+            Log::error('FCM: storeToken FAILED', [
+                'user_id' => $user->id,
+                'token_preview' => $tokenPreview,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ApiResponse::error('Gagal menyimpan token perangkat', 500);
+        }
     }
 
     /**

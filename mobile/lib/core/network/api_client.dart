@@ -97,6 +97,7 @@ class ApiClient {
           // hanyalah "kredensial salah / token Google tidak valid", bukan
           // sesi kedaluwarsa — jangan paksa logout. `forceLogout` hanya untuk
           // token yang sudah dipakai di endpoint yang butuh login.
+          // Endpoint auth publik: 401 = kredensial salah, bukan sesi habis.
           final isPublicAuth = path.startsWith('/auth/login') ||
               path.startsWith('/auth/register') ||
               path.startsWith('/auth/google') ||
@@ -105,7 +106,10 @@ class ApiClient {
               path.startsWith('/auth/verify-otp') ||
               path.startsWith('/auth/resend-otp') ||
               path.startsWith('/auth/password/otp');
-          if (status == 401 && !isPublicAuth) {
+          // Best-effort endpoints: 401 jangan paksa logout karena bisa
+          // terjadi sebelum sesi benar-benar siap (mis. FCM token push).
+          final isBestEffort = path.startsWith('/notifications/');
+          if (status == 401 && !isPublicAuth && !isBestEffort) {
             onUnauthorized?.call();
           }
           handler.next(error);

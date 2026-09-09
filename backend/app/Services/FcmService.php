@@ -46,16 +46,28 @@ class FcmService
             return;
         }
 
+        $service = new self;
+
+        if (! $service->credentials()) {
+            Log::warning('FCM: credentials not configured, skipping bulk push for '.count($userIds).' user(s)');
+
+            return;
+        }
+
         $tokens = FcmToken::query()
             ->whereIn('user_id', $userIds)
             ->pluck('token');
 
         if ($tokens->isEmpty()) {
+            Log::debug('FCM: no tokens found for '.count($userIds).' user(s), skipping push');
+
             return;
         }
 
+        Log::info('FCM: sending to '.count($tokens).' device(s) for '.count($userIds).' user(s)');
+
         try {
-            (new self)->sendToTokens($tokens, $title, $body, $url, $kind);
+            $service->sendToTokens($tokens, $title, $body, $url, $kind);
         } catch (\Throwable $e) {
             Log::warning('FCM bulk push gagal: '.$e->getMessage());
         }
@@ -70,15 +82,20 @@ class FcmService
             $service = new self;
 
             if (! $service->credentials()) {
+                Log::warning('FCM: credentials not configured, skipping push for user '.$user->id);
+
                 return;
             }
 
             $tokens = FcmToken::query()->where('user_id', $user->id)->pluck('token');
 
             if ($tokens->isEmpty()) {
+                Log::debug('FCM: no tokens for user '.$user->id.', skipping push');
+
                 return;
             }
 
+            Log::info('FCM: sending to '.count($tokens).' device(s) for user '.$user->id);
             $service->sendToTokens($tokens, $title, $body, $url, $kind);
         } catch (\Throwable $e) {
             Log::warning('FCM push gagal untuk user '.$user->id.': '.$e->getMessage());
@@ -97,6 +114,21 @@ class FcmService
         }
 
         $this->credentialsResolved = true;
+
+        // 1. Inline base64/JSON via FIREBASE_CREDENTIALS (hosting tanpa akses file)
+        $inline = env('FIREBASE_CREDENTIALS');
+        if (is_string($inline) && $inline !== '') {
+            $trimmed = trim($inline);
+            $decoded = base64_decode($trimmed, true);
+            $jsonStr = $decoded !== false && str_starts_with(trim($decoded), '{') ? $decoded : $trimmed;
+            $json = json_decode($jsonStr, true);
+            if (is_array($json) && ! empty($json['client_email']) && ! empty($json['private_key'])) {
+                return $this->credentials = $json;
+            }
+            Log::warning('FCM: FIREBASE_CREDENTIALS env tidak valid');
+        }
+
+        // 2. File path (default storage/app/firebase/service-account.json)
         $path = env('FIREBASE_CREDENTIALS_FILE', storage_path('app/firebase/service-account.json'));
 
         if (! is_file($path)) {
@@ -152,6 +184,8 @@ class FcmService
                     ]);
 
                 if ($response->successful()) {
+                    Log::debug('FCM: delivered to '.substr($token, 0, 12).'…');
+
                     continue;
                 }
 
