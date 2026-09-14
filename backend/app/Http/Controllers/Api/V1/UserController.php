@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -23,11 +25,11 @@ class UserController extends Controller
         $users = User::query()
             ->with('institution:id,name')
             ->with('roles:id,name')
-            ->when(! $currentUser->hasRole('super_admin'), function ($query) use ($currentUser) {
+            ->when($currentUser->institution_id !== null, function ($query) use ($currentUser) {
                 // Tenant isolation: institution admins only see users of their own institution.
                 $query->where('institution_id', $currentUser->institution_id);
             })
-            ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), function ($query) use ($request) {
+            ->when($currentUser->institution_id === null && $request->filled('institution_id'), function ($query) use ($request) {
                 $query->where('institution_id', $request->institution_id);
             })
             ->when($request->filled('search'), function ($query) use ($request) {
@@ -50,18 +52,29 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         $data = $request->validated();
+        $currentUser = $request->user();
 
-        // Super-admin accounts are platform-level and must never belong to
-        // an institution — strip any accidental value.
-        $institutionId = $data['role'] === 'super_admin'
-            ? null
-            : ($data['institution_id'] ?? null);
+        // Platform admins can assign institution_id to any role.
+        // Institution-scoped admins cannot create other institution-scoped admins
+        // for a different school.
+        $institutionId = $data['institution_id'] ?? null;
+
+        if ($data['role'] === 'admin_institusi' && $currentUser->institution_id !== null && $institutionId !== $currentUser->institution_id) {
+            $institutionId = $currentUser->institution_id;
+        }
 
         // HRD accounts created by the platform admin are cross-school
         // recruiters, so they are not bound to any institution either.
         // Institution admins still attach their HRD staff to their own school.
-        if ($data['role'] === 'hrd' && $request->user()->hasRole('super_admin')) {
+        if ($data['role'] === 'hrd' && $currentUser->institution_id === null) {
             $institutionId = null;
+        }
+
+        // When an institution-scoped admin creates a user without specifying
+        // an institution (frontend omits the field for them), auto-assign
+        // the creating admin's own institution.
+        if ($institutionId === null && $currentUser->institution_id !== null && $data['role'] !== 'admin_institusi') {
+            $institutionId = $currentUser->institution_id;
         }
 
         $user = User::create([
@@ -138,7 +151,30 @@ class UserController extends Controller
 
         AuditService::log('delete', 'user', $user->id, null, ['name' => $user->name, 'email' => $user->email], $request);
 
-        $user->delete();
+        DB::transaction(function () use ($user) {
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+
+            $user->tokens()->delete();
+            $user->fcmTokens()->delete();
+            $user->syncRoles([]);
+
+            // Hapus chat 1-on-1 milik user (wajib sebelum user dihapus).
+            $user->purgeDirectConversations();
+
+            // Hapus permanen profil alumni yang tertaut (mencegah orphan).
+            $user->alumni()->withTrashed()->forceDelete();
+
+            // Hapus SEMUA baris alumni dengan email sama (aktif/yatim/trashed).
+            $emailLower = mb_strtolower((string) $user->email);
+            \App\Models\Alumni::withTrashed()
+                ->whereRaw('lower(email) = ?', [$emailLower])
+                ->forceDelete();
+
+            // Hard-delete agar row benar-benar hilang dari `users`.
+            $user->forceDelete();
+        });
 
         return ApiResponse::success([], 'Pengguna berhasil dihapus');
     }

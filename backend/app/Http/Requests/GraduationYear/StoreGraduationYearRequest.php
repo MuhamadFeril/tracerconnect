@@ -19,7 +19,7 @@ class StoreGraduationYearRequest extends FormRequest
     {
         $user = $this->user();
 
-        if ($user && ! $user->hasRole('super_admin')) {
+        if ($user && $user->institution_id !== null) {
             $this->merge(['institution_id' => $user->institution_id]);
         }
     }
@@ -35,7 +35,7 @@ class StoreGraduationYearRequest extends FormRequest
         return [
             'institution_id' => [
                 'required', 'uuid', Rule::exists('institutions', 'id'),
-                Rule::when(! $user->hasRole('super_admin'), Rule::in([$user->institution_id])),
+                Rule::when($user->institution_id !== null, Rule::in([$user->institution_id])),
             ],
             'year' => ['required', 'integer', 'min:1990', 'max:'.(date('Y') + 10), Rule::unique('graduation_years', 'year')->where('institution_id', $institutionId)],
         ];

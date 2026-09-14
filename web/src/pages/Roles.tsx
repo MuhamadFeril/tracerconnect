@@ -10,19 +10,19 @@ import { Button } from '../components/ui/Button'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/StateViews'
 
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin',
+  admin_institusi: 'Admin Institusi',
   alumni: 'Alumni',
   hrd: 'HRD',
 }
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  super_admin: 'Mengelola seluruh platform dan sekolah.',
+  admin_institusi: 'Mengelola seluruh platform dan sekolah.',
   alumni: 'Mengelola profil dan mengisi tracer study.',
   hrd: 'Mengelola lowongan pekerjaan, melihat pelamar, dan berkomunikasi dengan alumni.',
 }
 
 const ROLE_TONES: Record<string, BadgeTone> = {
-  super_admin: 'violet',
+  admin_institusi: 'violet',
   alumni: 'green',
   hrd: 'amber',
 }

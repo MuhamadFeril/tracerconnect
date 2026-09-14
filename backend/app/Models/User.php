@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Notifications\ResetPassword;
+use App\Models\Conversation;
+use App\Models\ConversationParticipant;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -71,6 +73,32 @@ class User extends Authenticatable
         if ($this->alumni && ($this->alumni->name !== $this->name || $this->alumni->email !== $this->email)) {
             $this->alumni()->update(['name' => $this->name, 'email' => $this->email]);
         }
+    }
+
+    /**
+     * Permanently remove all 1-on-1 (direct) conversations this user
+     * participates in. Must run BEFORE the user row is deleted.
+     *
+     * Background: participant/message_read rows cascade away automatically,
+     * but the `conversations` row itself stays behind as an orphan ("?"
+     * chat in the UI). Deleting the conversation cascades participants,
+     * messages, reads and reports at the DB level. Group conversations are
+     * intentionally kept (only this member drops out via FK cascade).
+     */
+    public function purgeDirectConversations(): void
+    {
+        $ids = ConversationParticipant::query()
+            ->where('user_id', $this->id)
+            ->pluck('conversation_id');
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        Conversation::query()
+            ->whereIn('id', $ids)
+            ->where('type', 'direct')
+            ->delete();
     }
 
     /**

@@ -225,12 +225,27 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                 }
                 if (msgs.initialError && messages.isEmpty) {
                   return Center(
-                    child: Text(
-                      'Gagal memuat pesan.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 14,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Gagal memuat pesan.',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () {
+                            ref.read(chatMessagesNotifierProvider(_conversationId).notifier).loadInitial(_conversationId);
+                          },
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Coba Lagi'),
+                        ),
+                      ],
                     ),
                   );
                 }
@@ -557,7 +572,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                initialValue: reason,
+                value: reason,
                 decoration: const InputDecoration(labelText: 'Alasan'),
                 items: const [
                   DropdownMenuItem(value: 'spam', child: Text('Spam')),

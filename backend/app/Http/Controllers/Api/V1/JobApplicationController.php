@@ -52,7 +52,7 @@ class JobApplicationController extends Controller
         $currentUser = $request->user();
         $isCreator = $jobVacancy->created_by === $currentUser->id;
         $isStaff = $jobVacancy->institution_id !== null && $currentUser->institution_id === $jobVacancy->institution_id;
-        if (! $currentUser->hasRole('super_admin') && ! $isCreator && ! $isStaff) {
+        if ($currentUser->institution_id !== null && ! $isCreator && ! $isStaff) {
             return ApiResponse::error('Anda tidak berhak mengakses data ini', [], 403);
         }
 
@@ -123,6 +123,19 @@ class JobApplicationController extends Controller
 
         $application->load('vacancy:id,title,company_name,employment_type,location,status', 'alumni.department:id,name', 'alumni.graduationYear:id,year');
 
+        // Notify the job creator (HRD) about the new application.
+        $jobCreator = $jobVacancy->createdBy;
+        if ($jobCreator && $jobCreator->id !== $user->id) {
+            $alumniName = $user->alumni?->name ?? $user->name;
+            NotificationService::notifyUser(
+                $jobCreator,
+                'Lamaran baru',
+                "{$alumniName} melamar untuk lowongan '{$jobVacancy->title}'.",
+                '/hrd/lamaran',
+                'job'
+            );
+        }
+
         return ApiResponse::success(new JobApplicationResource($application), 'Lamaran berhasil dikirim', [], 201);
     }
 
@@ -143,6 +156,20 @@ class JobApplicationController extends Controller
 
         $application->update(['status' => 'withdrawn']);
 
+        // Notify the job creator (HRD) that the application was withdrawn.
+        $vacancy = $application->vacancy;
+        $jobCreator = $vacancy?->createdBy;
+        if ($jobCreator && $jobCreator->id !== $request->user()->id) {
+            $alumniName = $request->user()->alumni?->name ?? $request->user()->name;
+            NotificationService::notifyUser(
+                $jobCreator,
+                'Lamaran ditarik',
+                "{$alumniName} menarik lamaran untuk lowongan '{$vacancy->title}'.",
+                '/hrd/lamaran',
+                'job'
+            );
+        }
+
         return ApiResponse::success(new JobApplicationResource($application), 'Lamaran berhasil ditarik');
     }
 
@@ -159,7 +186,7 @@ class JobApplicationController extends Controller
         $vacancy = $application->vacancy;
         $isCreator = $vacancy?->created_by === $currentUser->id;
         $isStaff = $vacancy?->institution_id !== null && $currentUser->institution_id === $vacancy->institution_id;
-        if (! $currentUser->hasRole('super_admin') && ! $isCreator && ! $isStaff) {
+        if ($currentUser->institution_id !== null && ! $isCreator && ! $isStaff) {
             return ApiResponse::error('Anda tidak berhak mengubah lamaran ini', [], 403);
         }
 
@@ -200,7 +227,7 @@ class JobApplicationController extends Controller
         $vacancy = $application->vacancy;
         $isCreator = $vacancy?->created_by === $currentUser->id;
         $isStaff = $vacancy?->institution_id !== null && $currentUser->institution_id === $vacancy->institution_id;
-        if (! $currentUser->hasRole('super_admin') && ! $isCreator && ! $isStaff) {
+        if ($currentUser->institution_id !== null && ! $isCreator && ! $isStaff) {
             return ApiResponse::error('Anda tidak berhak mengubah lamaran ini', [], 403);
         }
 

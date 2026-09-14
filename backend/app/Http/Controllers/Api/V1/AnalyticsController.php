@@ -47,7 +47,7 @@ class AnalyticsController extends Controller
     {
         abort_unless($request->user()->can('analytics.view'), 403);
 
-        if (! $request->user()->hasRole('super_admin') && $survey->institution_id !== $request->user()->institution_id) {
+        if ($request->user()->institution_id !== null && $survey->institution_id !== $request->user()->institution_id) {
             abort(403);
         }
 

@@ -30,7 +30,7 @@ class JobApplicationPolicy
             return false;
         }
 
-        if ($user->hasRole('super_admin') || $application->vacancy?->created_by === $user->id) {
+        if (($user->hasRole('admin_institusi') && $user->institution_id === null) || $application->vacancy?->created_by === $user->id) {
             return true;
         }
 
@@ -60,7 +60,7 @@ class JobApplicationPolicy
             return false;
         }
 
-        if ($user->hasRole('super_admin') || $application->vacancy?->created_by === $user->id) {
+        if (($user->hasRole('admin_institusi') && $user->institution_id === null) || $application->vacancy?->created_by === $user->id) {
             return true;
         }
 

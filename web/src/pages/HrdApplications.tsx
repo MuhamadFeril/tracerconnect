@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Building2, ClipboardCheck, Eye, Inbox, Search } from 'lucide-react'
 import { useHrdApplications, useJobVacancies, useSaveAcceptance, useUpdateApplicationStatus } from '../hooks/queries'
 import { useDebounce } from '../hooks/useDebounce'
-import type { JobApplication, JobApplicationStatus } from '../lib/types'
+import type { CvFormData, JobApplication, JobApplicationStatus } from '../lib/types'
 import { apiError } from '../lib/api'
 import { EMPLOYMENT_LABELS, formatDate, initials } from '../lib/format'
 import { CvDataContent } from '../components/CvDataModal'
@@ -274,14 +274,30 @@ export function HrdApplications() {
         size="lg"
         footer={
           <>
-            {detail?.cv_data && (
+            {detail?.alumni && (
               <Button
                 variant="secondary"
-                onClick={() =>
+                onClick={() => {
+                  const a = detail.alumni
+                  const cvFromProfile: CvFormData = detail.cv_data ?? {
+                    full_name: a?.name ?? '',
+                    email: null,
+                    phone: null,
+                    gender: null,
+                    birth_date: null,
+                    birthplace: null,
+                    address: null,
+                    department: a?.department ?? null,
+                    graduation_year: a?.graduation_year != null ? String(a.graduation_year) : null,
+                    education: [a?.department, a?.graduation_year ? `'${String(a.graduation_year).slice(2)}` : ''].filter(Boolean).join(' · '),
+                    skills: null,
+                    experience: [a?.position, a?.company_name].filter(Boolean).join(' di ') || null,
+                    interests: null,
+                  }
                   navigate('/cv-preview', {
-                    state: { cvData: detail.cv_data, coverLetter: detail.cover_letter, alumniName: detail.alumni?.name },
+                    state: { cvData: cvFromProfile, coverLetter: detail.cover_letter, alumniName: a?.name },
                   })
-                }
+                }}
               >
                 <Eye className="size-4" /> Preview CV
               </Button>

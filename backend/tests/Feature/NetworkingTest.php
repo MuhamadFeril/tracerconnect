@@ -362,7 +362,7 @@ class NetworkingTest extends TestCase
     {
         $institution = Institution::factory()->create();
         $admin = User::factory()->create(['institution_id' => $institution->id]);
-        $admin->assignRole('institution_admin');
+        $admin->assignRole('admin_institusi');
         $token = $admin->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/v1/networking/alumni')->assertStatus(403);

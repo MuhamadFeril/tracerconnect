@@ -15,7 +15,7 @@ class ReportController extends Controller
      * All report endpoints are gated by `report.view` (the same permission the
      * reports page itself requires). The dedicated export permissions
      * (`alumni.export`, `response.export`) are intentionally not required here:
-     * institution_admin has `report.view` but may lack those, and downloading a
+     * admin_institusi has `report.view` but may lack those, and downloading a
      * report of data they are already allowed to view matches the MVP scope.
      */
     public function __construct(private readonly ReportService $reports)
@@ -96,7 +96,7 @@ class ReportController extends Controller
     {
         abort_unless($request->user()->can('report.view'), 403);
 
-        if (! $request->user()->hasRole('super_admin') && $survey->institution_id !== $request->user()->institution_id) {
+        if ($request->user()->institution_id !== null && $survey->institution_id !== $request->user()->institution_id) {
             abort(403);
         }
 

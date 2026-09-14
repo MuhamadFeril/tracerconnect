@@ -21,7 +21,7 @@ class JobVacancyController extends Controller
         $perPage = max(1, min($request->integer('per_page', 15), 100));
 
         $vacancies = JobVacancy::query()
-            ->when($currentUser->hasRole('super_admin'), function ($query) use ($request) {
+            ->when($currentUser->hasRole('admin_institusi') && $currentUser->institution_id === null, function ($query) use ($request) {
                 $query->when($request->filled('institution_id'), fn ($q) => $q->where('institution_id', $request->institution_id));
             })
             // HRDs see the vacancies they created, wherever they are
@@ -35,7 +35,7 @@ class JobVacancyController extends Controller
             })
             // Institution staff see their own vacancies plus the published
             // cross-school ones announced to their alumni.
-            ->when(! $currentUser->hasAnyRole(['super_admin', 'hrd', 'alumni']), function ($query) use ($currentUser) {
+            ->when($currentUser->hasRole('admin_institusi') && $currentUser->institution_id !== null, function ($query) use ($currentUser) {
                 $query->where(fn ($q) => $q->where('institution_id', $currentUser->institution_id)
                     ->orWhere(fn ($q2) => $q2->whereNull('institution_id')->where('status', 'published')));
             })

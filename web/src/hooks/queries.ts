@@ -251,14 +251,13 @@
 
   export function useDepartmentOptions(institutionId: string | null) {
     return useQuery({
-      queryKey: ['institutions', institutionId, 'departments'],
+      queryKey: institutionId ? ['institutions', institutionId, 'departments'] : ['departments', 'all'],
       queryFn: () =>
         unwrap<{ id: string; name: string; code: string | null }[]>(
-          api.get(`/institutions/${institutionId}/departments`),
+          institutionId
+            ? api.get(`/institutions/${institutionId}/departments`)
+            : api.get('/departments/all'),
         ),
-      enabled: Boolean(institutionId),
-      // Short TTL so majors added by the school admin appear quickly on the
-      // registration form instead of staying cached as "empty" for minutes.
       staleTime: 30_000,
     })
   }
@@ -537,6 +536,8 @@
         email: string
         nis?: string | null
         nisn?: string | null
+        department?: string | null
+        graduation_year?: number | null
         socials?: SocialLink[]
         skills?: string[]
         gender?: string | null
@@ -974,6 +975,14 @@
       queryKey: ['chat', 'unread-count'],
       queryFn: () => unwrap<{ count: number }>(api.get('/conversations/unread-count')),
       refetchInterval: 10_000,
+    })
+  }
+
+  export function useInstitutionAdmin() {
+    return useQuery({
+      queryKey: ['chat', 'institution-admin'],
+      queryFn: () => unwrap<{ id: string; name: string; avatar_url: string | null } | null>(api.get('/conversations/institution-admin')),
+      staleTime: 60_000,
     })
   }
 

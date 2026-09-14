@@ -121,6 +121,30 @@ class ChatMessagesNotifier extends FamilyNotifier<ChatMessagesState, String> {
     }
   }
 
+  /// Muat ulang pesan awal (retry setelah error).
+  Future<void> loadInitial(String conversationId) async {
+    state = state.copyWith(loadingInitial: true, initialError: false);
+    try {
+      final page = await _repo.messages(conversationId);
+      if (_disposed) return;
+      final chrono = page.items.reversed.toList();
+      state = state.copyWith(
+        messages: _dedupe(chrono),
+        hasMoreOlder: page.meta.hasMoreOlder,
+        oldestCursor: page.meta.oldestCursor,
+        newestCursor: page.meta.newestCursor,
+        loadingInitial: false,
+        initialError: false,
+      );
+      await _repo.markRead(conversationId);
+      ref.invalidate(conversationsProvider);
+    } catch (_) {
+      if (!_disposed) {
+        state = state.copyWith(loadingInitial: false, initialError: true);
+      }
+    }
+  }
+
   /// Muat pesan lama (lebih lama) di bagian atas percakapan.
   Future<void> loadOlder(String conversationId) async {
     if (state.loadingOlder || !state.hasMoreOlder || state.oldestCursor == null) {

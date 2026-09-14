@@ -6,7 +6,6 @@ import {
   ArrowRight,
   AtSign,
   Briefcase,
-  Building2,
   Camera,
   Check,
   ChevronDown,
@@ -36,7 +35,6 @@ import type { LoginResponse } from '../lib/types'
 import {
   useDepartmentOptions,
   useDistricts,
-  useInstitutionOptions,
   useProvinces,
   useCompleteGoogleRegistration,
   useRegister,
@@ -59,7 +57,6 @@ import { useToast } from '../components/ui/Toast'
 /* ------------------------------------------------------------------ */
 
 const STEP_LABELS = ['Informasi Akun', 'Informasi lanjut', 'Status Karir', 'Verifikasi']
-const GOOGLE_STEP_LABELS = ['Biodata & Institusi', 'Status Karir', 'Verifikasi']
 
 const SKILLS = [
   'JavaScript',
@@ -279,9 +276,6 @@ function AccountStep({
   setPassword,
   confirmation,
   setConfirmation,
-  institutionId,
-  setInstitutionId,
-  institutions,
   errors,
 }: {
   email: string
@@ -290,14 +284,10 @@ function AccountStep({
   setPassword: (v: string) => void
   confirmation: string
   setConfirmation: (v: string) => void
-  institutionId: string
-  setInstitutionId: (v: string) => void
-  institutions: { id: string; name: string; code: string | null }[]
   errors: Record<string, string>
 }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
-  const single = institutions.length === 1
 
   const strength = passwordStrength(password)
 
@@ -411,41 +401,6 @@ function AccountStep({
           </div>
         </div>
 
-          {/* 1-tenant mode: single active school, so no picker is shown —
-              the school is attached server-side on registration. */}
-          {!single && (
-            <div>
-              <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
-              <div className="relative mt-2">
-                <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  id="reg-institution"
-                  name="institution_id"
-                  value={institutionId}
-                  onChange={(e) => setInstitutionId(e.target.value)}
-                  className={clsx(
-                    'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
-                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
-                    errors.institution ? 'border-rose-400' : 'border-slate-300',
-                  )}
-                >
-                  {institutions.length === 0 && (
-                    <option value="">Memuat daftar institusi…</option>
-                  )}
-                  {institutions.map((institution) => (
-                    <option key={institution.id} value={institution.id}>
-                      {institution.name}
-                      {institution.code ? ` (${institution.code})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
-              </div>
-              <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
-              <FieldError message={errors.institution} />
-            </div>
-          )}
-
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
             <div className="w-full border-t border-slate-200" />
@@ -493,8 +448,6 @@ function InfoStep({
   onRegionRetry,
   departments,
   departmentsLoading,
-  institutionId,
-  onDepartmentRetry,
 }: {
   form: {
     name: string
@@ -532,27 +485,9 @@ function InfoStep({
   onRegionRetry: (key: 'provinces' | 'regencies' | 'districts') => void
   departments: { id: string; name: string; code: string | null }[]
   departmentsLoading: boolean
-  institutionId: string
-  onDepartmentRetry: () => void
 }) {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const autoRetriedDepartments = useRef(false)
-
-  // Self-heal: if the school already has majors but the first fetch came back
-  // empty/failed (e.g. stale draft or a transient error), retry once — then
-  // fall back to the manual "muat ulang" link.
-  useEffect(() => {
-    if (
-      institutionId &&
-      !departmentsLoading &&
-      departments.length === 0 &&
-      !autoRetriedDepartments.current
-    ) {
-      autoRetriedDepartments.current = true
-      onDepartmentRetry()
-    }
-  }, [institutionId, departmentsLoading, departments.length, onDepartmentRetry])
 
   // Entry years: 1990 (matching the backend validation floor) up to the
   // current year — older alumni can pick their real entry year.
@@ -630,48 +565,6 @@ function InfoStep({
             )}
           />
           <FieldError message={errors.name} />
-        </div>
-
-        <div>
-          <Label label="Jurusan" htmlFor="reg-department" required />
-          <div className="relative mt-2">
-            <select
-              id="reg-department"
-              name="department"
-              value={form.department}
-              onChange={(e) => update({ department: e.target.value })}
-              disabled={departmentsLoading || departments.length === 0}
-              className={clsx(
-                selectClass(Boolean(errors.department)),
-                errors.department && 'border-rose-400',
-                (departmentsLoading || departments.length === 0) && 'cursor-not-allowed opacity-60',
-              )}
-            >
-              <option value="">
-                {departmentsLoading
-                  ? 'Memuat jurusan…'
-                  : departments.length === 0
-                    ? institutionId
-                      ? 'Jurusan belum tersedia'
-                      : 'Pilih institusi terlebih dahulu'
-                    : 'Pilih jurusan'}
-              </option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.name}>{d.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
-          </div>
-          <FieldError message={errors.department} />
-          {!departmentsLoading && departments.length === 0 && institutionId && (
-            <button
-              type="button"
-              onClick={onDepartmentRetry}
-              className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
-            >
-              Jurusan belum tampil — ketuk untuk memuat ulang
-            </button>
-          )}
         </div>
 
         <div>
@@ -759,6 +652,33 @@ function InfoStep({
           />
           <Helper>tepat 10 karakter</Helper>
           <FieldError message={errors.nisn} />
+        </div>
+
+        <div>
+          <Label label="Jurusan" htmlFor="reg-department" required />
+          <div className="relative mt-2">
+            <select
+              id="reg-department"
+              name="department"
+              value={form.department}
+              onChange={(e) => update({ department: e.target.value })}
+              disabled={departmentsLoading}
+              className={clsx(
+                selectClass(Boolean(errors.department)),
+                errors.department && 'border-rose-400',
+                departmentsLoading && 'cursor-not-allowed opacity-60',
+              )}
+            >
+              <option value="">
+                {departmentsLoading ? 'Memuat jurusan…' : 'Pilih jurusan'}
+              </option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.name}>{d.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+          </div>
+          <FieldError message={errors.department} />
         </div>
 
         <div>
@@ -1774,7 +1694,6 @@ const REGISTER_DRAFT_KEY = 'tracerconnect-register-draft'
 interface RegisterDraft {
   step: number
   email: string
-  institutionId: string
   provinceId: string
   provinceName: string
   regencyId: string
@@ -1811,7 +1730,6 @@ function readRegisterDraft(): RegisterDraft | null {
   const register = useRegister()
   const completeGoogle = useCompleteGoogleRegistration()
   const uploadAvatar = useUploadAvatar()
-  const institutionsQuery = useInstitutionOptions()
   const [searchParams] = useSearchParams()
   const isGoogle = searchParams.get('google') === '1'
 
@@ -1832,29 +1750,10 @@ function readRegisterDraft(): RegisterDraft | null {
   const [regencyName, setRegencyName] = useState(draft?.regencyName ?? '')
   const [districtId, setDistrictId] = useState(draft?.districtId ?? '')
 
-  const provincesQuery = useProvinces()
-  const regenciesQuery = useRegencies(provinceId || null)
-  const districtsQuery = useDistricts(regencyId || null)
-
   const [email, setEmail] = useState(draft?.email ?? googleUser?.email ?? '')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
-  const [institutionId, setInstitutionId] = useState(draft?.institutionId ?? '')
   const [pendingOtp, setPendingOtp] = useState<{ email: string } | null>(null)
-
-  // Single-school deployment: when the platform only has one active school,
-  // always pin it so alumni never have to pick (1-tenant mode). Overriding
-  // unconditionally also repairs drafts that kept a stale/old school id,
-  // which otherwise left the Jurusan dropdown empty.
-  const singleInstitution = (institutionsQuery.data ?? []).length === 1
-  useEffect(() => {
-    const list = institutionsQuery.data ?? []
-    if (singleInstitution && list[0] && institutionId !== list[0].id) {
-      setInstitutionId(list[0].id)
-    }
-  }, [institutionsQuery.data, singleInstitution, institutionId])
-
-  const departmentsQuery = useDepartmentOptions(institutionId || null)
 
   const [form, setForm] = useState(draft?.form ?? {
     name: googleUser?.name ?? '',
@@ -1871,6 +1770,12 @@ function readRegisterDraft(): RegisterDraft | null {
     skills: [] as string[],
     socials: [] as SocialRow[],
   })
+
+  const departmentOptionsQuery = useDepartmentOptions(null)
+
+  const provincesQuery = useProvinces()
+  const regenciesQuery = useRegencies(provinceId || null)
+  const districtsQuery = useDistricts(regencyId || null)
 
 
   const [career, setCareer] = useState<string | null>(draft?.career ?? null)
@@ -1899,7 +1804,6 @@ function readRegisterDraft(): RegisterDraft | null {
       const payload: RegisterDraft = {
         step,
         email,
-        institutionId,
         provinceId,
         provinceName,
         regencyId,
@@ -1912,7 +1816,7 @@ function readRegisterDraft(): RegisterDraft | null {
       localStorage.setItem(REGISTER_DRAFT_KEY, JSON.stringify(payload))
     } catch {
     }
-  }, [step, email, institutionId, provinceId, provinceName, regencyId, regencyName, districtId, form, career, careerDetails])
+  }, [step, email, provinceId, provinceName, regencyId, regencyName, districtId, form, career, careerDetails])
 
   const clearDraft = () => localStorage.removeItem(REGISTER_DRAFT_KEY)
 
@@ -1947,10 +1851,9 @@ function readRegisterDraft(): RegisterDraft | null {
   const validateStep = (target: number): boolean => {
     const next: Record<string, string> = {}
 
-    // Google mode: step 1 = biodata (institution + personal info), step 2 = career
+    // Google mode: step 1 = biodata (personal info), step 2 = career
     if (isGoogle) {
       if (target === 1) {
-        if (!institutionId) next.institution = 'Pilih institusi Anda'
         if (!form.name.trim()) next.name = 'Nama lengkap wajib diisi'
         if (!form.department) next.department = 'Pilih jurusan'
         if (!form.gender) next.gender = 'Pilih jenis kelamin'
@@ -2010,9 +1913,6 @@ function readRegisterDraft(): RegisterDraft | null {
         if (confirmation !== password || !confirmation) {
           next.confirmation = 'Konfirmasi password tidak cocok'
         }
-        // Alumni records are tenant-scoped, so an institution is required to
-        // persist the profile data collected in steps 2 & 3.
-        if (!institutionId) next.institution = 'Pilih institusi Anda'
       }
 
       if (target === 2) {
@@ -2100,20 +2000,16 @@ function readRegisterDraft(): RegisterDraft | null {
 
     // Google mode: skip account validation, submit biodata to complete registration.
     if (isGoogle) {
-      if (!institutionId) {
-        setErrors({ institution: 'Pilih institusi Anda' })
-        return
-      }
       setSubmitting(true)
       try {
         const data = await completeGoogle.mutateAsync({
           name: form.name || undefined,
-          institution_id: institutionId,
           registration_token: googleState?.registration_token,
           gender: form.gender || undefined,
           phone: form.phone || undefined,
           nis: form.nis || undefined,
           nisn: form.nisn || undefined,
+          department: form.department || undefined,
           entry_year: form.yearIn ? Number(form.yearIn) : undefined,
           graduation_year: form.yearOut ? Number(form.yearOut) : undefined,
           birthplace: form.birthplace || undefined,
@@ -2121,7 +2017,6 @@ function readRegisterDraft(): RegisterDraft | null {
           birthplace_province: provinceName || undefined,
           birth_date: form.birthDate || undefined,
           address: form.address || undefined,
-          department: form.department || undefined,
           socials: form.socials.filter((s) => s.url.trim()).length
             ? form.socials.filter((s) => s.url.trim()).map((s) => ({ platform: s.platform, url: s.url.trim() }))
             : undefined,
@@ -2176,11 +2071,11 @@ function readRegisterDraft(): RegisterDraft | null {
         email,
         password,
         password_confirmation: confirmation,
-        institution_id: institutionId || undefined,
         gender: form.gender || undefined,
         phone: form.phone || undefined,
         nis: form.nis || undefined,
         nisn: form.nisn || undefined,
+        department: form.department || undefined,
         entry_year: form.yearIn ? Number(form.yearIn) : undefined,
         graduation_year: form.yearOut ? Number(form.yearOut) : undefined,
         birthplace: form.birthplace || undefined,
@@ -2188,7 +2083,6 @@ function readRegisterDraft(): RegisterDraft | null {
         birthplace_province: provinceName || undefined,
         birth_date: form.birthDate || undefined,
         address: form.address || undefined,
-        department: form.department || undefined,
         socials: form.socials.filter((s) => s.url.trim()).length
           ? form.socials.filter((s) => s.url.trim()).map((s) => ({ platform: s.platform, url: s.url.trim() }))
           : undefined,
@@ -2249,13 +2143,9 @@ function readRegisterDraft(): RegisterDraft | null {
     navigate(hasAdminRole(data.user) ? '/dashboard' : '/home', { replace: true })
   }
 
-  const institutions = institutionsQuery.data ?? []
-
-  // 1-tenant mode: no institution step, so drop "& Institusi" from the label.
+  // Step labels
   const stepLabels = isGoogle
-    ? singleInstitution
-      ? ['Biodata', 'Status Karir', 'Verifikasi']
-      : GOOGLE_STEP_LABELS
+    ? ['Biodata', 'Status Karir', 'Verifikasi']
     : STEP_LABELS
   const maxStep = isGoogle ? 2 : 3
 
@@ -2317,9 +2207,6 @@ function readRegisterDraft(): RegisterDraft | null {
               setPassword={setPassword}
               confirmation={confirmation}
               setConfirmation={setConfirmation}
-              institutionId={institutionId}
-              setInstitutionId={setInstitutionId}
-              institutions={institutions}
               errors={errors}
             />
           )}
@@ -2350,10 +2237,8 @@ function readRegisterDraft(): RegisterDraft | null {
                 else if (key === 'regencies') regenciesQuery.refetch()
                 else districtsQuery.refetch()
               }}
-              departments={departmentsQuery.data ?? []}
-              departmentsLoading={departmentsQuery.isLoading}
-              institutionId={institutionId}
-              onDepartmentRetry={() => departmentsQuery.refetch()}
+              departments={departmentOptionsQuery.data ?? []}
+              departmentsLoading={departmentOptionsQuery.isLoading}
             />
           )}
 
@@ -2368,47 +2253,7 @@ function readRegisterDraft(): RegisterDraft | null {
             />
           )}
 
-          {/* Google mode: 2 steps (Info+Institution, Career) */}
-          {/* 1-tenant mode: hide the institution picker entirely when there
-              is only one active school — it is attached server-side. */}
-          {isGoogle && step === 1 && !singleInstitution && (
-            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <CardHeader icon={<Building2 className="size-5" />} title="Institusi & Biodata" step={1} />
-              <div className="space-y-5 px-6 py-6">
-                <div>
-                  <Label label="Institusi / Sekolah" htmlFor="reg-institution" required />
-                  <div className="relative mt-2">
-                    <Building2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-                    <select
-                      id="reg-institution"
-                      name="institution_id"
-                      value={institutionId}
-                      onChange={(e) => setInstitutionId(e.target.value)}
-                      className={clsx(
-                        'w-full appearance-none rounded-lg border bg-white py-2.5 pr-9 pl-10 text-sm text-slate-900',
-                        'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none',
-                        errors.institution ? 'border-rose-400' : 'border-slate-300',
-                      )}
-                    >
-                      {institutions.length === 0 && (
-                        <option value="">Memuat daftar institusi…</option>
-                      )}
-                      {institutions.map((institution) => (
-                        <option key={institution.id} value={institution.id}>
-                          {institution.name}
-                          {institution.code ? ` (${institution.code})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
-                  </div>
-                  <Helper>pilih sekolah/kampus agar data alumni Anda tersambung</Helper>
-                  <FieldError message={errors.institution} />
-                </div>
-              </div>
-            </section>
-          )}
-
+          {/* Google mode: 2 steps (Info, Career) */}
           {isGoogle && step === 1 && (
             <InfoStep
               form={form}
@@ -2435,10 +2280,8 @@ function readRegisterDraft(): RegisterDraft | null {
                 else if (key === 'regencies') regenciesQuery.refetch()
                 else districtsQuery.refetch()
               }}
-              departments={departmentsQuery.data ?? []}
-              departmentsLoading={departmentsQuery.isLoading}
-              institutionId={institutionId}
-              onDepartmentRetry={() => departmentsQuery.refetch()}
+              departments={departmentOptionsQuery.data ?? []}
+              departmentsLoading={departmentOptionsQuery.isLoading}
             />
           )}
 

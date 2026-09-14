@@ -69,9 +69,14 @@ class _AvailableSurveysTab extends ConsumerWidget {
         loading: () => const LoadingView(label: 'Memuat kuisioner…'),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 120),
-            ErrorView(message: 'Gagal memuat daftar kuisioner.'),
+          children: [
+            const SizedBox(height: 120),
+            ErrorView(
+              message: 'Gagal memuat daftar kuisioner.',
+              onRetry: () {
+                ref.invalidate(availableSurveysProvider);
+              },
+            ),
           ],
         ),
         data: (items) {
@@ -292,9 +297,14 @@ class _HistoryTab extends ConsumerWidget {
         loading: () => const LoadingView(label: 'Memuat riwayat…'),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 120),
-            ErrorView(message: 'Gagal memuat riwayat respons.'),
+          children: [
+            const SizedBox(height: 120),
+            ErrorView(
+              message: 'Gagal memuat riwayat respons.',
+              onRetry: () {
+                ref.invalidate(myResponsesProvider);
+              },
+            ),
           ],
         ),
         data: (page) {

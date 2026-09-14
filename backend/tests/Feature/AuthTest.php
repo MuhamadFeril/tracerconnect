@@ -45,7 +45,7 @@ class AuthTest extends TestCase
             ]);
 
         $this->assertNotEmpty($response->json('data.token'));
-        $this->assertContains('super_admin', $response->json('data.user.roles'));
+        $this->assertContains('admin_institusi', $response->json('data.user.roles'));
     }
 
     public function test_login_with_invalid_credentials_returns_401(): void
@@ -586,7 +586,7 @@ class AuthTest extends TestCase
         // The account exists with the alumni role but must verify OTP first.
         $user = User::where('email', 'alumni.baru@example.com')->firstOrFail();
         $this->assertTrue($user->hasRole('alumni'));
-        $this->assertFalse($user->hasRole('super_admin'));
+        $this->assertFalse($user->hasRole('admin_institusi'));
         $this->assertNull($user->email_verified_at);
         $this->assertDatabaseHas('users', ['email' => 'alumni.baru@example.com']);
     }
@@ -925,14 +925,14 @@ class AuthTest extends TestCase
             'email' => 'admin.google@example.com',
             'password' => 'password',
         ]);
-        $existing->assignRole('institution_admin');
+        $existing->assignRole('admin_institusi');
 
         $token = $this->fakeGoogleToken(['email' => 'admin.google@example.com', 'name' => 'Admin Google']);
 
         $response = $this->postJson('/api/v1/auth/google', ['id_token' => $token]);
 
         $response->assertOk()->assertJsonPath('data.user.email', 'admin.google@example.com');
-        $this->assertContains('institution_admin', $response->json('data.user.roles'));
+        $this->assertContains('admin_institusi', $response->json('data.user.roles'));
         $this->assertSame(1, User::where('email', 'admin.google@example.com')->count());
         // First Google sign-in for an email/password account links google_id.
         $this->assertSame('google-subject-id', $existing->fresh()->google_id);

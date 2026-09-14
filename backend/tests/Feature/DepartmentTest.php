@@ -28,7 +28,7 @@ class DepartmentTest extends TestCase
         return Institution::where('slug', 'smk-negeri-1-tracer')->firstOrFail();
     }
 
-    public function test_institution_admin_can_create_department_in_own_institution(): void
+    public function test_admin_institusi_can_create_department_in_own_institution(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
@@ -43,7 +43,7 @@ class DepartmentTest extends TestCase
             ->assertJsonPath('data.institution_id', $this->demoInstitution()->id);
     }
 
-    public function test_institution_admin_lists_only_own_departments(): void
+    public function test_admin_institusi_lists_only_own_departments(): void
     {
         $superToken = $this->loginAs('superadmin@tracerconnect.test');
         $otherInstitution = Institution::create([
@@ -108,7 +108,7 @@ class DepartmentTest extends TestCase
         ])->assertStatus(403);
     }
 
-    public function test_super_admin_can_update_and_delete_department(): void
+    public function test_admin_institusi_can_update_and_delete_department(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
         $departmentId = $this->withToken($token)->getJson('/api/v1/departments?institution_id='.$this->demoInstitution()->id)

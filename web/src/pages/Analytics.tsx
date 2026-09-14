@@ -99,9 +99,9 @@ export function Analytics() {
   const overview = useAnalytics(filters)
   const employment = useEmployment(filters)
   const { data: surveys } = useSurveys({ page: 1, per_page: 100 })
-  const surveyResults = useSurveyResults(surveyId)
 
   const effectiveSurveyId = surveyId || surveys?.data[0]?.id || ''
+  const surveyResults = useSurveyResults(effectiveSurveyId)
 
   const pieData = useMemo(
     () =>

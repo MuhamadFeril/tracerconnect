@@ -21,8 +21,8 @@ class DepartmentController extends Controller
 
         $departments = Department::query()
             ->withCount('alumni')
-            ->when(! $currentUser->hasRole('super_admin'), fn ($query) => $query->forInstitution($currentUser->institution_id))
-            ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
+            ->when($currentUser->institution_id !== null, fn ($query) => $query->forInstitution($currentUser->institution_id))
+            ->when($currentUser->institution_id === null && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->search);
                 $query->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%"));

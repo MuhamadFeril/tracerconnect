@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/network/api_error.dart';
+import '../../core/services/google_signin_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/region.dart';
 import '../../models/university.dart';
@@ -67,7 +66,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   int _step = 0;
   bool _submitting = false;
   String? _error;
-  bool _googleInitialized = false;
 
   // Step 1 — akun (nama dikumpulkan di langkah 2, seperti web)
   final _nameController = TextEditingController();
@@ -120,6 +118,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   String? _businessProvinceName;
   String? _businessCityName;
   final _businessAddressController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -401,38 +404,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   /// Pilih foto profil opsional — validasi sama seperti web:
   /// harus gambar (PNG/JPG/WebP), maksimal 2 MB.
-  Future<void> _ensureGoogleInitialized() async {
-    if (_googleInitialized) return;
-    String? clientId;
-    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
-      const iosId = AppConstants.googleIosClientId;
-      clientId = iosId.isNotEmpty ? iosId : null;
-    }
-    await GoogleSignIn.instance.initialize(
-      clientId: clientId,
-      serverClientId: AppConstants.googleClientId,
-    );
-    _googleInitialized = true;
-  }
-
   Future<void> _googleRegister() async {
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
-      await _ensureGoogleInitialized();
-      final googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.signOut();
-      final account = await googleSignIn.authenticate();
-      final idToken = account.authentication.idToken;
-
-      if (idToken == null || idToken.isEmpty) {
-        throw const GoogleSignInException(
-          code: GoogleSignInExceptionCode.unknownError,
-          description: 'Tidak mendapat ID token dari Google',
-        );
-      }
+      final idToken = await GoogleSignInService.requestIdToken();
 
       final result =
           await ref.read(authControllerProvider.notifier).googleLogin(idToken);
@@ -454,7 +432,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         if (mounted) setState(() => _submitting = false);
         return;
       }
-      if (mounted) setState(() => _error = 'Google Sign-In gagal. Silakan coba lagi.');
+      if (mounted) {
+        setState(() => _error = GoogleSignInService.friendlyErrorMessage(e));
+      }
     } catch (_) {
       if (mounted) setState(() => _error = 'Google Sign-In gagal. Silakan coba lagi.');
     } finally {
@@ -489,6 +469,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-select first institution when data loads — harus di dalam build
+    // karena ref.listen hanya boleh dipanggil dari build method ConsumerWidget.
+    ref.listen(institutionOptionsProvider, (previous, next) {
+      final list = next.valueOrNull;
+      if (list != null && list.isNotEmpty && _institutionId == null) {
+        setState(() => _institutionId = list.first.id);
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(title: const Text('Daftar Akun')),
       body: Stack(
@@ -684,16 +673,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   // Step 1 — akun & institusi
   // ------------------------------------------------------------------
   Widget _buildStep1() {
-    // Langkah pemilihan institusi dihapus dari registrasi mobile: institusi
-    // pertama (satu-satunya yang aktif di deployment tenan tunggal) dipilih
-    // otomatis agar dropdown jurusan & scoping data tetap bekerja.
-    ref.listen(institutionOptionsProvider, (previous, next) {
-      final list = next.valueOrNull;
-      if (list != null && list.isNotEmpty && _institutionId == null) {
-        setState(() => _institutionId = list.first.id);
-      }
-    });
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

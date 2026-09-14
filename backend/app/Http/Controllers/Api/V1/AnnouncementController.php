@@ -21,8 +21,8 @@ class AnnouncementController extends Controller
         $perPage = max(1, min($request->integer('per_page', 15), 100));
 
         $announcements = Announcement::query()
-            ->when(! $currentUser->hasRole('super_admin'), fn ($query) => $query->forInstitution($currentUser->institution_id))
-            ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
+            ->when($currentUser->institution_id !== null, fn ($query) => $query->forInstitution($currentUser->institution_id))
+            ->when($currentUser->institution_id === null && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->when($currentUser->hasRole('alumni'), fn ($query) => $query->visibleToAlumni($currentUser->institution_id))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = addcslashes(trim((string) $request->search), '%_\\');

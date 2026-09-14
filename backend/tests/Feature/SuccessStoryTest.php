@@ -96,7 +96,7 @@ class SuccessStoryTest extends TestCase
             ->assertJsonValidationErrors('cover_image');
     }
 
-    public function test_super_admin_can_create_story_for_any_institution(): void
+    public function test_admin_institusi_can_create_story_for_any_institution(): void
     {
         Storage::fake('public');
         $token = $this->loginAs('superadmin@tracerconnect.test');
@@ -129,7 +129,7 @@ class SuccessStoryTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_institution_admin_can_create_story(): void
+    public function test_admin_institusi_can_create_story(): void
     {
         Storage::fake('public');
         $token = $this->loginAs('admin@smkn1tracer.sch.id');

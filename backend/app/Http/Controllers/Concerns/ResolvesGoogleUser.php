@@ -48,36 +48,51 @@ trait ResolvesGoogleUser
 
         if ($user) {
             if ($user->trashed()) {
-                // Restore soft-deleted user so they can re-activate their
-                // account via the normal Google login flow. Google already
-                // verified the email, so we mark it as verified immediately.
-                $user->restore();
-                $user->update([
-                    'google_id' => $googleId,
-                    'is_active' => true,
-                    'email_verified_at' => now(),
+                // Akun yang sudah dihapus (soft-delete lama) TIDAK boleh
+                // di-restore — data harus benar-benar hilang. Purge permanen
+                // row + alumni tertautnya, lalu jatuh ke bawah untuk bikin
+                // akun fresh yang wajib isi biodata dulu.
+                $staleId = $user->id;
+                $staleEmail = $user->email;
+                DB::transaction(function () use ($user) {
+                    $user->purgeDirectConversations();
+                    $user->tokens()->delete();
+                    try {
+                        $user->fcmTokens()->delete();
+                    } catch (Throwable $e) {
+                    }
+                    try {
+                        $user->syncRoles([]);
+                    } catch (Throwable $e) {
+                    }
+                    Alumni::withTrashed()->where('user_id', $user->id)->forceDelete();
+                    Alumni::withTrashed()
+                        ->whereRaw('lower(email) = ?', [mb_strtolower((string) $user->email)])
+                        ->forceDelete();
+                    $user->forceDelete();
+                });
+
+                AuditService::log('purge_deleted', 'user', null, null, [
+                    'email' => $staleEmail,
+                    'purged_user_id' => $staleId,
+                    'purged_by' => 'google-oauth-fresh',
                 ]);
-                $user->syncRoles(['alumni']);
 
-                AuditService::log('restore', 'user', $user->id, null, [
-                    'email' => $user->email,
-                    'name' => $user->name,
-                    'restored_by' => 'google-oauth',
-                ], null, $user->id, $user->institution_id);
+                $user = null;
+            } else {
+                if (! $user->is_active) {
+                    return 'Akun Anda telah dinonaktifkan';
+                }
 
-                $isNew = false;
-
-                return [$user, $isNew];
+                if ($googleId && ! $user->google_id) {
+                    $user->update(['google_id' => $googleId]);
+                }
             }
+        }
 
-            if (! $user->is_active) {
-                return 'Akun Anda telah dinonaktifkan';
-            }
-
-            if ($googleId && ! $user->google_id) {
-                $user->update(['google_id' => $googleId]);
-            }
-        } else {
+        if ($user) {
+            return [$user, $isNew];
+        }
             // Auto-create a new alumni account via Google sign-in.
             $user = DB::transaction(function () use ($email, $googleId, $googleName) {
                 $user = User::create([
@@ -107,7 +122,6 @@ trait ResolvesGoogleUser
             });
 
             $isNew = true;
-        }
 
         return [$user, $isNew];
     }

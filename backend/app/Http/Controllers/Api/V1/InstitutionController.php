@@ -65,6 +65,26 @@ class InstitutionController extends Controller
         );
     }
 
+    /**
+     * Public list of all departments across institutions.
+     * Used by the registration form when no institution is selected.
+     */
+    public function allDepartments(): JsonResponse
+    {
+        $departments = Department::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
+        return ApiResponse::success(
+            $departments->map(fn (Department $d) => [
+                'id' => $d->id,
+                'name' => $d->name,
+                'code' => $d->code,
+            ])->values(),
+            'Daftar jurusan berhasil diambil'
+        );
+    }
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', Institution::class);

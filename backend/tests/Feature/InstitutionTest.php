@@ -22,7 +22,7 @@ class InstitutionTest extends TestCase
         return User::where('email', $email)->firstOrFail()->createToken('test-token')->plainTextToken;
     }
 
-    public function test_super_admin_can_create_institution(): void
+    public function test_admin_institusi_can_create_institution(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
@@ -41,7 +41,7 @@ class InstitutionTest extends TestCase
         $this->assertDatabaseHas('institutions', ['slug' => 'universitas-nusantara']);
     }
 
-    public function test_super_admin_can_list_institutions(): void
+    public function test_admin_institusi_can_list_institutions(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
@@ -53,7 +53,7 @@ class InstitutionTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
-    public function test_super_admin_can_update_and_soft_delete_institution(): void
+    public function test_admin_institusi_can_update_and_soft_delete_institution(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
@@ -69,7 +69,7 @@ class InstitutionTest extends TestCase
         $this->assertSoftDeleted('institutions', ['id' => $institutionId]);
     }
 
-    public function test_institution_admin_cannot_create_institution(): void
+    public function test_admin_institusi_cannot_create_institution(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
@@ -80,14 +80,14 @@ class InstitutionTest extends TestCase
         ])->assertStatus(403);
     }
 
-    public function test_institution_admin_cannot_list_institutions(): void
+    public function test_admin_institusi_cannot_list_institutions(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
         $this->withToken($token)->getJson('/api/v1/institutions')->assertStatus(403);
     }
 
-    public function test_institution_admin_can_view_own_institution(): void
+    public function test_admin_institusi_can_view_own_institution(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
@@ -99,7 +99,7 @@ class InstitutionTest extends TestCase
             ->assertJsonPath('data.id', $institutionId);
     }
 
-    public function test_institution_admin_cannot_view_other_institution(): void
+    public function test_admin_institusi_cannot_view_other_institution(): void
     {
         $other = Institution::create([
             'name' => 'Universitas Terpisah',

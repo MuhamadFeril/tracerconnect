@@ -27,7 +27,7 @@ class UserTest extends TestCase
         return Institution::where('slug', 'smk-negeri-1-tracer')->firstOrFail();
     }
 
-    public function test_super_admin_can_create_user_with_role(): void
+    public function test_admin_institusi_can_create_user_with_role(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
@@ -53,7 +53,7 @@ class UserTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'operator@smkn1tracer.sch.id']);
     }
 
-    public function test_institution_admin_can_create_user_forced_into_own_institution(): void
+    public function test_admin_institusi_can_create_user_forced_into_own_institution(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
         $institution = $this->demoInstitution();
@@ -72,7 +72,7 @@ class UserTest extends TestCase
             ->assertJsonPath('data.company_name', 'PT Operator Dua');
     }
 
-    public function test_institution_admin_cannot_assign_super_admin_role(): void
+    public function test_admin_institusi_cannot_assign_admin_institusi_role(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
@@ -81,11 +81,11 @@ class UserTest extends TestCase
             'email' => 'hacker@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'super_admin',
+            'role' => 'admin_institusi',
         ])->assertStatus(422);
     }
 
-    public function test_super_admin_can_create_institution_admin_on_existing_school_without_creating_one(): void
+    public function test_admin_institusi_can_create_admin_institusi_on_existing_school_without_creating_one(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
         $institution = $this->demoInstitution();
@@ -95,15 +95,15 @@ class UserTest extends TestCase
             'email' => 'admin-sekolah@smkn1tracer.sch.id',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'institution_admin',
+            'role' => 'admin_institusi',
             'institution_id' => $institution->id,
         ])->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.roles.0', 'institution_admin')
+            ->assertJsonPath('data.roles.0', 'admin_institusi')
             ->assertJsonPath('data.institution_id', $institution->id);
     }
 
-    public function test_multi_tenant_super_admin_must_attach_tenant_scoped_user_to_existing_school(): void
+    public function test_multi_tenant_admin_institusi_must_attach_tenant_scoped_user_to_existing_school(): void
     {
         // A second active school turns this into a multi-tenant deployment.
         $other = Institution::create([
@@ -152,14 +152,14 @@ class UserTest extends TestCase
             'email' => 'admin@smkn9surabaya.sch.id',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'institution_admin',
+            'role' => 'admin_institusi',
             'institution_id' => $other->id,
         ])->assertCreated()
-            ->assertJsonPath('data.roles.0', 'institution_admin')
+            ->assertJsonPath('data.roles.0', 'admin_institusi')
             ->assertJsonPath('data.institution_id', $other->id);
     }
 
-    public function test_super_admin_role_cannot_have_institution(): void
+    public function test_admin_institusi_role_cannot_have_institution(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
@@ -168,8 +168,7 @@ class UserTest extends TestCase
             'email' => 'sa-baru@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'super_admin',
-            'institution_id' => $this->demoInstitution()->id,
+            'role' => 'admin_institusi',
         ])->assertStatus(201);
 
         // Verify the created user has no institution.
@@ -192,7 +191,7 @@ class UserTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_institution_admin_list_only_sees_own_institution_users(): void
+    public function test_admin_institusi_list_only_sees_own_institution_users(): void
     {
         $superToken = $this->loginAs('superadmin@tracerconnect.test');
         $otherInstitution = Institution::create([
@@ -277,7 +276,7 @@ class UserTest extends TestCase
         $this->withToken($targetToken)->getJson('/api/v1/auth/me')->assertStatus(401);
     }
 
-    public function test_institution_admin_cannot_manage_fellow_institution_admin(): void
+    public function test_admin_institusi_cannot_manage_fellow_admin_institusi(): void
     {
         $superToken = $this->loginAs('superadmin@tracerconnect.test');
         $institution = $this->demoInstitution();
@@ -287,7 +286,7 @@ class UserTest extends TestCase
             'email' => 'admin2@smkn1tracer.sch.id',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => 'institution_admin',
+            'role' => 'admin_institusi',
             'institution_id' => $institution->id,
         ])->assertCreated()->json('data');
 
@@ -313,7 +312,7 @@ class UserTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/permissions')->assertStatus(403);
     }
 
-    public function test_super_admin_can_update_and_soft_delete_user(): void
+    public function test_admin_institusi_can_update_and_soft_delete_user(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
         $institution = $this->demoInstitution();

@@ -23,7 +23,7 @@ class JobVacancyPolicy
             return false;
         }
 
-        if ($user->hasRole('super_admin') || $jobVacancy->created_by === $user->id) {
+        if ($user->hasRole('admin_institusi') && ($user->institution_id === null || $jobVacancy->created_by === $user->id)) {
             return true;
         }
 
@@ -43,14 +43,14 @@ class JobVacancyPolicy
     public function update(User $user, JobVacancy $jobVacancy): bool
     {
         return $user->can('job.update')
-            && ($user->hasRole('super_admin') || $jobVacancy->created_by === $user->id
+            && (($user->hasRole('admin_institusi') && $user->institution_id === null) || $jobVacancy->created_by === $user->id
                 || ($jobVacancy->institution_id !== null && $user->institution_id === $jobVacancy->institution_id));
     }
 
     public function delete(User $user, JobVacancy $jobVacancy): bool
     {
         return $user->can('job.delete')
-            && ($user->hasRole('super_admin') || $jobVacancy->created_by === $user->id
+            && (($user->hasRole('admin_institusi') && $user->institution_id === null) || $jobVacancy->created_by === $user->id
                 || ($jobVacancy->institution_id !== null && $user->institution_id === $jobVacancy->institution_id));
     }
 }

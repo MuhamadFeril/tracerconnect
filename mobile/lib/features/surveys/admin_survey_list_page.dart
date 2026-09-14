@@ -15,7 +15,8 @@ class AdminSurveyListPage extends ConsumerStatefulWidget {
   const AdminSurveyListPage({super.key});
 
   @override
-  ConsumerState<AdminSurveyListPage> createState() => _AdminSurveyListPageState();
+  ConsumerState<AdminSurveyListPage> createState() =>
+      _AdminSurveyListPageState();
 }
 
 class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
@@ -52,7 +53,8 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                       hintText: 'Cari kuisioner…',
                       prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: AppColors.border),
@@ -68,7 +70,8 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                 const SizedBox(width: 8),
                 PopupMenuButton<String?>(
                   icon: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       border: Border.all(color: AppColors.border),
                       borderRadius: BorderRadius.circular(10),
@@ -79,17 +82,23 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                         Icon(
                           Icons.filter_list_rounded,
                           size: 18,
-                          color: _statusFilter != null ? AppColors.primary : AppColors.textMuted,
+                          color: _statusFilter != null
+                              ? AppColors.primary
+                              : AppColors.textMuted,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           _statusFilter == null
                               ? 'Semua'
-                              : (_statusFilter == 'published' ? 'Aktif' : 'Draft'),
+                              : (_statusFilter == 'published'
+                                  ? 'Aktif'
+                                  : 'Draft'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: _statusFilter != null ? AppColors.primary : AppColors.textMuted,
+                            color: _statusFilter != null
+                                ? AppColors.primary
+                                : AppColors.textMuted,
                           ),
                         ),
                       ],
@@ -97,9 +106,12 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                   ),
                   onSelected: (v) => setState(() => _statusFilter = v),
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: null, child: Text('Semua Status')),
+                    const PopupMenuItem(
+                        value: null, child: Text('Semua Status')),
                     const PopupMenuItem(value: 'draft', child: Text('Draft')),
-                    const PopupMenuItem(value: 'published', child: Text('Aktif / Dipublikasikan')),
+                    const PopupMenuItem(
+                        value: 'published',
+                        child: Text('Aktif / Dipublikasikan')),
                   ],
                 ),
               ],
@@ -116,7 +128,8 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                 if (page.items.isEmpty) {
                   return const EmptyView(
                     title: 'Belum ada kuisioner',
-                    description: 'Buat kuisioner baru dengan tombol + di pojok kanan atas.',
+                    description:
+                        'Buat kuisioner baru dengan tombol + di pojok kanan atas.',
                     icon: Icons.assignment_outlined,
                   );
                 }
@@ -126,7 +139,8 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                   },
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: page.items.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) =>
@@ -161,8 +175,9 @@ class _AdminSurveyListPageState extends ConsumerState<AdminSurveyListPage> {
                   labelText: 'Judul *',
                   hintText: 'Contoh: Tracer Study 2026',
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Judul wajib diisi' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Judul wajib diisi'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -278,55 +293,80 @@ class _SurveyCard extends ConsumerWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.help_outline_rounded, size: 15, color: AppColors.textMuted),
+                  Icon(Icons.help_outline_rounded,
+                      size: 15, color: AppColors.textMuted),
                   const SizedBox(width: 4),
                   Text(
                     '${item.questionsCount} pertanyaan',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
                   ),
                   const SizedBox(width: 12),
-                  Icon(Icons.view_module_outlined, size: 15, color: AppColors.textMuted),
+                  Icon(Icons.view_module_outlined,
+                      size: 15, color: AppColors.textMuted),
                   const SizedBox(width: 4),
                   Text(
                     '${item.sectionsCount} bagian',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
                   ),
                   const Spacer(),
                   if (item.createdAt != null)
                     Text(
                       Formatters.formatDateFromString(item.createdAt),
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 11),
                     ),
                 ],
               ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
               const SizedBox(height: 12),
-              // Quick actions
+              // Bottom action row (web-style)
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => context.push('/admin-surveys/${item.id}'),
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('Kelola'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          context.push('/admin-surveys/${item.id}'),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Susun'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        textStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _togglePublish(context, ref),
-                      icon: Icon(
-                        item.isPublished ? Icons.unpublished_outlined : Icons.publish_rounded,
-                        size: 16,
+                  Material(
+                    color: AppColors.primary,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => context.push('/admin-surveys/${item.id}'),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.rocket_launch_rounded,
+                            size: 18, color: Colors.white),
                       ),
-                      label: Text(item.isPublished ? 'Unpublish' : 'Publish'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        backgroundColor: item.isPublished ? AppColors.warning : AppColors.success,
-                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Material(
+                    color: Colors.transparent,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () =>
+                          _confirmDelete(context, ref, item.id, item.title),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.delete_outline_rounded,
+                            size: 18, color: AppColors.textMuted),
                       ),
                     ),
                   ),
@@ -339,23 +379,42 @@ class _SurveyCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _togglePublish(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    String surveyId,
+    String title,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus kuisioner?'),
+        content:
+            Text('Kuisioner "$title" dan semua pertanyaannya akan dihapus.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     try {
       final repo = ref.read(adminSurveyRepositoryProvider);
-      if (item.isPublished) {
-        await repo.unpublish(item.id);
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kuisioner dikembalikan ke draft')),
-        );
-      } else {
-        await repo.publish(item.id);
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kuisioner berhasil dipublikasikan')),
-        );
-      }
+      await repo.delete(surveyId);
       ref.invalidate(adminSurveysProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kuisioner berhasil dihapus')),
+      );
     } on ApiException catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -364,7 +423,7 @@ class _SurveyCard extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal mengubah status kuisioner')),
+        const SnackBar(content: Text('Gagal menghapus kuisioner')),
       );
     }
   }

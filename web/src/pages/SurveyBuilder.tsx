@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Rocket,
+  Settings,
   Trash2,
   Undo2,
 } from 'lucide-react'
@@ -24,6 +25,7 @@ import {
   useSurvey,
   useUpdateQuestion,
   useUpdateSection,
+  useUpdateSurvey,
   useDeleteSurvey,
 } from '../hooks/queries'
 import { QUESTION_TYPE_LABELS, formatDate } from '../lib/format'
@@ -513,6 +515,99 @@ function QuestionRow({
   )
 }
 
+function toDatetimeLocal(value: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/**
+ * Edit the survey's basic details (title, description, active window).
+ * Unlike the section/question structure, these stay editable while the
+ * survey is published — admins often need to extend the end date.
+ */
+function EditSurveyModal({
+  open,
+  onClose,
+  survey,
+}: {
+  open: boolean
+  onClose: () => void
+  survey: SurveyDetail
+}) {
+  const update = useUpdateSurvey()
+  const toast = useToast()
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [startsAt, setStartsAt] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setTitle(survey.title)
+      setDescription(survey.description ?? '')
+      setStartsAt(toDatetimeLocal(survey.starts_at ?? null))
+      setExpiresAt(toDatetimeLocal(survey.expires_at ?? null))
+      setError(null)
+    }
+  }, [open, survey])
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await update.mutateAsync({
+        id: survey.id,
+        payload: {
+          title,
+          description: description.trim() === '' ? null : description,
+          starts_at: startsAt ? new Date(startsAt).toISOString() : null,
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        },
+      })
+      toast('Survey berhasil diperbarui')
+      onClose()
+    } catch (err) {
+      setError(apiError(err))
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit Survey"
+      description="Ubah judul, deskripsi, atau jadwal aktif survey."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={update.isPending}>Batal</Button>
+          <Button type="submit" form="edit-survey-form" loading={update.isPending}>Simpan</Button>
+        </>
+      }
+    >
+      <form id="edit-survey-form" onSubmit={onSubmit} className="space-y-4">
+        {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</div>}
+        <Field label="Judul Survey" required>
+          <Input required value={title} onChange={(e) => setTitle(e.target.value)} />
+        </Field>
+        <Field label="Deskripsi">
+          <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Mulai Aktif">
+            <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+          </Field>
+          <Field label="Berakhir">
+            <Input type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+          </Field>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export function SurveyBuilder() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -532,6 +627,7 @@ export function SurveyBuilder() {
     target: SurveySection | Question | null
   } | null>(null)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [editOpen, setEditOpen] = useState(false)
 
   const locked = survey?.status === 'published'
 
@@ -620,6 +716,9 @@ export function SurveyBuilder() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setEditOpen(true)}>
+              <Settings className="size-4" /> Edit Detail
+            </Button>
             <Button variant={locked ? 'secondary' : 'primary'} onClick={togglePublish} loading={publish.isPending}>
               {locked ? <Undo2 className="size-4" /> : <Rocket className="size-4" />}
               {locked ? 'Kembalikan ke Draft' : 'Publikasikan'}
@@ -783,6 +882,8 @@ export function SurveyBuilder() {
         question={questionModal.question}
         locked={locked}
       />
+
+      <EditSurveyModal open={editOpen} onClose={() => setEditOpen(false)} survey={survey} />
 
       <ConfirmDialog
         open={Boolean(confirm)}

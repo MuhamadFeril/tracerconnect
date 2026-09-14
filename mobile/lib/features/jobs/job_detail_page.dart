@@ -74,7 +74,6 @@ class JobDetailPage extends ConsumerWidget {
     final yearCtrl = TextEditingController(text: a?.graduationYear?.toString() ?? '');
     final expCtrl = TextEditingController(text: '');
     final skillCtrl = TextEditingController(text: (a?.skills ?? []).join(', '));
-    File? cvFile;
     File? portfolioFile;
 
     final applied = await showModalBottomSheet<bool>(
@@ -141,12 +140,6 @@ class JobDetailPage extends ConsumerWidget {
               _sectionTitle('Upload File'),
               const SizedBox(height: 10),
               _FilePickerTile(
-                label: 'CV (PDF/DOC, maks 5MB)',
-                file: cvFile,
-                onPicked: (f) => setDialogState(() => cvFile = f),
-              ),
-              const SizedBox(height: 8),
-              _FilePickerTile(
                 label: 'Portofolio (opsional)',
                 file: portfolioFile,
                 onPicked: (f) => setDialogState(() => portfolioFile = f),
@@ -198,7 +191,6 @@ class JobDetailPage extends ConsumerWidget {
         jobId: jobId,
         coverLetter: coverController.text,
         cvData: cvData,
-        cvPath: cvFile?.path,
         portfolioPath: portfolioFile?.path,
       )).future);
       if (!context.mounted) return;

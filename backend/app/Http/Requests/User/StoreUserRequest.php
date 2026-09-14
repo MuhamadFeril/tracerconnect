@@ -10,15 +10,11 @@ class StoreUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasAnyRole(['super_admin', 'institution_admin']) ?? false;
+        return $this->user()?->hasRole('admin_institusi') ?? false;
     }
 
     /**
-     * Institution admins can only create users inside their own institution.
-     * In 1-tenant mode (one active school) the school is attached automatically
-     * for super admin too, so the UI does not need an institution picker.
-     * HRD accounts are cross-school recruiters — they are never bound to an
-     * institution, so they are skipped here as well.
+     * Institution-scoped admins can only create users inside their own institution.
      */
     protected function prepareForValidation(): void
     {
@@ -28,14 +24,18 @@ class StoreUserRequest extends FormRequest
             return;
         }
 
-        if ($user->hasRole('institution_admin')) {
+        // Institution-scoped admin: force into own institution.
+        if ($user->institution_id !== null) {
             $this->merge(['institution_id' => $user->institution_id]);
 
             return;
         }
 
+        // Platform-wide admin: auto-assign institution in 1-tenant mode
+        // for tenant-scoped roles (alumni). Admin_institusi and hrd are
+        // always explicitly assigned.
         $role = $this->input('role');
-        if ($user->hasRole('super_admin') && ! $this->filled('institution_id') && ! in_array($role, ['super_admin', 'hrd'])) {
+        if ($user->institution_id === null && ! $this->filled('institution_id') && ! in_array($role, ['hrd', 'admin_institusi'], true)) {
             $single = Institution::where('status', 'active')->get();
             if ($single->count() === 1) {
                 $this->merge(['institution_id' => $single->first()->id]);
@@ -50,27 +50,25 @@ class StoreUserRequest extends FormRequest
     {
         $user = $this->user();
 
-        $allowedRoles = $user->hasRole('super_admin')
-            ? ['super_admin', 'institution_admin', 'alumni', 'hrd']
+        // Platform-wide admin can assign any role; institution-scoped admin only alumni/hrd.
+        $allowedRoles = ($user->institution_id === null)
+            ? ['admin_institusi', 'alumni', 'hrd']
             : ['alumni', 'hrd'];
 
         $institutionIdRules = ['nullable', 'uuid', Rule::exists('institutions', 'id')];
 
-        if ($user->hasRole('institution_admin')) {
+        if ($user->institution_id !== null) {
             // Force the user into the admin's own institution.
             $institutionIdRules = ['required', 'uuid', Rule::in([$user->institution_id])];
-        } elseif (in_array($this->input('role'), ['super_admin', 'hrd'])) {
-            // Platform-level (super admin) and cross-school HRD accounts are
-            // not bound to any institution.
+        } elseif ($this->input('role') === 'hrd') {
+            // HRD accounts are cross-school — not bound to any institution.
             $institutionIdRules = ['nullable'];
         } elseif (Institution::where('status', 'active')->count() > 1) {
-            // Multi-tenant deployment: every tenant-scoped account (institution
-            // admin, HRD, alumni) must be attached to an existing institution.
+            // Multi-tenant: every tenant-scoped account needs an institution.
             $institutionIdRules = ['required', 'uuid', Rule::exists('institutions', 'id')];
         }
 
-        // HRD accounts are companies/recruiters — their company (PT) name is
-        // required so every vacancy they post carries the correct company.
+        // HRD accounts need a company name.
         $companyRules = $this->input('role') === 'hrd'
             ? ['required', 'string', 'max:255']
             : ['nullable', 'string', 'max:255'];

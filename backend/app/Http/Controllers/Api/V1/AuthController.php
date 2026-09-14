@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -72,40 +73,40 @@ class AuthController extends Controller
             ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
         }
 
-        // If a soft-deleted user with this email exists (deleted by superadmin),
-        // restore it and allow re-registration. This lets the user verify and
-        // re-activate their account.
+        // Jika ada row soft-delete lama dengan email ini (sisa sebelum
+        // hapus permanen), purge permanen dulu agar data benar-benar hilang.
+        // Alur lanjut ke pembuatan akun fresh di bawah yang wajib isi
+        // biodata + OTP dari nol — tidak ada restore data lama.
         $trashedUser = User::onlyTrashed()
             ->whereRaw('lower(email) = ?', [$email])
             ->first();
 
         if ($trashedUser) {
-            $trashedUser->restore();
-            $trashedUser->update([
-                'name' => $request->name,
-                'password' => $request->password,
-                'institution_id' => $request->institution_id,
-                'is_active' => true,
-                'email_verified_at' => null,
-            ]);
-            $trashedUser->syncRoles(['alumni']);
+            $staleId = $trashedUser->id;
+            $staleEmail = $trashedUser->email;
+            DB::transaction(function () use ($trashedUser) {
+                $trashedUser->purgeDirectConversations();
+                $trashedUser->tokens()->delete();
+                try {
+                    $trashedUser->fcmTokens()->delete();
+                } catch (Throwable $e) {
+                }
+                try {
+                    $trashedUser->syncRoles([]);
+                } catch (Throwable $e) {
+                }
+                Alumni::withTrashed()->where('user_id', $trashedUser->id)->forceDelete();
+                Alumni::withTrashed()
+                    ->whereRaw('lower(email) = ?', [mb_strtolower((string) $trashedUser->email)])
+                    ->forceDelete();
+                $trashedUser->forceDelete();
+            });
 
-            $this->linkOrCreateAlumni($request, $trashedUser->id);
-            $trashedUser->syncLinkedAlumniIdentity();
-
-            AuditService::log('restore', 'user', $trashedUser->id, null, [
-                'email' => $trashedUser->email,
-                'name' => $trashedUser->name,
-                'restored_by' => 'self-registration',
-            ], $request, $trashedUser->id, $trashedUser->institution_id);
-
-            $code = OtpService::generate($trashedUser->email, 'register');
-            $trashedUser->notify(new SendOtp($code, 'register'));
-
-            return ApiResponse::success([
-                'requires_verification' => true,
-                'email' => $trashedUser->email,
-            ], 'Registrasi berhasil. Silakan verifikasi kode OTP yang dikirim ke email Anda.', [], 201);
+            AuditService::log('purge_deleted', 'user', null, null, [
+                'email' => $staleEmail,
+                'purged_user_id' => $staleId,
+                'purged_by' => 'self-registration-fresh',
+            ], $request);
         }
 
         try {
@@ -428,10 +429,7 @@ class AuthController extends Controller
             // which previously made valid Google tokens fail verification.
             JWT::$leeway = 60;
 
-            /** @var GoogleClient $client */
-            $client = app(GoogleClient::class);
-            $client->setClientId($clientId);
-            $payload = $client->verifyIdToken($request->id_token, $clientId);
+            $payload = $this->verifyGoogleIdToken($request->id_token);
         } catch (Throwable $e) {
             Log::warning('Verifikasi ID token Google gagal', ['error' => $e->getMessage()]);
             $payload = null;
@@ -449,18 +447,9 @@ class AuthController extends Controller
 
         [$user, $isNew] = $result;
 
-        // New Google users (or those who abandoned the flow) must complete
-        // their institution biodata and verify via OTP before they may use the
-        // app. Do NOT issue a usable token yet — just flag the frontend to
-        // route them to the biodata form.
-        if ($isNew || ! $this->isGoogleRegistrationComplete($user)) {
-            return ApiResponse::success([
-                'new_google_user' => true,
-                'requires_registration' => true,
-                'email' => $user->email,
-                'name' => $user->name,
-                'registration_token' => $this->issueGoogleRegistrationToken($user),
-            ], 'Silakan lengkapi biodata dan verifikasi OTP untuk melanjutkan');
+        // Auto-verify email for Google users — Google already verified it.
+        if ($isNew && $user->email_verified_at === null) {
+            $user->update(['email_verified_at' => $user->created_at ?? now()]);
         }
 
         $user->tokens()->delete();
@@ -469,13 +458,110 @@ class AuthController extends Controller
         $expiration = now()->addMinutes(config('sanctum.expiration', 1440));
         $token = $user->createToken('api-token', $permissions, $expiration);
 
+        $profileComplete = $user->institution_id !== null;
+
         return ApiResponse::success([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_in' => config('sanctum.expiration', 1440) * 60,
             'new_google_user' => $isNew,
+            'profile_complete' => $profileComplete,
             'user' => new UserResource($user->load('institution:id,name', 'roles:id,name', 'alumni.department:id,name', 'alumni.graduationYear:id,year')),
+            // Users without an institution still have to fill biodata. The
+            // mobile app completes it via POST /auth/google/complete-registration,
+            // which authenticates with this short-lived server-signed token
+            // (that endpoint is public, so the API session alone is not enough).
+            'registration_token' => ! $profileComplete ? $this->issueGoogleRegistrationToken($user) : null,
         ], 'Login berhasil');
+    }
+
+    /**
+     * Verify a Google ID token against every OAuth client ID of this project.
+     *
+     * google/apiclient only checks a single audience (the client's own ID).
+     * Tokens minted for the Android app can carry the Android OAuth client ID
+     * as audience instead of the Web client ID, so a strict single-audience
+     * check rejects valid mobile logins with "Token Google tidak valid".
+     *
+     * Strategy: verify with the Web client ID first (common case, one cert
+     * fetch). If that fails, peek the unverified `aud` claim — when it belongs
+     * to our own allowlist, verify the signature against that audience. The
+     * signature is always checked with Google's certs, so accepting our own
+     * Android client IDs stays secure.
+     *
+     * @return array<string, mixed>|null verified payload, or null on failure.
+     */
+    private function verifyGoogleIdToken(string $idToken): ?array
+    {
+        $clientId = (string) config('services.google.client_id');
+        $allowed = array_values(array_unique(array_filter(
+            array_merge([$clientId], (array) config('services.google.allowed_client_ids', []))
+        )));
+
+        /** @var GoogleClient $client */
+        $client = app(GoogleClient::class);
+
+        // 1. Common case: audience = Web client ID.
+        $client->setClientId($clientId);
+        try {
+            $payload = $client->verifyIdToken($idToken);
+        } catch (Throwable $e) {
+            Log::warning('Verifikasi ID token Google gagal (web aud)', ['error' => $e->getMessage()]);
+            $payload = false;
+        }
+        if (is_array($payload) && $payload !== []) {
+            return $payload;
+        }
+
+        // 2. Peek unverified claims to route by audience (no trust placed yet).
+        $claims = $this->peekGoogleJwtClaims($idToken);
+        $aud = is_array($claims) ? ($claims['aud'] ?? null) : null;
+
+        if (is_string($aud) && $aud !== '' && $aud !== $clientId && in_array($aud, $allowed, true)) {
+            $client->setClientId($aud);
+            try {
+                $payload = $client->verifyIdToken($idToken);
+            } catch (Throwable $e) {
+                Log::warning('Verifikasi ID token Google gagal (android aud)', ['error' => $e->getMessage()]);
+                $payload = false;
+            }
+            if (is_array($payload) && $payload !== []) {
+                return $payload;
+            }
+        }
+
+        // 3. Still failing — log routing hints (aud/iss/exp only, no PII/token).
+        Log::warning('Verifikasi ID token Google gagal total', [
+            'aud' => is_string($aud) ? substr($aud, 0, 24).'...' : null,
+            'aud_allowed' => is_string($aud) ? in_array($aud, $allowed, true) : false,
+            'iss' => is_array($claims) ? ($claims['iss'] ?? null) : null,
+            'exp' => is_array($claims) ? ($claims['exp'] ?? null) : null,
+            'now' => time(),
+        ]);
+
+        return null;
+    }
+
+    /**
+     * Decode JWT claims WITHOUT verifying the signature.
+     *
+     * Only used to route verification to the right audience and for failure
+     * logging — never trusted for authentication.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function peekGoogleJwtClaims(string $jwt): ?array
+    {
+        $parts = explode('.', $jwt);
+        if (count($parts) !== 3 || $parts[1] === '') {
+            return null;
+        }
+        $json = base64_decode(strtr($parts[1], '-_', '+/'), true);
+        if (! is_string($json)) {
+            return null;
+        }
+        $data = json_decode($json, true);
+        return is_array($data) ? $data : null;
     }
 
     /**
@@ -568,6 +654,32 @@ class AuthController extends Controller
                     continue;
                 }
                 $alumniData[$column] = $request->input($input) === '' ? null : $request->input($input);
+            }
+
+            if ($request->has('department')) {
+                $dept = $request->input('department');
+                if ($dept !== '' && $dept !== null) {
+                    $alumniData['department_id'] = Department::query()
+                        ->where('institution_id', $user->institution_id)
+                        ->whereRaw('LOWER(name) = ?', [mb_strtolower($dept)])
+                        ->first()?->id
+                        ?? Department::create(['institution_id' => $user->institution_id, 'name' => $dept])->id;
+                } else {
+                    $alumniData['department_id'] = null;
+                }
+            }
+
+            if ($request->has('graduation_year')) {
+                $year = $request->input('graduation_year');
+                if ($year !== '' && $year !== null) {
+                    $alumniData['graduation_year_id'] = GraduationYear::query()
+                        ->where('institution_id', $user->institution_id)
+                        ->where('year', $year)
+                        ->first()?->id
+                        ?? GraduationYear::create(['institution_id' => $user->institution_id, 'year' => $year])->id;
+                } else {
+                    $alumniData['graduation_year_id'] = null;
+                }
             }
 
             if ($alumniData !== []) {
@@ -753,6 +865,19 @@ class AuthController extends Controller
         // their token instead.
         $user = $request->user();
 
+        // Rute ini publik (tanpa middleware sanctum) sehingga Bearer token
+        // yang dikirim axios tidak otomatis di-autentikasi. Coba validasi
+        // manual: cocok untuk alur baru di mana GoogleCallback sudah
+        // menyimpan Sanctum token sebelum melempar ke form biodata.
+        if (! $user && $request->bearerToken()) {
+            $accessToken = PersonalAccessToken::findToken($request->bearerToken());
+            $candidate = $accessToken?->tokenable;
+            $expired = $accessToken?->expires_at !== null && $accessToken->expires_at->isPast();
+            if ($candidate instanceof User && ! $expired) {
+                $user = $candidate;
+            }
+        }
+
         if (! $user && $request->filled('registration_token')) {
             $user = $this->resolveGoogleRegistrationToken($request->input('registration_token'));
 
@@ -931,9 +1056,9 @@ class AuthController extends Controller
     }
 
     /**
-     * Soft-delete the authenticated user's account. All tokens are revoked,
-     * the avatar file is removed (if any), and the user record is soft-deleted
-     * so it can be restored later if needed.
+     * Permanently delete the authenticated user's account. All tokens are revoked,
+     * the avatar file is removed (if any), the linked alumni record is removed,
+     * and the user row is force-deleted so it disappears from the database.
      */
     public function deleteAccount(Request $request)
     {
@@ -944,16 +1069,44 @@ class AuthController extends Controller
             'name' => $user->name,
         ], $request);
 
-        // Remove avatar file from storage.
-        if ($user->avatar_path) {
-            Storage::disk('public')->delete($user->avatar_path);
-        }
+        DB::transaction(function () use ($user) {
+            // Remove avatar file from storage.
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
 
-        // Revoke all tokens (current session included).
-        $user->tokens()->delete();
+            // Revoke all tokens (current session included).
+            $user->tokens()->delete();
 
-        // Soft-delete the user.
-        $user->delete();
+            // Remove push-notification device tokens explicitly.
+            $user->fcmTokens()->delete();
+
+            // Detach Spatie roles/permissions (morph table has no FK cascade).
+            $user->syncRoles([]);
+
+            // Hapus chat 1-on-1 milik user (sebelum user dihapus, karena
+            // mapping peserta hilang setelah row user dihapus).
+            $user->purgeDirectConversations();
+
+            // Remove the linked alumni profile permanently (Alumni also uses
+            // SoftDeletes, so forceDelete to avoid leaving an orphan row with
+            // user_id nulled by the FK nullOnDelete rule).
+            $user->alumni()->withTrashed()->forceDelete();
+
+            // Hapus SEMUA baris alumni dengan email yang sama (tert aut,
+            // yatim user_id NULL sisa era lama, aktif maupun soft-delete)
+            // agar tidak ada data alumni yang tertinggal.
+            $emailLower = mb_strtolower((string) $user->email);
+            Alumni::withTrashed()
+                ->whereRaw('lower(email) = ?', [$emailLower])
+                ->forceDelete();
+
+            // Hard-delete the user so the row disappears from `users`.
+            // Relations with cascadeOnDelete FKs (survey_responses,
+            // connections, job_applications, event_registrations, etc.)
+            // are removed by the database; nullOnDelete FKs are nulled.
+            $user->forceDelete();
+        });
 
         return ApiResponse::success([], 'Akun berhasil dihapus');
     }

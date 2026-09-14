@@ -168,24 +168,9 @@ class GoogleAuthController extends Controller
 
             [$user, $isNew] = $result;
 
-            // New Google users (or those who abandoned the flow) must complete
-            // their institution biodata and verify via OTP before they may use
-            // the app. Do NOT issue a usable token yet — carry the verified
-            // email + Google ID token to the frontend so it can finish the
-            // mandatory registration steps instead.
-            if ($isNew || ! $this->isGoogleRegistrationComplete($user)) {
-                $authCode = encrypt(json_encode([
-                    'token' => null,
-                    'new_user' => true,
-                    'email' => $user->email,
-                    'name' => $user->name,
-                    'registration_token' => $this->issueGoogleRegistrationToken($user),
-                    'exp' => now()->addMinutes(5)->timestamp,
-                ]));
-
-                $redirectUrl = $frontendUrl.'/google/callback?auth_code='.rawurlencode($authCode);
-
-                return redirect()->away($redirectUrl);
+            // Auto-verify email for Google users — Google already verified it.
+            if ($isNew && $user->email_verified_at === null) {
+                $user->update(['email_verified_at' => $user->created_at ?? now()]);
             }
 
             $user->tokens()->delete();
@@ -202,9 +187,16 @@ class GoogleAuthController extends Controller
             // missing on the second request). The code is encrypted, short-lived
             // (5 min) and self-expiring, and the plaintext token never sits in
             // the URL after the exchange.
+            $profileComplete = $user->institution_id !== null;
+
             $authCode = encrypt(json_encode([
                 'token' => $token->plainTextToken,
                 'new_user' => $isNew,
+                'profile_complete' => $profileComplete,
+                // Wajib untuk user yang belum lengkap: rute complete-registration
+                // itu publik (tanpa middleware sanctum), jadi satu-satunya
+                // autentikasi yang diterima adalah registration_token ini.
+                'registration_token' => ! $profileComplete ? $this->issueGoogleRegistrationToken($user) : null,
                 'exp' => now()->addMinutes(5)->timestamp,
             ]));
 
@@ -254,6 +246,7 @@ class GoogleAuthController extends Controller
 
         $isNewUser = (bool) ($data['new_user'] ?? false);
         $token = $data['token'] ?? null;
+        $profileComplete = $data['profile_complete'] ?? ($token !== null);
 
         return response()->json([
             'success' => true,
@@ -262,6 +255,7 @@ class GoogleAuthController extends Controller
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'new_google_user' => $isNewUser,
+                'profile_complete' => $profileComplete,
                 'email' => $data['email'] ?? null,
                 'name' => $data['name'] ?? null,
                 'registration_token' => $data['registration_token'] ?? null,

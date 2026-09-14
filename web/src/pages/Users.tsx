@@ -19,21 +19,19 @@ import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/format'
 
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin',
-  institution_admin: 'Admin Institusi',
+  admin_institusi: 'Admin Institusi',
   alumni: 'Alumni',
   hrd: 'HRD',
 }
 
 const ROLE_TONES: Record<string, BadgeTone> = {
-  super_admin: 'violet',
-  institution_admin: 'indigo',
+  admin_institusi: 'violet',
   alumni: 'green',
   hrd: 'amber',
 }
 
 // Roles a platform admin may assign.
-const ALL_ROLES = ['super_admin', 'institution_admin', 'alumni', 'hrd']
+const ALL_ROLES = ['admin_institusi', 'alumni', 'hrd']
 
 function RoleBadge({ role }: { role: string }) {
   return <Badge tone={ROLE_TONES[role] ?? 'slate'}>{ROLE_LABELS[role] ?? role}</Badge>
@@ -65,10 +63,10 @@ function UserFormModal({
   const updateUser = useUpdateUser()
   const toast = useToast()
 
-  // Only the platform (super) admin may assign admin roles; institution
+  // Only the platform admin (no institution bound) may assign admin roles; institution
   // admins can only create alumni/HRD accounts inside their own school.
   const viewer = getUser()
-  const isPlatformAdmin = viewer?.roles?.includes('super_admin') ?? false
+  const isPlatformAdmin = viewer?.roles?.includes('admin_institusi') && !viewer?.institution_id
   const availableRoles = isPlatformAdmin ? ALL_ROLES : ['alumni', 'hrd']
   const { data: institutionOptions } = useInstitutionOptions()
 
@@ -94,7 +92,7 @@ function UserFormModal({
     // existing school — the picker offers existing institutions only, it
     // never creates a new one. Super admin and HRD are platform-level /
     // cross-school, so they never need an institution.
-    const needsInstitution = !isEditing && isPlatformAdmin && form.role !== 'super_admin' && form.role !== 'hrd'
+    const needsInstitution = !isEditing && isPlatformAdmin && form.role !== 'hrd'
     if (needsInstitution && !form.institution_id) {
       setError('Pilih institusi untuk akun ini')
       return
@@ -193,7 +191,7 @@ function UserFormModal({
               />
             </Field>
           )}
-          {!isEditing && isPlatformAdmin && form.role !== 'super_admin' && form.role !== 'hrd' && (
+          {!isEditing && isPlatformAdmin && form.role !== 'hrd' && (
             <Field label="Institusi" required>
               <Select
                 name="institution_id"

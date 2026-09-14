@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/alumni_management_page.dart';
+import '../../features/admin/user_management_page.dart';
 import '../../features/announcements/announcement_detail_page.dart';
 import '../../features/announcements/announcements_page.dart';
 import '../../features/data_quality/data_quality_page.dart';
@@ -41,9 +44,20 @@ import '../../features/surveys/survey_fill_page.dart';
 import '../../features/surveys/survey_result_page.dart';
 import '../../features/surveys/surveys_page.dart';
 
+/// Meneruskan perubahan [AuthState] ke GoRouter agar `redirect` dievaluasi
+/// ulang setiap login/logout (termasuk token kedaluwarsa via `forceLogout`).
+class _AuthListenable extends ChangeNotifier {
+  _AuthListenable(Ref ref) {
+    ref.listen<AuthState>(authControllerProvider, (_, __) => notifyListeners());
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     initialLocation: '/splash',
+    // WAJIB: tanpa ini, logout hanya membersihkan sesi tapi layar tidak
+    // pindah — terlihat seperti "tombol keluar tidak bisa".
+    refreshListenable: _AuthListenable(ref),
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
       final location = state.matchedLocation;
@@ -92,8 +106,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isAlumniOnly = RoleUtils.isAlumniOnly(user);
       if (isAlumniOnly) {
-        // Alumni: larang akses hrd job management.
-        if (location.startsWith('/hrd-jobs')) return '/home';
+        // Alumni: larang akses hrd job management & admin pages.
+        if (location.startsWith('/hrd-jobs') || location.startsWith('/admin/')) return '/home';
       }
 
       return null;
@@ -170,6 +184,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/profile',
                 builder: (context, state) => const ProfilePage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/chat',
+                builder: (context, state) => const ChatListPage(),
               ),
             ],
           ),
@@ -279,6 +301,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           jobId: state.pathParameters['id']!,
           jobTitle: state.uri.queryParameters['title'],
         ),
+      ),
+      // Admin management
+      GoRoute(
+        path: '/admin/alumni',
+        builder: (context, state) => const AlumniManagementPage(),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        builder: (context, state) => const UserManagementPage(),
       ),
       // Institution Branding
       GoRoute(

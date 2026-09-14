@@ -53,7 +53,7 @@ class AnnouncementTest extends TestCase
         $this->assertDatabaseHas('announcements', ['title' => 'Libur Hari Raya']);
     }
 
-    public function test_super_admin_can_create_announcement_for_any_institution(): void
+    public function test_admin_institusi_can_create_announcement_for_any_institution(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
         $other = $this->otherInstitution();
@@ -96,7 +96,7 @@ class AnnouncementTest extends TestCase
         $this->withToken($token)->deleteJson("/api/v1/announcements/{$foreign->id}")->assertStatus(403);
     }
 
-    public function test_super_admin_can_update_and_delete_across_institutions(): void
+    public function test_admin_institusi_can_update_and_delete_across_institutions(): void
     {
         $other = $this->otherInstitution();
         $announcement = Announcement::create([

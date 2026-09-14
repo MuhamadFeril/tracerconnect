@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_error.dart';
+import '../../core/services/google_signin_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/lag_loader.dart';
 import 'auth_controller.dart';
@@ -77,11 +76,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   int _cooldown = 0;
   Timer? _cooldownTimer;
 
-  /// `GoogleSignIn.initialize()` hanya boleh dipanggil SEKALI per sesi
-  /// aplikasi (dokumentasi google_sign_in 7.x: pemanggilan lebih dari sekali
-  /// berakibat undefined behavior).
-  bool _googleInitialized = false;
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -115,6 +109,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           .read(authControllerProvider.notifier)
           .login(_emailController.text, _passwordController.text);
       // Redirect otomatis ditangani router setelah status berubah.
+      // Fallback: jika router redirect tidak terpicu, navigasi manual.
+      if (mounted) context.go('/home');
     } on ApiException catch (e) {
       setState(() => _error = firstValidationMessage(e));
       _startCooldown();
@@ -126,30 +122,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  /// Inisialisasi `google_sign_in` tepat satu kali.
-  ///
-  /// - Android: plugin TIDAK memakai `clientId` — aplikasi dikenali dari
-  ///   package name + SHA-1 signing key yang terdaftar di Google Cloud Console.
-  /// - iOS/macOS: butuh `clientId` sendiri (via --dart-define bila ada).
-  /// - `serverClientId` wajib = client OAuth **Web**, HARUS sama dengan
-  ///   `GOOGLE_CLIENT_ID` backend agar ID token lolos verifikasi audience.
-  Future<void> _ensureGoogleInitialized() async {
-    if (_googleInitialized) return;
-    String? clientId;
-    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
-      const iosId = AppConstants.googleIosClientId;
-      clientId = iosId.isNotEmpty ? iosId : null;
-    }
-    await GoogleSignIn.instance.initialize(
-      clientId: clientId,
-      serverClientId: AppConstants.googleClientId,
-    );
-    _googleInitialized = true;
-  }
-
   /// "Lanjut dengan Google" — alur yang sama dengan tombol Google di landing
   /// web: minta ID token via `google_sign_in`, kirim ke `POST /auth/google`,
   /// lalu simpan sesi (token + user). Akun harus sudah terdaftar dulu.
+  ///
+  /// Inisialisasi ditangani [GoogleSignInService] (tepat sekali per sesi).
   Future<void> _googleLogin() async {
     setState(() {
       _submitting = true;
@@ -157,20 +134,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
 
     try {
-      await _ensureGoogleInitialized();
-      final googleSignIn = GoogleSignIn.instance;
-
-      // Logout dulu agar selalu muncul pemilih akun Google.
-      await googleSignIn.signOut();
-      final account = await googleSignIn.authenticate();
-      final idToken = account.authentication.idToken;
-
-      if (idToken == null || idToken.isEmpty) {
-        throw const GoogleSignInException(
-          code: GoogleSignInExceptionCode.unknownError,
-          description: 'Tidak mendapat ID token dari Google',
-        );
-      }
+      // ignore: avoid_print
+      print('[GOOGLE-DEBUG] start, serverClientId=${AppConstants.googleClientId}');
+      final idToken = await GoogleSignInService.requestIdToken();
+      // ignore: avoid_print
+      print('[GOOGLE-DEBUG] idToken present=${idToken.isNotEmpty} '
+          'aud=${GoogleSignInService.tokenAudience(idToken)}');
 
       final result =
           await ref.read(authControllerProvider.notifier).googleLogin(idToken);
@@ -185,41 +154,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
         return;
       }
-      // Akun sudah lengkap → redirect otomatis ditangani router.
+      // Akun sudah login tapi profile belum lengkap → redirect ke home lalu
+      // tampilkan prompt untuk melengkapi institusi.
+      if (mounted) context.go('/home');
     } on ApiException catch (e) {
+      // ignore: avoid_print
+      print('[GOOGLE-DEBUG] ApiException: ${e.statusCode} ${e.message}');
       setState(() => _error = firstValidationMessage(e));
     } on GoogleSignInException catch (e) {
-      // Berikan pesan yang lebih spesifik berdasarkan jenis error.
-      String message;
-      switch (e.code) {
-        case GoogleSignInExceptionCode.canceled:
-          // User membatalkan pemilihan akun — jangan tampilkan error.
-          if (mounted) setState(() => _submitting = false);
-          return;
-
-        default:
-          // Deteksi error konfigurasi Google Cloud Console:
-          // - 28444: Developer console is not set up correctly
-          // - deskripsi mengandung 'clientId', 'sign_in', atau 'Developer console'
-          final desc = e.description ?? '';
-          final isConfigError =
-              desc.contains('Developer console') ||
-              desc.contains('clientId') ||
-              desc.contains('sign_in') ||
-              desc.contains('28444');
-          if (isConfigError) {
-            message = 'Google Sign-In belum terkonfigurasi. Periksa: '
-                '(1) SHA-1 debug + package name com.tracerconnect.tracerconnect_mobile '
-                'terdaftar sebagai OAuth client type Android di Google Cloud Console, dan '
-                '(2) nilai GOOGLE_CLIENT_ID mobile sama persis dengan GOOGLE_CLIENT_ID backend.';
-          } else {
-            message = 'Google Sign-In gagal: ${desc.isNotEmpty ? desc : 'periksa konfigurasi client ID Google'}. '
-                'Pastikan backend berjalan dan akun sudah terdaftar.';
-          }
-          break;
+      // ignore: avoid_print
+      print('[GOOGLE-DEBUG] GoogleSignInException: ${e.code} ${e.description}');
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        // User membatalkan pemilihan akun — jangan tampilkan error.
+        if (mounted) setState(() => _submitting = false);
+        return;
       }
-      setState(() => _error = message);
-    } catch (_) {
+      setState(() => _error = GoogleSignInService.friendlyErrorMessage(e));
+    } catch (e) {
+      // ignore: avoid_print
+      print('[GOOGLE-DEBUG] generic error: $e');
       setState(() => _error = 'Google Sign-In gagal. Silakan coba lagi.');
     } finally {
       if (mounted) setState(() => _submitting = false);

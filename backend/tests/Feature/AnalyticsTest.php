@@ -45,7 +45,7 @@ class AnalyticsTest extends TestCase
             ]]);
     }
 
-    public function test_institution_admin_can_fetch_overview(): void
+    public function test_admin_institusi_can_fetch_overview(): void
     {
         $this->withToken($this->loginAs('admin@smkn1tracer.sch.id'))
             ->getJson('/api/v1/analytics/overview')

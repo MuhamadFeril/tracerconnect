@@ -28,8 +28,8 @@ class ResponseController extends Controller
             ->withCount('answers')
             ->addSelect(['survey_questions_count' => Question::selectRaw('count(*)')
                 ->whereColumn('questions.survey_id', 'survey_responses.survey_id')])
-            ->when(! $currentUser->hasRole('super_admin'), fn ($query) => $query->forInstitution($currentUser->institution_id))
-            ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
+            ->when($currentUser->institution_id !== null, fn ($query) => $query->forInstitution($currentUser->institution_id))
+            ->when($currentUser->institution_id === null && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->when($request->filled('survey_id'), fn ($query) => $query->where('survey_id', $request->survey_id))
             ->when($request->filled('status'), function ($query) use ($request) {
                 // 'expired' is derived: an in-progress draft on an expired survey.

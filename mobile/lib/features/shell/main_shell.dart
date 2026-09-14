@@ -78,12 +78,13 @@ class _NavTab {
 
 /// Returns the visible tabs for the given [user] role.
 List<_NavTab> _tabsFor(dynamic user) {
-  // HRD: Beranda | Lowongan | Profil
+  // HRD: Beranda | Lowongan | Profil | Chat
   if (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) {
     return const [
       _NavTab(Icons.home_outlined, Icons.home_rounded, 'Beranda', 0),
       _NavTab(Icons.work_outline_rounded, Icons.work_rounded, 'Lowongan', 2),
       _NavTab(Icons.person_outline_rounded, Icons.person_rounded, 'Profil', 4),
+      _NavTab(Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Chat', 5),
     ];
   }
 

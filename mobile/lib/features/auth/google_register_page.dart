@@ -297,6 +297,15 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-select first institution when data loads — harus di dalam build
+    // karena ref.listen hanya boleh dipanggil dari build method ConsumerWidget.
+    ref.listen(institutionOptionsProvider, (previous, next) {
+      final list = next.valueOrNull;
+      if (list != null && list.isNotEmpty && _institutionId == null) {
+        setState(() => _institutionId = list.first.id);
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(title: const Text('Lengkapi Akun Google')),
       body: Stack(
@@ -494,17 +503,17 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
 
   Widget _buildBiodataStep() {
     final currentYear = DateTime.now().year;
+    // Tahun masuk: 1990..tahun berjalan — sama seperti web.
     final years =
         List.generate(currentYear - 1989, (i) => (1990 + i).toString());
-    // Langkah pemilihan institusi dihapus dari registrasi mobile: institusi
-    // pertama (satu-satunya yang aktif di deployment tenan tunggal) dipilih
-    // otomatis agar dropdown jurusan & scoping data tetap bekerja.
-    ref.listen(institutionOptionsProvider, (previous, next) {
-      final list = next.valueOrNull;
-      if (list != null && list.isNotEmpty && _institutionId == null) {
-        setState(() => _institutionId = list.first.id);
-      }
-    });
+    // Tahun lulus mengikuti tahun masuk: min masuk+3, maks masuk+6 atau
+    // tahun berjalan (mana yang lebih besar) — paritas web.
+    final entry = int.tryParse(_entryYear ?? '') ?? 0;
+    final gradStart = entry > 0 ? (1990 > entry + 3 ? 1990 : entry + 3) : 1990;
+    final gradEnd = currentYear > entry + 6 ? currentYear : (entry > 0 ? entry + 6 : currentYear);
+    final gradYears = gradStart <= gradEnd
+        ? List.generate(gradEnd - gradStart + 1, (i) => (gradStart + i).toString())
+        : <String>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -643,7 +652,14 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
                     .toList(),
                 onChanged: (v) => setState(() {
                   _entryYear = v;
-                  _gradYear = null;
+                  // Paritas web: tahun lulus direset bila tidak lagi valid
+                  // (tahun masuk dikosongkan, atau lulus < masuk + 3).
+                  final grad = int.tryParse(_gradYear ?? '');
+                  final entryNew = int.tryParse(v ?? '');
+                  if (_gradYear != null &&
+                      (entryNew == null || (grad != null && grad < entryNew + 3))) {
+                    _gradYear = null;
+                  }
                 }),
               ),
             ),
@@ -653,11 +669,13 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
                 initialValue: _gradYear,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Tahun Lulus *'),
-                hint: const Text('Pilih'),
-                items: years
+                hint: Text(entry == 0 ? 'Pilih tahun masuk dulu' : 'Minimal ${entry + 3}'),
+                items: gradYears
                     .map((y) => DropdownMenuItem(value: y, child: Text(y)))
                     .toList(),
-                onChanged: (v) => setState(() => _gradYear = v),
+                onChanged: entry == 0
+                    ? null
+                    : (v) => setState(() => _gradYear = v),
               ),
             ),
           ],

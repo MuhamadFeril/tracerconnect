@@ -229,7 +229,7 @@ class AnalyticsService
     {
         $user = $request->user();
 
-        if ($user->hasRole('super_admin')) {
+        if ($user->hasRole('admin_institusi') && $user->institution_id === null) {
             return $request->filled('institution_id') ? $request->institution_id : null;
         }
 

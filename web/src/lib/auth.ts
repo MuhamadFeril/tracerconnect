@@ -17,8 +17,7 @@ export const SESSION_TTL_MS = 60 * 60 * 1000
  * (e.g. alumni) is sent to the profile page.
  */
 export const ADMIN_ROLES = [
-  'super_admin',
-  'institution_admin',
+  'admin_institusi',
   'hrd',
 ]
 

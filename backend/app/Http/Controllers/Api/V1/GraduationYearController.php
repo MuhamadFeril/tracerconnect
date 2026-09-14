@@ -21,8 +21,8 @@ class GraduationYearController extends Controller
 
         $years = GraduationYear::query()
             ->withCount('alumni')
-            ->when(! $currentUser->hasRole('super_admin'), fn ($query) => $query->forInstitution($currentUser->institution_id))
-            ->when($currentUser->hasRole('super_admin') && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
+            ->when($currentUser->institution_id !== null, fn ($query) => $query->forInstitution($currentUser->institution_id))
+            ->when($currentUser->institution_id === null && $request->filled('institution_id'), fn ($query) => $query->forInstitution($request->institution_id))
             ->orderByDesc('year')
             ->paginate($perPage);
 

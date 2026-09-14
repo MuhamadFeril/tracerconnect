@@ -45,6 +45,9 @@ function careerDetail(a: AlumniProfileSummary): string {
     if (a.business_city) bits.push([a.business_city, a.business_province].filter(Boolean).join(', '))
     return bits.filter(Boolean).join(' · ') || '—'
   }
+  if (a.employment_status === 'unemployed') {
+    return 'Mencari kerja'
+  }
   return '—'
 }
 

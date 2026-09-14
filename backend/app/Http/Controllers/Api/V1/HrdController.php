@@ -16,12 +16,22 @@ use Illuminate\Http\Request;
 class HrdController extends Controller
 {
     /**
+     * Check if the user has an HRD-compatible role.
+     * Handles both the current 'hrd' role and the legacy 'employer' role
+     * for databases where the rename migration hasn't been run yet.
+     */
+    private function isHrd($user): bool
+    {
+        return $user->hasAnyRole(['hrd', 'employer', 'admin_institusi']);
+    }
+
+    /**
      * Dashboard summary for the authenticated hrd: their own vacancy
      * counts, applicant totals per hiring stage, and recent activity.
      */
     public function dashboard(Request $request)
     {
-        if (! $request->user()->hasRole('hrd')) {
+        if (! $this->isHrd($request->user())) {
             return ApiResponse::error('Hanya HRD yang dapat mengakses fitur ini', [], 403);
         }
 
@@ -91,7 +101,7 @@ class HrdController extends Controller
      */
     public function applications(Request $request)
     {
-        if (! $request->user()->hasRole('hrd')) {
+        if (! $this->isHrd($request->user())) {
             return ApiResponse::error('Hanya HRD yang dapat mengakses fitur ini', [], 403);
         }
 

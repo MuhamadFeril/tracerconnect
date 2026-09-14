@@ -17,23 +17,23 @@ class AlumniPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function view(User $user, Alumni $alumni): bool
     {
-        return $user->hasRole('super_admin') || $this->inSameInstitution($user, $alumni);
+        return $user->hasRole('admin_institusi') && ($user->institution_id === null || $this->inSameInstitution($user, $alumni));
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function update(User $user, Alumni $alumni): bool
     {
-        return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $alumni) && $user->hasAnyRole(['institution_admin']));
+        return $user->hasRole('admin_institusi')
+            && ($user->institution_id === null || $this->inSameInstitution($user, $alumni));
     }
 
     public function delete(User $user, Alumni $alumni): bool
@@ -43,7 +43,7 @@ class AlumniPolicy
 
     public function import(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function export(User $user): bool

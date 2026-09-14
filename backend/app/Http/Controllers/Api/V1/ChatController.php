@@ -100,6 +100,35 @@ class ChatController extends Controller
     }
 
     /**
+     * Get the institution admin for the current user's institution.
+     * Used by alumni to initiate a chat with their school admin.
+     */
+    public function institutionAdmin(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if (! $user->institution_id) {
+            return ApiResponse::success(null, 'Tidak ada institusi terkait');
+        }
+
+        $admin = User::query()
+            ->whereHas('roles', fn ($q) => $q->where('name', 'admin_institusi'))
+            ->where('institution_id', $user->institution_id)
+            ->first(['id', 'name', 'avatar_path']);
+
+        if (! $admin) {
+            return ApiResponse::success(null, 'Admin institusi tidak ditemukan');
+        }
+
+        return ApiResponse::success([
+            'id' => $admin->id,
+            'name' => $admin->name,
+            'avatar_url' => $admin->avatar_path ? asset('storage/'.$admin->avatar_path) : null,
+        ], 'Admin institusi berhasil diambil');
+    }
+
+    /**
      * Start a conversation, or return the existing one between the same two
      * parties (with the same job context). Backend-enforced rules:
      * - cannot chat with yourself
@@ -523,7 +552,8 @@ class ChatController extends Controller
 
     /**
      * Alumni-alumni chat requires a confirmed connection within the same
-     * institution; institution staff may message alumni of their institution.
+     * institution; alumni may chat with their institution admin; institution
+     * staff may message alumni of their institution.
      */
     private function assertDirectChatAllowed(User $user, User $other): void
     {
@@ -552,10 +582,15 @@ class ChatController extends Controller
             return;
         }
 
-        // Institution staff (institution_admin) can reach alumni of their
+        // Alumni can chat with their institution's admin (admin_institusi).
+        if ($userIsAlumni && $other->hasRole('admin_institusi') && $sameInstitution) {
+            return;
+        }
+
+        // Institution staff (admin_institusi) can reach alumni of their
         // institution; super admins reach anyone.
         if (! $userIsAlumni && $user->hasPermissionTo('chat.send')) {
-            if ($sameInstitution || $user->hasRole('super_admin')) {
+            if ($sameInstitution || ($user->hasRole('admin_institusi') && $user->institution_id === null)) {
                 return;
             }
 

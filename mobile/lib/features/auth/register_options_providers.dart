@@ -53,14 +53,17 @@ final institutionOptionsProvider =
 });
 
 /// Department options for a specific institution.
-/// Returns empty list when institutionId is null or empty.
+/// Falls back to all departments when no institution is selected —
+/// same behavior as the web (`/departments/all`).
 final departmentOptionsProvider =
     FutureProvider.autoDispose.family<List<DepartmentOption>, String>(
         (ref, institutionId) async {
-  if (institutionId.isEmpty) return [];
   try {
-    final data =
-        await ApiClient.instance.get('/institutions/$institutionId/departments');
+    final data = await ApiClient.instance.get(
+      institutionId.isEmpty
+          ? '/departments/all'
+          : '/institutions/$institutionId/departments',
+    );
     final list = data as List;
     return list
         .whereType<Map<String, dynamic>>()

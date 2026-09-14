@@ -212,7 +212,7 @@ class ReportService
     {
         $user = $request->user();
 
-        if ($user->hasRole('super_admin') && ! $request->filled('institution_id')) {
+        if ($user->hasRole('admin_institusi') && $user->institution_id === null && ! $request->filled('institution_id')) {
             return 'Semua Institusi (Platform)';
         }
 

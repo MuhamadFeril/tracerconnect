@@ -122,7 +122,7 @@ class AppConstants {
   /// `flutter run --dart-define=GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com`
   static const String googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
-    defaultValue: '1004228940124-v0fq4tgc8t3tj6r21jihgbep5in61jtj.apps.googleusercontent.com',
+    defaultValue: '399383365196-nloll6plpftp2q2fk5h9rn11qevqsejf.apps.googleusercontent.com',
   );
 
   /// Client ID OAuth khusus iOS/macOS. TIDAK dipakai di Android —

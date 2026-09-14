@@ -14,23 +14,23 @@ class SurveyPolicy
 
     private function canManage(User $user, Survey $survey): bool
     {
-        return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $survey) && $user->hasAnyRole(['institution_admin']));
+        return $user->hasRole('admin_institusi')
+            && ($user->institution_id === null || $this->inSameInstitution($user, $survey));
     }
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function view(User $user, Survey $survey): bool
     {
-        return $user->hasRole('super_admin') || $this->inSameInstitution($user, $survey);
+        return $user->hasRole('admin_institusi') && ($user->institution_id === null || $this->inSameInstitution($user, $survey));
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function update(User $user, Survey $survey): bool
@@ -64,7 +64,13 @@ class SurveyPolicy
      */
     public function start(User $user, Survey $survey): bool
     {
-        return $user->hasRole('super_admin') || $this->inSameInstitution($user, $survey);
+        // Platform-wide admin (no institution) can access everything.
+        if ($user->hasRole('admin_institusi') && $user->institution_id === null) {
+            return true;
+        }
+
+        // Any user (admin or alumni) from the same institution can fill the survey.
+        return $this->inSameInstitution($user, $survey);
     }
 
     public function save(User $user, Survey $survey): bool

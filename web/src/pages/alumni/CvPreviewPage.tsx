@@ -185,18 +185,25 @@ export function CvPreviewPage() {
       </div>
 
       {/* CV Content - printable */}
-      <Card className="mx-auto max-w-3xl overflow-hidden p-6 print:border-0 print:p-0 print:shadow-none sm:p-8">
+      <Card className="cv-printable mx-auto max-w-3xl overflow-hidden p-6 print:border-0 print:p-0 print:shadow-none sm:p-8">
         <CvContent cv={finalCv} coverLetter={coverLetter} alumniName={alumniName} />
       </Card>
 
       {/* Print styles */}
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .no-print { display: none !important; }
-          .print\\:border-0 { border: none !important; }
-          .print\\:p-0 { padding: 0 !important; }
-          .print\\:shadow-none { box-shadow: none !important; }
+          aside, header, .no-print { display: none !important; }
+          .lg\\:pl-60 { padding-left: 0 !important; }
+          main { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+          .cv-printable {
+            border: none !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
         }
       `}</style>
     </div>

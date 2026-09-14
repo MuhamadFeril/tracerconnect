@@ -28,7 +28,7 @@ class GraduationYearTest extends TestCase
         return Institution::where('slug', 'smk-negeri-1-tracer')->firstOrFail();
     }
 
-    public function test_institution_admin_can_create_graduation_year(): void
+    public function test_admin_institusi_can_create_graduation_year(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
@@ -62,7 +62,7 @@ class GraduationYearTest extends TestCase
         $this->withToken($token)->deleteJson("/api/v1/graduation-years/{$other->id}")->assertStatus(403);
     }
 
-    public function test_institution_admin_list_only_own_years(): void
+    public function test_admin_institusi_list_only_own_years(): void
     {
         $superToken = $this->loginAs('superadmin@tracerconnect.test');
         $otherInstitution = Institution::create([

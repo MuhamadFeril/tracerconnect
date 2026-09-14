@@ -35,8 +35,9 @@ class GoogleRegistrationInfo {
 class GoogleLoginResult {
   final AuthSession? session;
   final GoogleRegistrationInfo? registration;
+  final bool profileComplete;
 
-  const GoogleLoginResult({this.session, this.registration});
+  const GoogleLoginResult({this.session, this.registration, this.profileComplete = true});
 }
 
 /// Hasil register: bisa langsung login atau butuh verifikasi OTP.
@@ -83,10 +84,35 @@ class AuthRepository {
   Future<GoogleLoginResult> googleLogin(String idToken) async {
     final data = await _api.post('/auth/google', data: {'id_token': idToken});
 
-    // Akun Google baru → butuh pelengkapan biodata (tanpa token API).
+    // Backend now always returns a token for Google users.
+    // If profile_complete is false, the user still needs to fill in institution:
+    // backend also sends a short-lived registration_token for
+    // POST /auth/google/complete-registration — attach it so the caller can
+    // push the biodata screen. Without it the user would land on home with
+    // the "belum terhubung ke institusi" banner and no way to fix it.
+    if (data is Map<String, dynamic> && data['token'] != null) {
+      final profileComplete = data['profile_complete'] != false;
+      final session = await _sessionFromData(data);
+      GoogleRegistrationInfo? registration;
+      final regToken = data['registration_token'] as String?;
+      if (!profileComplete && regToken != null && regToken.isNotEmpty) {
+        final userJson = data['user'] as Map<String, dynamic>?;
+        registration = GoogleRegistrationInfo(
+          email: (userJson?['email'] as String? ?? '').toString(),
+          name: (userJson?['name'] as String? ?? '').toString(),
+          registrationToken: regToken,
+        );
+      }
+      return GoogleLoginResult(
+        session: session,
+        registration: registration,
+        profileComplete: profileComplete,
+      );
+    }
+
+    // Fallback: legacy flow without token (biodata + OTP required).
     if (data is Map<String, dynamic> &&
-        data['new_google_user'] == true &&
-        (data['token'] == null || (data['token'] as String? ?? '').isEmpty)) {
+        data['new_google_user'] == true) {
       final regToken = data['registration_token'];
       if (regToken == null || (regToken as String? ?? '').isEmpty) {
         throw const ApiException(

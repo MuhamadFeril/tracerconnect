@@ -1,26 +1,52 @@
 {
   "project_info": {
-    "project_number": "594004907346",
-    "project_id": "tracerconnect-b69a9",
-    "storage_bucket": "tracerconnect-b69a9.firebasestorage.app"
+    "project_number": "399383365196",
+    "project_id": "traceralumni-51243",
+    "storage_bucket": "traceralumni-51243.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:594004907346:android:3a0c66fce4d51408b4968b",
+        "mobilesdk_app_id": "1:399383365196:android:99f61b00b3bcd8fa5b16e9",
         "android_client_info": {
-          "package_name": "com.tracerconnect.app"
+          "package_name": "com.traceralumni.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "399383365196-i99m7j9lb38ijtktro93ge9ar75jlfii.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.traceralumni.app",
+            "certificate_hash": "3af38c44fdf9a0cfbeb506b074778ec2dac443bb"
+          }
+        },
+        {
+          "client_id": "399383365196-iu54mbmda1n9n615s7cmubimt7j663o3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.traceralumni.app",
+            "certificate_hash": "ac32ccc0260a1d75f7d42232849a84a45fb9affc"
+          }
+        },
+        {
+          "client_id": "399383365196-nloll6plpftp2q2fk5h9rn11qevqsejf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyBMMZC7uOEzuTjvsA_AZoA0Va0gR9PkAF4"
+          "current_key": "AIzaSyCPnemhedycZdvCEq0cSgxp8SAUF8nuOeU"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "399383365196-nloll6plpftp2q2fk5h9rn11qevqsejf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -15,7 +15,11 @@ class EventPolicy
     public function view(User $user, Event $event): bool
     {
         return $user->can('event.view')
-            && ($user->hasRole('super_admin') || $user->institution_id === $event->institution_id);
+            && (
+                $user->hasRole('admin_institusi')
+                    ? ($user->institution_id === null || $user->institution_id === $event->institution_id)
+                    : $user->institution_id === $event->institution_id
+            );
     }
 
     public function create(User $user): bool
@@ -26,12 +30,12 @@ class EventPolicy
     public function update(User $user, Event $event): bool
     {
         return $user->can('event.update')
-            && ($user->hasRole('super_admin') || $user->institution_id === $event->institution_id);
+            && ($user->hasRole('admin_institusi') && ($user->institution_id === null || $user->institution_id === $event->institution_id));
     }
 
     public function delete(User $user, Event $event): bool
     {
         return $user->can('event.delete')
-            && ($user->hasRole('super_admin') || $user->institution_id === $event->institution_id);
+            && ($user->hasRole('admin_institusi') && ($user->institution_id === null || $user->institution_id === $event->institution_id));
     }
 }

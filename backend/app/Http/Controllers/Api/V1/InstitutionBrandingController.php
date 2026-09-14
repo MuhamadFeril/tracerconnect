@@ -18,11 +18,11 @@ class InstitutionBrandingController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->institution_id && ! $user->hasRole('super_admin')) {
+        if ($user->institution_id === null) {
             return ApiResponse::error('Tidak terhubung ke institusi', [], 404);
         }
 
-        $institutionId = $user->hasRole('super_admin')
+        $institutionId = $user->hasRole('admin_institusi') && $user->institution_id === null
             ? ($request->input('institution_id') ?? $user->institution_id)
             : $user->institution_id;
 
@@ -57,11 +57,11 @@ class InstitutionBrandingController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('institution_admin')) {
+        if ($user->institution_id === null) {
             return ApiResponse::error('Tidak memiliki akses', [], 403);
         }
 
-        $institutionId = $user->hasRole('super_admin')
+        $institutionId = $user->hasRole('admin_institusi') && $user->institution_id === null
             ? ($request->input('institution_id') ?? $user->institution_id)
             : $user->institution_id;
 
@@ -96,11 +96,11 @@ class InstitutionBrandingController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('institution_admin')) {
+        if ($user->institution_id === null) {
             return ApiResponse::error('Tidak memiliki akses', [], 403);
         }
 
-        $institutionId = $user->hasRole('super_admin')
+        $institutionId = $user->hasRole('admin_institusi') && $user->institution_id === null
             ? ($request->input('institution_id') ?? $user->institution_id)
             : $user->institution_id;
 
@@ -135,11 +135,11 @@ class InstitutionBrandingController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('institution_admin')) {
+        if ($user->institution_id === null) {
             return ApiResponse::error('Tidak memiliki akses', [], 403);
         }
 
-        $institutionId = $user->hasRole('super_admin')
+        $institutionId = $user->hasRole('admin_institusi') && $user->institution_id === null
             ? ($request->input('institution_id') ?? $user->institution_id)
             : $user->institution_id;
 
@@ -174,11 +174,11 @@ class InstitutionBrandingController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('institution_admin')) {
+        if ($user->institution_id === null) {
             return ApiResponse::error('Tidak memiliki akses', [], 403);
         }
 
-        $institutionId = $user->hasRole('super_admin')
+        $institutionId = $user->hasRole('admin_institusi') && $user->institution_id === null
             ? ($request->input('institution_id') ?? $user->institution_id)
             : $user->institution_id;
 

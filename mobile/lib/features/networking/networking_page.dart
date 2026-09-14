@@ -426,9 +426,14 @@ class _ConnectionsTab extends ConsumerWidget {
         loading: () => const LoadingView(label: 'Memuat koneksi…'),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 120),
-            ErrorView(message: 'Gagal memuat koneksi.'),
+          children: [
+            const SizedBox(height: 120),
+            ErrorView(
+              message: 'Gagal memuat koneksi.',
+              onRetry: () {
+                ref.invalidate(connectionsProvider);
+              },
+            ),
           ],
         ),
         data: (items) {
@@ -508,9 +513,14 @@ class _RequestsTab extends ConsumerWidget {
         loading: () => const LoadingView(label: 'Memuat permintaan…'),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 120),
-            ErrorView(message: 'Gagal memuat permintaan.'),
+          children: [
+            const SizedBox(height: 120),
+            ErrorView(
+              message: 'Gagal memuat permintaan.',
+              onRetry: () {
+                ref.invalidate(requestsProvider);
+              },
+            ),
           ],
         ),
         data: (items) {

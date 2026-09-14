@@ -65,7 +65,6 @@ class JobsRepository {
     String jobId, {
     String? coverLetter,
     Map<String, dynamic>? cvData,
-    File? cvFile,
     File? portfolioFile,
   }) async {
     // Build form data for file uploads.
@@ -85,20 +84,14 @@ class JobsRepository {
         }
       });
     }
-    // Attach files.
-    if (cvFile != null || portfolioFile != null) {
+    // Attach portfolio file if provided.
+    if (portfolioFile != null) {
       final formData = FormData.fromMap({
         ...form,
-        if (cvFile != null)
-          'cv': await MultipartFile.fromFile(
-            cvFile.path,
-            filename: cvFile.path.split('/').last,
-          ),
-        if (portfolioFile != null)
-          'portfolio': await MultipartFile.fromFile(
-            portfolioFile.path,
-            filename: portfolioFile.path.split('/').last,
-          ),
+        'portfolio': await MultipartFile.fromFile(
+          portfolioFile.path,
+          filename: portfolioFile.path.split('/').last,
+        ),
       });
       final data = await _api.postForm('/job-vacancies/$jobId/apply', formData);
       return JobApplication.fromJson(data as Map<String, dynamic>);

@@ -14,23 +14,23 @@ class GraduationYearPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function view(User $user, GraduationYear $graduationYear): bool
     {
-        return $user->hasRole('super_admin') || $this->inSameInstitution($user, $graduationYear);
+        return $user->hasRole('admin_institusi') && ($user->institution_id === null || $this->inSameInstitution($user, $graduationYear));
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     public function update(User $user, GraduationYear $graduationYear): bool
     {
-        return $user->hasRole('super_admin')
-            || ($this->inSameInstitution($user, $graduationYear) && $user->hasAnyRole(['institution_admin']));
+        return $user->hasRole('admin_institusi')
+            && ($user->institution_id === null || $this->inSameInstitution($user, $graduationYear));
     }
 
     public function delete(User $user, GraduationYear $graduationYear): bool

@@ -58,6 +58,7 @@ class AuditLogTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'hrd',
+            'company_name' => 'PT Staf Baru',
             'institution_id' => $institution->id,
         ])->assertCreated();
 

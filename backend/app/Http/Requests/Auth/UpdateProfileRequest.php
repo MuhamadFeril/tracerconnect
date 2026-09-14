@@ -68,6 +68,8 @@ class UpdateProfileRequest extends FormRequest
             'birthplace_regency' => ['sometimes', 'nullable', 'string', 'max:255'],
             'birthplace_province' => ['sometimes', 'nullable', 'string', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'department' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'graduation_year' => ['sometimes', 'nullable', 'integer', 'min:1990', 'max:'.(date('Y') + 10)],
             'employment_status' => [
                 'sometimes', 'nullable', 'string',
                 Rule::when(

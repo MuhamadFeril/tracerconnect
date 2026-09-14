@@ -9,7 +9,7 @@ class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasAnyRole(['super_admin', 'institution_admin']) ?? false;
+        return $this->user()?->hasRole('admin_institusi') ?? false;
     }
 
     /**
@@ -20,8 +20,9 @@ class UpdateUserRequest extends FormRequest
         $user = $this->user();
         $target = $this->route('user');
 
-        $allowedRoles = $user->hasRole('super_admin')
-            ? ['super_admin', 'institution_admin', 'alumni', 'hrd']
+        // Platform-wide admin can assign any role; institution-scoped admin only alumni/hrd.
+        $allowedRoles = ($user->institution_id === null)
+            ? ['admin_institusi', 'alumni', 'hrd']
             : ['alumni', 'hrd'];
 
         return [

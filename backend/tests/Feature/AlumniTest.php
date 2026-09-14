@@ -90,7 +90,7 @@ class AlumniTest extends TestCase
         ])->assertOk()->assertJsonPath('data.birthplace', 'Baleendah');
     }
 
-    public function test_super_admin_can_create_alumni_with_department_and_year(): void
+    public function test_admin_institusi_can_create_alumni_with_department_and_year(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 
@@ -118,7 +118,7 @@ class AlumniTest extends TestCase
         $this->assertDatabaseHas('alumni', ['nis_nim' => '20250101']);
     }
 
-    public function test_institution_admin_creates_alumni_in_own_institution(): void
+    public function test_admin_institusi_creates_alumni_in_own_institution(): void
     {
         $token = $this->loginAs('admin@smkn1tracer.sch.id');
 
@@ -241,7 +241,7 @@ class AlumniTest extends TestCase
         $this->assertSame('entrepreneur', Alumni::where('nis_nim', '20260102')->firstOrFail()->employment_status);
     }
 
-    public function test_import_requires_institution_for_super_admin(): void
+    public function test_import_requires_institution_for_admin_institusi(): void
     {
         $token = $this->loginAs('superadmin@tracerconnect.test');
 

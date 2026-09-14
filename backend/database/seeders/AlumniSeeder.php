@@ -6,6 +6,7 @@ use App\Models\Alumni;
 use App\Models\Department;
 use App\Models\GraduationYear;
 use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class AlumniSeeder extends Seeder
@@ -69,6 +70,20 @@ class AlumniSeeder extends Seeder
                     'birthplace_province' => $row['birthplace_province'] ?? null,
                 ]
             );
+
+            $user = User::updateOrCreate(
+                ['email' => $row['email']],
+                [
+                    'name' => $row['name'],
+                    'password' => 'password',
+                    'institution_id' => $institution->id,
+                    'is_active' => true,
+                ]
+            );
+
+            if (! $user->hasRole('alumni')) {
+                $user->assignRole('alumni');
+            }
         }
     }
 }

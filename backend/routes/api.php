@@ -63,11 +63,12 @@ Route::prefix('v1')->group(function () {
     Route::post('csp-report', [CspReportController::class, 'store'])->middleware('throttle:60,1');
 
     Route::get('institution/{institutionId}/branding', [InstitutionBrandingController::class, 'publicBranding'])->middleware('throttle:60,1');
-        // Public data needed by the registration form.
+    // Public data needed by the registration form.
     Route::get('universities', [UniversityController::class, 'index'])->middleware('throttle:60,1');
     Route::get('universities/{university}/study-programs', [UniversityController::class, 'studyPrograms'])->middleware('throttle:60,1');
     Route::get('institutions/options', [InstitutionController::class, 'options'])->middleware('throttle:60,1');
     Route::get('institutions/{institutionId}/departments', [InstitutionController::class, 'departments'])->middleware('throttle:60,1');
+    Route::get('departments/all', [InstitutionController::class, 'allDepartments'])->middleware('throttle:60,1');
     Route::get('regions/provinces', [RegionController::class, 'provinces'])->middleware('throttle:60,1');
     Route::get('regions/provinces/{province}/regencies', [RegionController::class, 'regencies'])->middleware('throttle:60,1');
     Route::get('regions/regencies/{regency}/districts', [RegionController::class, 'districts'])->middleware('throttle:60,1');
@@ -160,6 +161,9 @@ Route::prefix('v1')->group(function () {
         Route::post('events/{event}/participants/{registration}/attendance', [EventController::class, 'markAttended'])->middleware('throttle:30,1');
         Route::apiResource('job-vacancies', JobVacancyController::class)->middleware('throttle:60,1');
 
+        // Success stories (phase 10)
+        Route::apiResource('success-stories', \App\Http\Controllers\Api\V1\SuccessStoryController::class)->middleware('throttle:60,1');
+
         // Job applications + bookmarks (phase 8)
         Route::get('applications/my', [JobApplicationController::class, 'my'])->middleware('throttle:60,1');
         Route::post('job-vacancies/{job_vacancy}/apply', [JobApplicationController::class, 'apply'])->middleware('throttle:10,1');
@@ -191,6 +195,7 @@ Route::prefix('v1')->group(function () {
         // Registered before {conversation} so the literal segment is never
         // treated as a conversation UUID.
         Route::get('conversations/unread-count', [ChatController::class, 'unreadCount'])->middleware('throttle:60,1');
+        Route::get('conversations/institution-admin', [ChatController::class, 'institutionAdmin'])->middleware('throttle:60,1');
         Route::get('conversations', [ChatController::class, 'index'])->middleware('throttle:60,1');
         Route::post('conversations', [ChatController::class, 'store'])->middleware('throttle:20,1');
         Route::get('conversations/{conversation}', [ChatController::class, 'show'])->middleware('throttle:60,1');

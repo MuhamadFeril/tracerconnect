@@ -43,10 +43,10 @@ export function GoogleCallback() {
 
         const data = res.data?.data
         const token = data?.token
+        const isNewGoogleUser = Boolean(data?.new_google_user)
+        const profileComplete = data?.profile_complete ?? true
 
-        // New Google users do NOT receive a Sanctum token yet — they must
-        // finish their institution biodata and verify via OTP first. Stash
-        // the verified email/name and redirect to the registration form.
+        // New Google users without token — legacy flow (biodata + OTP required).
         if (!token) {
           const email = data?.email
           const regToken = data?.registration_token
@@ -71,6 +71,25 @@ export function GoogleCallback() {
         return unwrap<User>(api.get('/auth/me')).then((user) => {
           if (!active) return
           setSession(token, user)
+
+          // Akun Google baru / profil belum lengkap (mis. habis hapus akun
+          // lalu login Google lagi yang auto-bikin akun fresh tanpa
+          // institusi) wajib isi biodata dulu, jangan langsung dashboard.
+          const needsBiodata =
+            isNewGoogleUser || profileComplete === false || !(user as any)?.institution_id
+          if (needsBiodata) {
+            navigate('/register?google=1', {
+              replace: true,
+              state: {
+                email: (user as any)?.email ?? '',
+                name: (user as any)?.name ?? '',
+                // Wajib: complete-registration adalah rute publik, auth-nya
+                // hanya lewat registration_token ini (Bearer token tidak dibaca).
+                registration_token: (data as any)?.registration_token ?? undefined,
+              },
+            })
+            return
+          }
 
           // Existing fully-registered Google users go straight to the app.
           const target = user.roles?.includes('hrd') ? '/hrd' : hasAdminRole(user) ? '/dashboard' : '/home'

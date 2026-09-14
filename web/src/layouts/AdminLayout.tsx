@@ -52,22 +52,22 @@ const ALUMNI_NAV: NavItem[] = [
 ]
 
 const NAV: NavItem[] = [
-  // Menus are shared by the platform owner (super_admin) and each school's
-  // institution_admin — both operate the school data (alumni, surveys,
+  // Menus are shared by the platform owner (admin_institusi) and each school's
+  // admin_institusi — both operate the school data (alumni, surveys,
   // analytics, …). HRD is intentionally excluded from every data-management
   // menu: HRD only manage their own vacancies and applicants, never the
-  // school's alumni data. Only platform-level items (Roles) stay super-only.
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: ['super_admin', 'institution_admin'] },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false, roles: ['super_admin', 'institution_admin'] },
-  { to: '/alumni', label: 'Alumni', icon: Users, end: false, roles: ['super_admin', 'institution_admin'] },
-  { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['super_admin', 'institution_admin'] },
-  { to: '/surveys', label: 'Kuisioner', icon: ClipboardList, roles: ['super_admin', 'institution_admin'] },
-  { to: '/reports', label: 'Laporan', icon: FileText, roles: ['super_admin', 'institution_admin'] },
-  { to: '/users', label: 'Pengguna', icon: UserCog, roles: ['super_admin', 'institution_admin'] },
-  { to: '/roles', label: 'Roles', icon: ShieldCheck, roles: ['super_admin'] },
-  { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['super_admin', 'institution_admin'] },
-  { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['super_admin', 'institution_admin'] },
-  { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['super_admin', 'institution_admin'] },
+  // school's alumni data. Only platform-level items (Roles) stay platform-only.
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: ['admin_institusi'] },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3, end: false, roles: ['admin_institusi'] },
+  { to: '/alumni', label: 'Alumni', icon: Users, end: false, roles: ['admin_institusi'] },
+  { to: '/departments', label: 'Jurusan', icon: BookOpen, roles: ['admin_institusi'] },
+  { to: '/surveys', label: 'Kuisioner', icon: ClipboardList, roles: ['admin_institusi'] },
+  { to: '/reports', label: 'Laporan', icon: FileText, roles: ['admin_institusi'] },
+  { to: '/users', label: 'Pengguna', icon: UserCog, roles: ['admin_institusi'] },
+  { to: '/roles', label: 'Roles', icon: ShieldCheck, roles: ['admin_institusi'] },
+  { to: '/announcements', label: 'Pengumuman', icon: Megaphone, roles: ['admin_institusi'] },
+  { to: '/events', label: 'Acara', icon: CalendarDays, roles: ['admin_institusi'] },
+  { to: '/jobs', label: 'Lowongan', icon: Briefcase, roles: ['admin_institusi'] },
 ]
 
 const HRD_NAV: NavItem[] = [

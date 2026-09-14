@@ -15,7 +15,7 @@ class SuccessStoryPolicy
     public function view(User $user, SuccessStory $story): bool
     {
         return $user->can('story.view')
-            && ($user->hasRole('super_admin') || $user->institution_id === $story->institution_id);
+            && ($user->hasRole('admin_institusi') && ($user->institution_id === null || $user->institution_id === $story->institution_id));
     }
 
     public function create(User $user): bool
@@ -26,12 +26,12 @@ class SuccessStoryPolicy
     public function update(User $user, SuccessStory $story): bool
     {
         return $user->can('story.update')
-            && ($user->hasRole('super_admin') || $user->institution_id === $story->institution_id);
+            && ($user->hasRole('admin_institusi') && ($user->institution_id === null || $user->institution_id === $story->institution_id));
     }
 
     public function delete(User $user, SuccessStory $story): bool
     {
         return $user->can('story.delete')
-            && ($user->hasRole('super_admin') || $user->institution_id === $story->institution_id);
+            && ($user->hasRole('admin_institusi') && ($user->institution_id === null || $user->institution_id === $story->institution_id));
     }
 }

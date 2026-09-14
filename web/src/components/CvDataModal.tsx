@@ -12,7 +12,7 @@ import {
   User,
   Wrench,
 } from 'lucide-react'
-import type { JobApplication } from '../lib/types'
+import type { CvFormData, JobApplication } from '../lib/types'
 import { Button } from './ui/Button'
 import { Modal } from './ui/Modal'
 
@@ -101,7 +101,7 @@ export function CvDataContent({ app }: { app: JobApplication }) {
           <div className="mt-2 space-y-1.5">
             {app.cv_path && (
               <a
-                href={`/storage/${app.cv_path}`}
+                href={`/backend/storage/app/${app.cv_path}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-indigo-600 hover:underline"
@@ -111,7 +111,7 @@ export function CvDataContent({ app }: { app: JobApplication }) {
             )}
             {app.portfolio_path && (
               <a
-                href={`/storage/${app.portfolio_path}`}
+                href={`/backend/storage/app/${app.portfolio_path}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-indigo-600 hover:underline"
@@ -147,7 +147,23 @@ export function CvDataModal({ app, onClose }: { app: JobApplication | null; onCl
           <Button variant="secondary" onClick={onClose}>Tutup</Button>
           <Button
             onClick={() => {
-              navigate('/cv-preview', { state: { cvData: app.cv_data, coverLetter: app.cover_letter, alumniName: app.alumni?.name } })
+              const a = app.alumni
+              const cvFromProfile: CvFormData = app.cv_data ?? {
+                full_name: a?.name ?? '',
+                email: null,
+                phone: null,
+                gender: null,
+                birth_date: null,
+                birthplace: null,
+                address: null,
+                department: a?.department ?? null,
+                graduation_year: a?.graduation_year != null ? String(a.graduation_year) : null,
+                education: [a?.department, a?.graduation_year ? `'${String(a.graduation_year).slice(2)}` : ''].filter(Boolean).join(' · '),
+                skills: null,
+                experience: [a?.position, a?.company_name].filter(Boolean).join(' di ') || null,
+                interests: null,
+              }
+              navigate('/cv-preview', { state: { cvData: cvFromProfile, coverLetter: app.cover_letter, alumniName: a?.name } })
             }}
           >
             <Eye className="size-4" /> Preview CV

@@ -9,13 +9,16 @@ class SurveyResponsePolicy
 {
     private function staffOf(User $user, SurveyResponse $response): bool
     {
-        if ($user->hasRole('super_admin')) {
+        if (! $user->hasRole('admin_institusi')) {
+            return false;
+        }
+
+        // Platform-wide admin (no institution bound).
+        if ($user->institution_id === null) {
             return true;
         }
 
-        return $user->institution_id !== null
-            && $user->institution_id === $response->institution_id
-            && $user->hasAnyRole(['institution_admin']);
+        return $user->institution_id === $response->institution_id;
     }
 
     /**
@@ -23,7 +26,7 @@ class SurveyResponsePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'institution_admin']);
+        return $user->hasRole('admin_institusi');
     }
 
     /**
@@ -40,12 +43,6 @@ class SurveyResponsePolicy
      */
     public function delete(User $user, SurveyResponse $response): bool
     {
-        if ($user->hasRole('super_admin')) {
-            return true;
-        }
-
-        return $user->institution_id !== null
-            && $user->institution_id === $response->institution_id
-            && $user->hasAnyRole(['institution_admin']);
+        return $this->staffOf($user, $response);
     }
 }

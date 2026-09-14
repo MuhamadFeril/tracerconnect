@@ -36,7 +36,7 @@ class NotificationTest extends TestCase
             'institution_id' => $institution->id,
             'is_active' => true,
         ]);
-        $user->assignRole('institution_admin');
+        $user->assignRole('admin_institusi');
 
         return $user;
     }

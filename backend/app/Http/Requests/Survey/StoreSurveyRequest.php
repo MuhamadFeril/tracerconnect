@@ -19,7 +19,7 @@ class StoreSurveyRequest extends FormRequest
     {
         $user = $this->user();
 
-        if ($user && ! $user->hasRole('super_admin')) {
+        if ($user && $user->institution_id !== null) {
             $this->merge(['institution_id' => $user->institution_id]);
         }
     }
@@ -34,7 +34,7 @@ class StoreSurveyRequest extends FormRequest
         return [
             'institution_id' => [
                 'required', 'uuid', Rule::exists('institutions', 'id'),
-                Rule::when(! $user->hasRole('super_admin'), Rule::in([$user->institution_id])),
+                Rule::when($user->institution_id !== null, Rule::in([$user->institution_id])),
             ],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],

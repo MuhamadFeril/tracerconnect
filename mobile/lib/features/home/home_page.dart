@@ -22,6 +22,7 @@ import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_view.dart';
 import '../../shared/widgets/section_header.dart';
 import '../auth/auth_controller.dart';
+import '../chat/chat_providers.dart';
 import '../notifications/notifications_providers.dart';
 
 import '../surveys/survey_providers.dart';
@@ -38,6 +39,12 @@ class HomePage extends ConsumerWidget {
     final unread = ref.watch(unreadCountProvider);
     final user = auth.user;
     final unreadCount = unread.valueOrNull ?? 0;
+    final chatUnread = ref.watch(chatUnreadCountProvider).valueOrNull ?? 0;
+
+    // Role-specific dashboards render their own full header (greeting + icons),
+    // so hide the generic AppBar to avoid a duplicated greeting.
+    final showRoleDashboard = (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) ||
+        (RoleUtils.isAlumni(user) && !RoleUtils.isAdmin(user));
 
     Future<void> onRefresh() async {
       ref.invalidate(homeDataProvider);
@@ -48,7 +55,7 @@ class HomePage extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: _HomeAppBar(user: user, unreadCount: unreadCount),
+      appBar: showRoleDashboard ? null : _HomeAppBar(user: user, unreadCount: unreadCount),
       body: RefreshIndicator(
         onRefresh: onRefresh,
         child: home.when(
@@ -73,6 +80,15 @@ class HomePage extends ConsumerWidget {
           // HRD: show dedicated dashboard instead of generic home.
           if (RoleUtils.isHrd(user) && !RoleUtils.isAdmin(user)) {
             return const HrdDashboardPage();
+          }
+          // Alumni: show dedicated alumni dashboard.
+          if (RoleUtils.isAlumni(user) && !RoleUtils.isAdmin(user)) {
+            return _AlumniDashboard(
+              data: data,
+              user: user,
+              unreadCount: unreadCount,
+              chatUnreadCount: chatUnread,
+            );
           }
           return _HomeLayout(
             user: user,
@@ -131,6 +147,629 @@ class HomePage extends ConsumerWidget {
           );
           },
         ),
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------
+// Alumni Dashboard — sesuai desain: header, grid menu 8 item,
+// promo carousel, institusi chip, profil alumni
+// ----------------------------------------------------------------------
+
+class _AlumniDashboard extends ConsumerWidget {
+  final AlumniHomeData data;
+  final User? user;
+  final int unreadCount;
+  final int chatUnreadCount;
+
+  const _AlumniDashboard({
+    required this.data,
+    required this.user,
+    required this.unreadCount,
+    required this.chatUnreadCount,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      children: [
+        // ── Gradient Header dengan profile, notif, chat ──
+        _AlumniHeader(
+          user: user,
+          unreadCount: unreadCount,
+          chatUnreadCount: chatUnreadCount,
+        ),
+        const SizedBox(height: 20),
+
+        // ── Grid menu 8 item ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _AlumniQuickActions(user: user),
+        ),
+        const SizedBox(height: 20),
+
+        // ── Promo Carousel ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _PromoCarousel(
+            onSurveyTap: () => context.go('/surveys'),
+            user: user,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // ── Institution Chip ──
+        if (data.institution != null && data.institution!.name.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _InstitutionChip(name: data.institution!.name),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // ── Profil Alumni ──
+        if (data.alumni != null) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _AlumniStrip(alumni: data.alumni!),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ],
+    );
+  }
+}
+
+class _AlumniHeader extends StatelessWidget {
+  final User? user;
+  final int unreadCount;
+  final int chatUnreadCount;
+  const _AlumniHeader({
+    required this.user,
+    required this.unreadCount,
+    required this.chatUnreadCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, AppColors.primaryDark],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AppAvatar(
+                  imageUrl: user?.avatarUrl,
+                  name: user?.name ?? 'Alumni',
+                  size: 40,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Halo, ${user?.name ?? 'Alumni'} 👋',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Terhubung dengan alumni & kariermu',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _HeaderIconBadge(
+                  icon: Icons.notifications_none_rounded,
+                  badgeCount: unreadCount,
+                  onTap: () => context.push('/notifications'),
+                ),
+                const SizedBox(width: 8),
+                _HeaderIconBadge(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  badgeCount: chatUnreadCount,
+                  onTap: () => context.push('/chat'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlumniSearchBar extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AlumniSearchBar({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              'Cari lowongan, event, atau pengumuman...',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlumniStatCards extends StatelessWidget {
+  final AlumniHomeData data;
+  const _AlumniStatCards({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            icon: Icons.campaign_outlined,
+            label: 'Pengumuman',
+            value: '${data.announcements.length}',
+            gradient: const [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.event_outlined,
+            label: 'Event',
+            value: '${data.events.length}',
+            gradient: const [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final List<Color> gradient;
+
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.last.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlumniQuickActions extends StatelessWidget {
+  final User? user;
+  const _AlumniQuickActions({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _ActionItem(icon: Icons.assignment_outlined, label: 'Kuisisoner', route: '/surveys', color: const Color(0xFF3B82F6), bg: const Color(0xFFEFF6FF)),
+      _ActionItem(icon: Icons.work_outline_rounded, label: 'Lowongan', route: '/jobs', color: const Color(0xFFB45309), bg: const Color(0xFFFEF3C7)),
+      _ActionItem(icon: Icons.event_outlined, label: 'Acara', route: '/events', color: const Color(0xFF3B82F6), bg: const Color(0xFFEFF6FF)),
+      _ActionItem(icon: Icons.people_outline_rounded, label: 'Jejaring', route: '/network', color: const Color(0xFF7C3AED), bg: const Color(0xFFF5F3FF)),
+      _ActionItem(icon: Icons.campaign_outlined, label: 'Pengumuman', route: '/announcements', color: const Color(0xFFDC2626), bg: const Color(0xFFFEF2F2)),
+      _ActionItem(icon: Icons.chat_bubble_outline_rounded, label: 'Chat', route: '/chat', color: const Color(0xFF059669), bg: const Color(0xFFECFDF5)),
+      _ActionItem(icon: Icons.bookmark_border_rounded, label: 'Tersimpan', route: '/my-bookmarks', color: const Color(0xFFDB2777), bg: const Color(0xFFFDF2F8)),
+      _ActionItem(icon: Icons.description_outlined, label: 'Lamaranku', route: '/my-applications', color: const Color(0xFF0D9488), bg: const Color(0xFFF0FDFA)),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: GridView.count(
+        crossAxisCount: 4,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 4,
+        childAspectRatio: 0.88,
+        children: [
+          for (final item in items)
+            _AlumniGridTile(
+              label: item.label,
+              icon: item.icon,
+              color: item.color,
+              bg: item.bg,
+              onTap: () => context.push(item.route),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlumniGridTile extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color bg;
+  final VoidCallback onTap;
+
+  const _AlumniGridTile({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.bg,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+            child: Icon(icon, size: 22, color: color),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionItem {
+  final IconData icon;
+  final String label;
+  final String route;
+  final Color color;
+  final Color bg;
+  const _ActionItem({required this.icon, required this.label, required this.route, required this.color, required this.bg});
+}
+
+class _AlumniJobsSection extends StatelessWidget {
+  final List<JobVacancy> jobs;
+  const _AlumniJobsSection({required this.jobs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Lowongan Terbaru', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            TextButton(
+              onPressed: () => context.go('/jobs'),
+              child: const Text('Lihat Semua'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...jobs.take(3).map((job) => _JobCard(job: job)),
+      ],
+    );
+  }
+}
+
+class _JobCard extends StatelessWidget {
+  final JobVacancy job;
+  const _JobCard({required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.work_outline_rounded, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(job.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(job.companyName ?? '-', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlumniAnnouncementsSection extends StatelessWidget {
+  final List<Announcement> items;
+  const _AlumniAnnouncementsSection({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Pengumuman', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        ...items.take(3).map((a) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.campaign_outlined, color: Color(0xFF3B82F6), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(
+                          Formatters.formatDateFromString(a.createdAt),
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+      ],
+    );
+  }
+}
+
+class _AlumniEventsSection extends StatelessWidget {
+  final List<EventItem> events;
+  const _AlumniEventsSection({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Event Mendatang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        ...events.take(3).map((e) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.event_outlined, color: Color(0xFF8B5CF6), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(
+                          Formatters.formatDateTimeFromString(e.startsAt),
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+      ],
+    );
+  }
+}
+
+class _HeaderIconBadge extends StatelessWidget {
+  final IconData icon;
+  final int badgeCount;
+  final VoidCallback onTap;
+  const _HeaderIconBadge({
+    required this.icon,
+    this.badgeCount = 0,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 20, color: Colors.white),
+          ),
+          if (badgeCount > 0)
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: AppColors.danger,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                ),
+                child: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -248,7 +887,10 @@ class _HomeLayout extends StatelessWidget {
             ),
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
           ),
-          child: _HeaderContent(user: user),
+          child: SafeArea(
+            bottom: false,
+            child: _HeaderContent(user: user),
+          ),
         ),
         const SizedBox(height: 20),
         Padding(
@@ -378,17 +1020,20 @@ class _ServicesGrid extends StatelessWidget {
             AppColors.successBg, '/chat'),
       ];
     } else if (RoleUtils.isAdmin(user)) {
-      // Admin: skip Jejaring, show management-oriented services.
+      // Admin: management-oriented services.
       services = const [
         _ServiceItem('Kuisioner', Icons.assignment_outlined, AppColors.primary,
             AppColors.primaryLight, '/surveys'),
+        _ServiceItem('Alumni', Icons.people_outline_rounded, AppColors.violet,
+            AppColors.violetBg, '/admin/alumni'),
+        _ServiceItem('Pengguna', Icons.manage_accounts_outlined, AppColors.info,
+            AppColors.infoBg, '/admin/users'),
         _ServiceItem('Lowongan', Icons.work_outline_rounded, Color(0xFFB45309),
             Color(0xFFFEF3C7), '/jobs'),
         _ServiceItem('Acara', Icons.event_outlined, AppColors.info,
             AppColors.infoBg, '/events'),
         _ServiceItem('Pengumuman', Icons.campaign_outlined, AppColors.danger,
-            AppColors.dangerBg, '/announcements'),        _ServiceItem('Chat', Icons.chat_bubble_outline_rounded, AppColors.success,
-          AppColors.successBg, '/chat'),
+            AppColors.dangerBg, '/announcements'),
         _ServiceItem('Kualitas Data', Icons.fact_check_outlined, Color(0xFF0D9488),
           Color(0xFFF0FDFA), '/data-quality'),
         _ServiceItem('Branding', Icons.palette_outlined, Color(0xFF7C3AED),

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   AtSign,
-  CalendarDays,
   Camera,
   ClipboardList,
   Globe,
@@ -22,6 +21,7 @@ import { avatarUrl, initials } from '../lib/format'
 import type { SocialLink } from '../lib/types'
 import {
   useDeleteAvatar,
+  useDepartmentOptions,
   useDistricts,
   useMe,
   useProvinces,
@@ -35,28 +35,6 @@ import { Field, Input, Select, Textarea } from '../components/ui/Field'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
-
-function ProfileInfo({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ElementType
-  label: string
-  value: React.ReactNode
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-medium text-slate-800">{value || '—'}</p>
-      </div>
-    </div>
-  )
-}
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE_MB = 2
@@ -78,6 +56,8 @@ export function Profile() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const alumni = me.data?.alumni ?? user?.alumni ?? null
+  const departmentsQuery = useDepartmentOptions(user?.institution_id ?? null)
+
   // Biodata source: the linked alumni summary when one exists; otherwise the
   // freshest user record from /auth/me (admin accounts have no
   // alumni record). Falls back to the stored session while me is loading.
@@ -99,6 +79,8 @@ export function Profile() {
   const [alumniForm, setAlumniForm] = useState({
     nis: '',
     nisn: '',
+    department: '',
+    graduation_year: '',
     socials: [] as SocialLink[],
     skills: [] as string[],
   })
@@ -111,6 +93,8 @@ export function Profile() {
     setAlumniForm({
       nis: alumni.nis_nim ?? '',
       nisn: alumni.nisn ?? '',
+      department: alumni.department ?? '',
+      graduation_year: alumni.graduation_year ? String(alumni.graduation_year) : '',
       socials: alumni.socials ?? [],
       skills: alumni.skills ?? [],
     })
@@ -119,7 +103,7 @@ export function Profile() {
   const setProfileField = (key: 'name' | 'email', value: string) =>
     setProfile((p) => ({ ...p, [key]: value }))
 
-  const setAlumniField = (key: 'nis' | 'nisn', value: string) => {
+  const setAlumniField = (key: 'nis' | 'nisn' | 'department' | 'graduation_year', value: string) => {
     setAlumniTouched(true)
     setAlumniForm((f) => ({ ...f, [key]: value }))
   }
@@ -361,6 +345,8 @@ export function Profile() {
         email: profile.email,
         nis: alumniForm.nis.trim() || null,
         nisn: alumniForm.nisn.trim() || null,
+        department: alumniForm.department || null,
+        graduation_year: alumniForm.graduation_year ? Number(alumniForm.graduation_year) : null,
         // Drop social rows the user added but left blank.
         socials: alumniForm.socials.filter((s) => s.url.trim() !== ''),
         skills: alumniForm.skills,
@@ -758,14 +744,31 @@ export function Profile() {
                 </div>
               )}
 
-              {/* Read-only academic summary (biodata fields live in the Biodata card) */}
+              {/* Read-only academic summary → now editable */}
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <ProfileInfo icon={GraduationCap} label="Jurusan" value={alumni.department} />
-                <ProfileInfo
-                  icon={CalendarDays}
-                  label="Tahun Lulus"
-                  value={alumni.graduation_year ? String(alumni.graduation_year) : null}
-                />
+                <Field label="Jurusan">
+                  <Select
+                    value={alumniForm.department}
+                    onChange={(e) => setAlumniField('department', e.target.value)}
+                    disabled={departmentsQuery.isLoading}
+                  >
+                    <option value="">{departmentsQuery.isLoading ? 'Memuat jurusan…' : 'Pilih jurusan'}</option>
+                    {departmentsQuery.data?.map((d) => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Tahun Lulus">
+                  <Select
+                    value={alumniForm.graduation_year}
+                    onChange={(e) => setAlumniField('graduation_year', e.target.value)}
+                  >
+                    <option value="">Pilih tahun lulus</option>
+                    {Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </Select>
+                </Field>
               </div>
 
               <div className="border-t border-slate-100 pt-5">

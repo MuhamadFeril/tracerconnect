@@ -36,7 +36,7 @@ trait ScopesToInstitution
             return;
         }
 
-        if (! $user->hasRole('super_admin')) {
+        if ($user->institution_id !== null) {
             $this->merge(['institution_id' => $user->institution_id]);
         }
     }
@@ -53,7 +53,7 @@ trait ScopesToInstitution
 
         return [
             'required', 'uuid', Rule::exists('institutions', 'id'),
-            Rule::when(! $user->hasRole('super_admin'), Rule::in([$user->institution_id])),
+            Rule::when($user->institution_id !== null, Rule::in([$user->institution_id])),
         ];
     }
 }
