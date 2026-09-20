@@ -32,19 +32,41 @@ class NetworkingRepository {
   }
 
   Future<List<ConnectionItem>> connections() async {
-    final data = await _api.get('/networking/connections');
-    return (data as List?)
-        ?.whereType<Map<String, dynamic>>()
-        .map(ConnectionItem.fromJson)
-        .toList() ?? [];
+    // Tahan terhadap perubahan backend: gunakan envelope agar shape
+    // paginated {data: [...], meta} maupun array datar tetap terbaca.
+    // Sebelumnya hanya pakai _api.get — jika meta ikut terkirim atau
+    // backend mengubah wrapper, parsing gagal dan UI menampilkan
+    // "Gagal memuat koneksi / permintaan".
+    try {
+      final env = await _api.getEnvelope('/networking/connections');
+      return _parseConnections(env.data);
+    } catch (_) {
+      final data = await _api.get('/networking/connections');
+      return _parseConnections(data);
+    }
   }
 
   Future<List<ConnectionItem>> requests() async {
-    final data = await _api.get('/networking/requests');
-    return (data as List?)
-        ?.whereType<Map<String, dynamic>>()
-        .map(ConnectionItem.fromJson)
-        .toList() ?? [];
+    try {
+      final env = await _api.getEnvelope('/networking/requests');
+      return _parseConnections(env.data);
+    } catch (_) {
+      final data = await _api.get('/networking/requests');
+      return _parseConnections(data);
+    }
+  }
+
+  /// Terima dua bentuk respons: array datar, atau bingkai paginator Laravel
+  /// (`{ data: [...], current_page, ... }`) — sama seperti `unwrapPage` di web.
+  static List<ConnectionItem> _parseConnections(dynamic data) {
+    final raw = data is List
+        ? data
+        : (data is Map<String, dynamic> ? data['data'] : null);
+    return (raw as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(ConnectionItem.fromJson)
+            .toList() ??
+        [];
   }
 
   Future<void> sendConnection(String receiverId) async {

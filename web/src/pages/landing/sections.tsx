@@ -35,8 +35,8 @@ import {
 } from 'lucide-react'
 import { Logo } from '../../components/ui/Logo'
 
-/** Path to the prebuilt Android APK served from /public. */
-const APK_URL = '/downloads/app-release.apk'
+/** Direct download URL for the Android APK (hosted on Google Drive). */
+const APK_URL = 'https://drive.google.com/uc?export=download&id=1qr1Hksyz3C_OoCdbc9nh_5j-zCzQvLxH'
 
 /* ------------------------------------------------------------------ */
 /* Small building blocks                                               */
@@ -151,7 +151,7 @@ function Hero() {
                 to="/register"
                 className="group inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-[15px] font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-500 hover:shadow-indigo-500/40"
               >
-                Coba Demo
+                Daftar
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <a
@@ -162,7 +162,8 @@ function Hero() {
               </a>
               <a
                 href={APK_URL}
-                download
+                target="_blank"
+                rel="noreferrer"
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-slate-900 px-6 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800"
               >
                 <Download className="size-4" />
@@ -997,7 +998,7 @@ function FinalCta() {
                 to="/register"
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-indigo-700 shadow-lg transition-all hover:bg-indigo-50"
               >
-                Minta Demo <ArrowRight className="size-4" />
+                Daftar <ArrowRight className="size-4" />
               </Link>
               <Link
                 to="/login"

@@ -84,29 +84,40 @@ class AuthRepository {
   Future<GoogleLoginResult> googleLogin(String idToken) async {
     final data = await _api.post('/auth/google', data: {'id_token': idToken});
 
-    // Backend now always returns a token for Google users.
-    // If profile_complete is false, the user still needs to fill in institution:
-    // backend also sends a short-lived registration_token for
-    // POST /auth/google/complete-registration — attach it so the caller can
-    // push the biodata screen. Without it the user would land on home with
-    // the "belum terhubung ke institusi" banner and no way to fix it.
+    // Jika profile belum lengkap (akun Google baru / institution_id null),
+    // JANGAN langsung buat sesi — pengguna wajib isi biodata dulu.
+    // Kita kembalikan registration_token saja agar bisa ke GoogleRegisterPage
+    // tanpa menyimpan token. Ini mencegah bug "register Google langsung jadi
+    // tanpa isi data".
     if (data is Map<String, dynamic> && data['token'] != null) {
       final profileComplete = data['profile_complete'] != false;
-      final session = await _sessionFromData(data);
-      GoogleRegistrationInfo? registration;
       final regToken = data['registration_token'] as String?;
-      if (!profileComplete && regToken != null && regToken.isNotEmpty) {
+      if (!profileComplete) {
+        // Pastikan tidak ada sesi tersisa dari percobaan sebelumnya.
+        ApiClient.setToken(null);
+        try { await _storage.clear(); } catch (_) {}
+        if (regToken == null || regToken.isEmpty) {
+          throw const ApiException(
+            statusCode: null,
+            message: 'Sesi registrasi Google tidak valid. Silakan coba lagi.',
+          );
+        }
         final userJson = data['user'] as Map<String, dynamic>?;
-        registration = GoogleRegistrationInfo(
-          email: (userJson?['email'] as String? ?? '').toString(),
-          name: (userJson?['name'] as String? ?? '').toString(),
+        final registration = GoogleRegistrationInfo(
+          email: (userJson?['email'] as String? ?? data['email'] as String? ?? '').toString(),
+          name: (userJson?['name'] as String? ?? data['name'] as String? ?? '').toString(),
           registrationToken: regToken,
         );
+        return GoogleLoginResult(
+          registration: registration,
+          profileComplete: false,
+        );
       }
+      // Profile sudah lengkap → simpan sesi seperti login biasa.
+      final session = await _sessionFromData(data);
       return GoogleLoginResult(
         session: session,
-        registration: registration,
-        profileComplete: profileComplete,
+        profileComplete: true,
       );
     }
 

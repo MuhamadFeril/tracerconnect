@@ -144,7 +144,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final result =
           await ref.read(authControllerProvider.notifier).googleLogin(idToken);
 
-      // Akun Google baru → arahkan ke layar pelengkapan biodata + OTP.
+      // Akun Google baru (profile belum lengkap) → WAJIB isi biodata dulu.
+      // Jangan langsung buat sesi / ke home — arahkan ke GoogleRegisterPage
+      // yang akan kirim ke complete-registration + OTP.
       if (result.registration != null) {
         if (!mounted) return;
         await Navigator.of(context).push(
@@ -154,8 +156,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
         return;
       }
-      // Akun sudah login tapi profile belum lengkap → redirect ke home lalu
-      // tampilkan prompt untuk melengkapi institusi.
+      // Akun Google sudah lengkap → session sudah disimpan, redirect ke home.
+      if (result.profileComplete && result.session != null) {
+        if (mounted) context.go('/home');
+        return;
+      }
+      // Fallback: jika profileComplete false tanpa registration (seharusnya
+      // tidak terjadi), tampilkan error agar tidak nyasar ke home.
+      if (!result.profileComplete) {
+        if (mounted) setState(() => _error = 'Lengkapi biodata Anda terlebih dahulu. Silakan coba login Google lagi.');
+        return;
+      }
       if (mounted) context.go('/home');
     } on ApiException catch (e) {
       // ignore: avoid_print

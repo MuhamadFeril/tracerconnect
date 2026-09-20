@@ -114,8 +114,17 @@ class AuthController extends StateNotifier<AuthState> {
   /// Login dengan Google menggunakan ID token dari `google_sign_in`.
   /// Mengembalikan [GoogleLoginResult] sehingga pemanggil dapat mengarahkan
   /// akun Google baru ke layar pelengkapan biodata (tanpa token).
+  /// Jika [result.registration] ada (profile belum lengkap), JANGAN set
+  /// authenticated — biarkan tetap unauthenticated agar wajib isi biodata dulu.
   Future<GoogleLoginResult> googleLogin(String idToken) async {
     final result = await _repo.googleLogin(idToken);
+    // Hanya set authenticated jika benar-benar sudah lengkap dan ada session.
+    // Akun Google baru (profileComplete == false) tidak boleh langsung login.
+    if (result.registration != null) {
+      // Pastikan tidak ada token nyasar tersimpan.
+      await _clearLocalSession();
+      return result;
+    }
     if (result.session != null) {
       _setAuthenticated(result.session!.user);
     }

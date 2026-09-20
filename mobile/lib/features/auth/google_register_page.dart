@@ -268,6 +268,13 @@ class _GoogleRegisterPageState extends ConsumerState<GoogleRegisterPage> {
         );
         return;
       }
+      // Jika backend langsung mengaktifkan (tanpa OTP) — langsung ke home.
+      if (result.session != null && mounted) {
+        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+        // authController sudah setAuthenticated, router akan redirect ke /home
+        return;
+      }
+      if (mounted) setState(() => _error = 'Registrasi selesai, silakan cek email untuk verifikasi.');
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = firstValidationMessage(e));
     } catch (_) {

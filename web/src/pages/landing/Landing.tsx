@@ -83,7 +83,7 @@ function LandingNavbar() {
                 to="/register"
                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-[15px] font-semibold text-white shadow-md shadow-indigo-600/25 transition-colors hover:bg-indigo-500"
               >
-                Coba Demo <ArrowRight className="size-4" />
+                Daftar <ArrowRight className="size-4" />
               </Link>
             </>
           )}
@@ -140,14 +140,15 @@ function LandingNavbar() {
                   onClick={() => setOpen(false)}
                   className="flex h-11 items-center justify-center rounded-xl bg-indigo-600 text-[15px] font-semibold text-white"
                 >
-                  Coba Demo
+                  Daftar
                 </Link>
               </div>
             )}
           </div>
           <a
-            href="/downloads/app-release.apk"
-            download
+            href="https://drive.google.com/uc?export=download&id=1qr1Hksyz3C_OoCdbc9nh_5j-zCzQvLxH"
+            target="_blank"
+            rel="noreferrer"
             onClick={() => setOpen(false)}
             className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-900 text-[15px] font-semibold text-slate-900"
           >
@@ -184,10 +185,10 @@ function LandingFooter() {
                 ['Fitur', '#fitur'],
                 ['Cara Kerja', '#cara-kerja'],
                 ['Jejaring Alumni', '#alumni-network'],
-                ['Download APK', '/downloads/app-release.apk'],
+                ['Download APK', 'https://drive.google.com/uc?export=download&id=1qr1Hksyz3C_OoCdbc9nh_5j-zCzQvLxH'],
               ].map(([label, href]) => (
                 <li key={label}>
-                  <a href={href} download={href.includes('app-release') ? true : undefined} className="transition-colors hover:text-white">
+                  <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined} className="transition-colors hover:text-white">
                     {label}
                   </a>
                 </li>

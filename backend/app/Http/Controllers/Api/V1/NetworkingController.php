@@ -112,7 +112,12 @@ class NetworkingController extends Controller
             ->orderByDesc('updated_at')
             ->paginate($perPage);
 
-        $data = $connections->through(fn (Connection $connection) => new ConnectionResource($connection, $user->id));
+        // Kirim array datar (bukan bingkai paginator) agar shape-nya konsisten
+        // dengan endpoint lain; paginator membuat item bersarang di `data.data`
+        // dan membuat klien mobile gagal memuat.
+        $data = $connections->getCollection()
+            ->map(fn (Connection $connection) => new ConnectionResource($connection, $user->id))
+            ->values();
 
         return ApiResponse::success($data, 'Daftar koneksi berhasil diambil', ApiResponse::paginationMeta($connections));
     }
@@ -135,7 +140,10 @@ class NetworkingController extends Controller
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
-        $data = $requests->through(fn (Connection $connection) => new ConnectionResource($connection, $user->id));
+        // Array datar (bukan bingkai paginator) — lihat komentar di connections().
+        $data = $requests->getCollection()
+            ->map(fn (Connection $connection) => new ConnectionResource($connection, $user->id))
+            ->values();
 
         return ApiResponse::success($data, 'Daftar permintaan koneksi berhasil diambil', ApiResponse::paginationMeta($requests));
     }

@@ -63,24 +63,30 @@ class NetworkingAlumni {
   });
 
   factory NetworkingAlumni.fromJson(Map<String, dynamic> json) {
+    int? _parseInt(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v);
+      return null;
+    }
     return NetworkingAlumni(
       id: json['id'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       avatarUrl: json['avatar_url'] as String?,
       department: json['department'] as String?,
-      graduationYear: (json['graduation_year'] as num?)?.toInt(),
+      graduationYear: _parseInt(json['graduation_year']),
       employmentStatus: json['employment_status'] as String?,
       companyName: json['company_name'] as String?,
       position: json['position'] as String?,
       businessField: json['business_field'] as String?,
-      businessStartYear: (json['business_start_year'] as num?)?.toInt(),
+      businessStartYear: _parseInt(json['business_start_year']),
       location: json['location'] as String?,
       workProvince: json['work_province'] as String?,
       workCity: json['work_city'] as String?,
       studyInstitution: json['study_institution'] as String?,
       studyProgram: json['study_program'] as String?,
-      studyEntryYear: (json['study_entry_year'] as num?)?.toInt(),
+      studyEntryYear: _parseInt(json['study_entry_year']),
       businessName: json['business_name'] as String?,
       businessAddress: json['business_address'] as String?,
       businessProvince: json['business_province'] as String?,
@@ -149,6 +155,12 @@ class ConnectionItem {
   bool get isIncoming => direction == 'incoming';
 
   factory ConnectionItem.fromJson(Map<String, dynamic> json) {
+    int? _parseInt(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v);
+      return null;
+    }
     final user = json['user'] is Map<String, dynamic>
         ? json['user'] as Map<String, dynamic>
         : null;
@@ -164,18 +176,18 @@ class ConnectionItem {
       userName: user?['name'] as String?,
       userAvatarUrl: user?['avatar_url'] as String?,
       department: alumni?['department'] as String?,
-      graduationYear: (alumni?['graduation_year'] as num?)?.toInt(),
+      graduationYear: _parseInt(alumni?['graduation_year']),
       employmentStatus: alumni?['employment_status'] as String?,
       companyName: alumni?['company_name'] as String?,
       position: alumni?['position'] as String?,
       businessField: alumni?['business_field'] as String?,
-      businessStartYear: (alumni?['business_start_year'] as num?)?.toInt(),
+      businessStartYear: _parseInt(alumni?['business_start_year']),
       location: alumni?['location'] as String?,
       workProvince: alumni?['work_province'] as String?,
       workCity: alumni?['work_city'] as String?,
       studyInstitution: alumni?['study_institution'] as String?,
       studyProgram: alumni?['study_program'] as String?,
-      studyEntryYear: (alumni?['study_entry_year'] as num?)?.toInt(),
+      studyEntryYear: _parseInt(alumni?['study_entry_year']),
       businessName: alumni?['business_name'] as String?,
       businessAddress: alumni?['business_address'] as String?,
       businessProvince: alumni?['business_province'] as String?,
